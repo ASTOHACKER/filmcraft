@@ -1,6 +1,6 @@
 use super::clips::paint_hatch;
 use super::layout::{Layout, max_scroll, new_track_at};
-use super::menus::{CLIP_MENU, EditPointTarget, edit_point_menu, gap_menu, marker_menu, multicam_menu};
+use super::menus::{CLIP_MENU, EditPointTarget, edit_point_menu, gap_menu, marker_menu, multicam_menu, ruler_menu};
 use super::snap::{snap, snap_playhead};
 use super::{
     Align2, ClipId, Color32, CursorIcon, Drag, EdgeKind, FilmcraftApp, Grab, HashMap, Hit, MarkerId, Pos2, Pressed, Rect, Sense, Sequence, Stroke, StrokeKind,
@@ -1106,6 +1106,18 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
         }
         ctx.data_mut(|d| d.insert_temp(marker_menu_id, marker.map(|m| m.id)));
     }
+    // on the ruler away from a marker, the ruler's own menu, not the clip menu of an earlier press
+    let ruler_menu_id = egui::Id::unique("timeline.rulerMenu.open");
+    if resp.secondary_clicked()
+        && let Some(p) = resp.interact_pointer_pos()
+    {
+        let on_ruler = matches!(hit(seq, layout, p), Hit::Ruler) && marker_under_pointer(seq, layout, p).is_none();
+        ctx.data_mut(|d| d.insert_temp(ruler_menu_id, on_ruler));
+        if on_ruler {
+            ctx.data_mut(|d| d.insert_temp::<Option<EditPointTarget>>(edit_point_menu_id, None));
+            ctx.data_mut(|d| d.insert_temp(gap_menu_id, false));
+        }
+    }
     if resp.secondary_clicked()
         && let Some(p) = resp.interact_pointer_pos()
         && let Hit::Clip { clip, edge, track } = hit(seq, layout, p)
@@ -1138,6 +1150,10 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
             ui.set_min_width(220.0);
             if let Some(marker) = ctx.data(|d| d.get_temp::<Option<MarkerId>>(marker_menu_id)).flatten() {
                 marker_menu(app, &ctx, ui, marker);
+                return;
+            }
+            if ctx.data(|d| d.get_temp::<bool>(ruler_menu_id)).unwrap_or(false) {
+                ruler_menu(app, &ctx, ui);
                 return;
             }
             if let Some(target) = ctx.data(|d| d.get_temp::<Option<EditPointTarget>>(edit_point_menu_id)).flatten() {
