@@ -1,5 +1,5 @@
 use super::layout::Row;
-use super::menus::track_header_menu;
+use super::menus::{track_column_menu, track_header_menu};
 use super::{
     Align2, Color32, CursorIcon, FilmcraftApp, Icon, MASTER_H, Rect, Sense, Sequence, Stroke, StrokeKind, TRACK_HEADER_TINT, Tokens, TrackKind, Value, json,
     label_color, pos2, vec2,
@@ -43,6 +43,11 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
     let mut vo_action = None;
     // a command picked in a track header's menu, run after the headers are drawn
     let mut header_menu: Option<(String, Value)> = None;
+    // right-click on the empty part of the header column (above the top video track, below the last
+    // audio track) offers the dialogs; each track's header, added after it, keeps its own menu
+    let column = Rect::from_min_max(pos2(rect.min.x, vclip.min.y), pos2(rect.min.x + hw, aclip.max.y));
+    let column_resp = ui.interact(column, egui::Id::new("hdr-column-menu"), Sense::click());
+    column_resp.context_menu(|ui| track_column_menu(app, ui, &mut header_menu));
     for r in rows {
         let Some(tr) = seq.track(r.track) else { continue };
         let clip_rect = if r.kind == TrackKind::Video { vclip } else { aclip };

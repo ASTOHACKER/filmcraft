@@ -142,6 +142,20 @@ pub(super) fn edit_point_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &
     }
 }
 
+/// The menu of a right-click on the header column away from any track: the Add Tracks and Delete
+/// Tracks dialogs. Automation ids `timeline.tracks.menu.<item>`.
+pub(super) fn track_column_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, picked: &mut Option<(String, Value)>) {
+    for (key, text, command) in [("addTracks", "Add Tracks…", "sequence.addTracks"), ("deleteTracks", "Delete Tracks…", "sequence.deleteTracks")] {
+        let text = crate::i18n::t(text);
+        let button = ui.add_enabled(app.session.is_enabled(command), egui::Button::new(text));
+        app.auto.add(&format!("timeline.tracks.menu.{key}"), button.rect, text);
+        if button.clicked() {
+            *picked = Some((command.to_string(), json!({})));
+            ui.close();
+        }
+    }
+}
+
 /// The menu of a right-clicked track header: add or delete tracks here, or through the dialogs of
 /// Sequence ▸ Add Tracks… / Delete Tracks… (#1117). The command picked goes to `picked`; automation
 /// ids `timeline.track.<V1|A1…>.menu.<item>`.
