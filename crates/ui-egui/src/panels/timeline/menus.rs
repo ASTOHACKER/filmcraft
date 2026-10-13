@@ -142,6 +142,27 @@ pub(super) fn edit_point_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &
     }
 }
 
+/// The menu of a right-clicked track header: add or delete tracks here, or through the dialogs of
+/// Sequence ▸ Add Tracks… / Delete Tracks… (#1117). The command picked goes to `picked`; automation
+/// ids `timeline.track.<V1|A1…>.menu.<item>`.
+pub(super) fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label: &str, track: TrackId, video: bool, picked: &mut Option<(String, Value)>) {
+    let mut item = |ui: &mut egui::Ui, key: &str, text: &str, command: &str, params: Value| {
+        let text = crate::i18n::t(text);
+        let button = ui.add_enabled(app.session.is_enabled(command), egui::Button::new(text));
+        app.auto.add(&format!("timeline.track.{label}.menu.{key}"), button.rect, text);
+        if button.clicked() {
+            *picked = Some((command.to_string(), params));
+            ui.close();
+        }
+    };
+    let after = if video { json!({"video": 1, "audio": 0, "videoAfter": label}) } else { json!({"video": 0, "audio": 1, "audioAfter": label}) };
+    item(ui, "addTrack", "Add Track", "sequence.addTracks", after);
+    item(ui, "addTracks", "Add Tracks…", "sequence.addTracks", json!({}));
+    ui.separator();
+    item(ui, "deleteTrack", "Delete Track", "sequence.deleteTrack", json!({"track": track.0}));
+    item(ui, "deleteTracks", "Delete Tracks…", "sequence.deleteTracks", json!({}));
+}
+
 /// The menu of a right-clicked gap: Ripple Delete closes it.
 pub(super) fn gap_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &mut egui::Ui) {
     let label = tl!("Ripple Delete");

@@ -1,4 +1,5 @@
 use super::layout::Row;
+use super::menus::track_header_menu;
 use super::{
     Align2, Color32, CursorIcon, FilmcraftApp, Icon, MASTER_H, Rect, Sense, Sequence, Stroke, StrokeKind, TRACK_HEADER_TINT, Tokens, TrackKind, Value, json,
     label_color, pos2, vec2,
@@ -40,6 +41,8 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
     let tg = app.session.targeting();
     let mut actions: Vec<(String, Value)> = Vec::new();
     let mut vo_action = None;
+    // a command picked in a track header's menu, run after the headers are drawn
+    let mut header_menu: Option<(String, Value)> = None;
     for r in rows {
         let Some(tr) = seq.track(r.track) else { continue };
         let clip_rect = if r.kind == TrackKind::Video { vclip } else { aclip };
@@ -85,6 +88,11 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
             p.line_segment([pos2(hrect.min.x, hrect.min.y + 0.5), pos2(hrect.max.x, hrect.min.y + 0.5)], Stroke::new(1.0, t.separator));
         }
         let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
+        // right-click anywhere on the header: add or delete tracks, here or through the dialogs of
+        // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the buttons so they win where
+        // they overlap. Automation ids `timeline.track.<V1|A1…>.menu.<item>`.
+        let menu_resp = ui.interact(visible, egui::Id::new(("hdr-menu", r.track.0)), Sense::click());
+        menu_resp.context_menu(|ui| track_header_menu(app, ui, &label, r.track, r.kind == TrackKind::Video, &mut header_menu));
         let btn_rect = |x0: f32| Rect::from_min_max(pos2(hrect.min.x + x0, hrect.min.y + 1.0), pos2(hrect.min.x + x0 + 24.0, hrect.max.y - 2.0));
         // 1. source patch (absent when unpatched)
         let patched = if r.kind == TrackKind::Video { tg.video_dest == Some(r.track) } else { tg.audio_dest == Some(r.track) };
@@ -183,12 +191,20 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
             let h = if r.kind == TrackKind::Video { &mut app.ui.timeline.video_track_h } else { &mut app.ui.timeline.audio_track_h };
             *h = if *h < 50.0 { 64.0 } else { 30.0 };
         }
+        // (this strip of the header lies over the menu's area, so it opens the same menu)
+        resp.context_menu(|ui| track_header_menu(app, ui, &label, r.track, r.kind == TrackKind::Video, &mut header_menu));
     }
     // column separator
     ui.painter().line_segment([pos2(rect.min.x + hw - 0.5, vclip.min.y), pos2(rect.min.x + hw - 0.5, aclip.max.y + MASTER_H)], Stroke::new(1.0, t.separator));
     for (cmd, params) in actions {
         if let Err(e) = app.session.execute(&cmd, params) {
             app.ui.status = e.to_string();
+        }
+    }
+    if let Some((cmd, params)) = header_menu {
+        let ctx = ui.ctx().clone();
+        if let Err(e) = crate::menus::invoke(app, &ctx, &cmd, params) {
+            app.ui.status = e;
         }
     }
     if let Some(a) = vo_action {
