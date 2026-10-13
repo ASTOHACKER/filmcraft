@@ -327,7 +327,10 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
     let mods = ctx.input(|i| i.modifiers);
     let roll_ripple = app.session.prefs.trim.selection_tool_roll_ripple;
     // ---- press: act on what was under the pointer when the button went down (#259)
-    if !app.tl.cancelled && (resp.drag_started() || (resp.clicked() && app.tl.drag.is_none())) {
+    // (the primary button selects, moves, trims and cuts, the middle one pans; a right-button drag
+    // starts nothing)
+    let press_began = resp.drag_started_by(egui::PointerButton::Primary) || resp.drag_started_by(egui::PointerButton::Middle);
+    if !app.tl.cancelled && (press_began || (resp.clicked() && app.tl.drag.is_none())) {
         let pressed = match app.tl.pressed.take() {
             Some(pr) => pr,
             // a press and release in the same frame is never stored: it happened where egui says
