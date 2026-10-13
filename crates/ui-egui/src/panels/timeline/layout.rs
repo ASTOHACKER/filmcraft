@@ -74,6 +74,12 @@ pub fn timeline_extent(sequence_seconds: f64) -> f64 {
     sequence_seconds.max(0.0) + 600.0
 }
 
+/// The least `pps` (points a second) the Timeline zooms out to: its whole extent fits a view
+/// `width` points wide, and no farther, so the clips of a short sequence stay in sight.
+pub fn min_pps(sequence_seconds: f64, width: f32) -> f64 {
+    (f64::from(width.max(0.0)) / timeline_extent(sequence_seconds)).clamp(0.05, 24_000.0)
+}
+
 /// The latest time the left edge of a view `width` points wide can show at `pps` points a second.
 pub fn max_scroll(sequence_seconds: f64, width: f32, pps: f64) -> f64 {
     if pps <= 0.0 || !pps.is_finite() {
