@@ -117,6 +117,15 @@ impl FilmcraftApp {
         panels::voiceover::on_stop(self);
     }
 
+    /// [`stop`](Self::stop) for a press or drag that moves the playhead (a scrub bar, a ruler).
+    /// With nothing playing there is nothing to stop, and stopping the output would close the
+    /// scrub stream (see `scrub.rs`) that the drag keeps open, once per move.
+    pub(crate) fn stop_for_scrub(&mut self) {
+        if self.playback.playing || self.playback.preroll.is_some() {
+            self.stop();
+        }
+    }
+
     pub(super) fn start_audio(&mut self, now: f64) {
         let Some(seq_id) = self.session.state.active_sequence else { return };
         let start_tick = self.session.playhead();
