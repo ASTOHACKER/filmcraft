@@ -3601,3 +3601,9 @@
 	Shows the version, community links and credits in a FilmCraft window.	Mostra la versione, i link della community e i riconoscimenti in una finestra di FilmCraft.
 	Couldn't open your web browser	Impossibile aprire il browser web
 	Open this address in your browser yourself:	Apri tu questo indirizzo nel browser:
+	Could not import the dropped files	Impossibile importare i file rilasciati
+	Imported 1 file	1 file importato
+	Imported {n} files	{n} file importati
+	Drop to import	Rilascia per importare
+	Drop on the Timeline to place the clips	Rilascia sulla timeline per posizionare le clip
+	Add media to your project. Drag-and-drop needs X11 (run with WAYLAND_DISPLAY unset), or choose a source below.	Aggiungi media al progetto. Trascina e rilascia richiede X11 (esegui senza WAYLAND_DISPLAY), o scegli una sorgente qui sotto.
