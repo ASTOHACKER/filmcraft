@@ -248,8 +248,9 @@ pub(super) fn draw_clip(
         draw_waveform(app, p, body, it, Color32::from_rgb(fill.r() / 2, fill.g() / 2, fill.b() / 2));
     }
     let clip_p = p.with_clip_rect(body.shrink2(vec2(1.0, 0.0)).intersect(p.clip_rect()));
-    // name band
-    if w > 24.0 {
+    // name band (View ▸ the wrench menu's Show Video Names / Show Audio Names)
+    let names = if kind == TrackKind::Video { app.ui.timeline.show_video_names } else { app.ui.timeline.show_audio_names };
+    if w > 24.0 && names {
         let mut label = it.name.clone();
         if let Some(m) = it.multicam.filter(|m| m.enabled) {
             let cam = app.session.project.sequence(it.item).and_then(|q| q.cameras().cameras.get(m.angle as usize).map(|c| c.name.clone()));
