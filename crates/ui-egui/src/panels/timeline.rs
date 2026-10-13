@@ -57,7 +57,7 @@ pub(super) use snap::snap;
 pub use snap::{hit_json, locate};
 pub(crate) use waveforms::request_peaks;
 #[cfg(test)]
-use waveforms::{source_peaks, waveform_display_gain};
+use waveforms::{source_peaks, waveform_display_gain, waveform_zone_height};
 
 const TOP_H: f32 = 58.0; // timecode + toolbar (left) / ruler (right)
 const RULER_H: f32 = 44.0;
@@ -1136,5 +1136,22 @@ mod ruler_tests {
         }
         let (minor, label) = ruler_steps(1.0, i64::MAX);
         assert!(minor >= 1 && label >= 1 && label % minor == 0, "an unrepresentable rate: tick {minor}, label {label}");
+    }
+}
+
+#[cfg(test)]
+mod waveform_zone_tests {
+    use super::waveform_zone_height;
+
+    #[test]
+    fn a_compact_clip_has_its_whole_height_for_the_waveform_and_a_tall_one_the_lower_part() {
+        // tall clips are as before
+        assert_eq!(waveform_zone_height(100.0), 42.0);
+        assert!((waveform_zone_height(60.0) - 25.2).abs() < 1e-4);
+        // compact ones fill the clip (a point of margin each side), where 42 % was 12 points of 28
+        assert_eq!(waveform_zone_height(28.0), 26.0);
+        assert_eq!(waveform_zone_height(49.0), 47.0);
+        // never smaller than the minimum
+        assert_eq!(waveform_zone_height(4.0), 8.0);
     }
 }
