@@ -1161,3 +1161,18 @@ fn applied_transform_centres_its_points_in_the_clip_picture() {
         assert_eq!(m.param("position").unwrap().value.as_vec2().unwrap(), frame_centre);
     }
 }
+
+/// `clip.rename` with `clips` renames every one of them (a linked picture and sound) in one step.
+#[test]
+fn rename_takes_several_clips() {
+    let mut s = demo();
+    let ids: Vec<u64> = v1(&s).iter().take(2).map(|c| c.id.0).collect();
+    let undo = s.history.undo.len();
+    s.execute("clip.rename", json!({"clips": ids, "name": "Both"})).unwrap();
+    for id in &ids {
+        assert_eq!(clip(&s, *id).name, "Both");
+    }
+    assert_eq!(s.history.undo.len(), undo + 1);
+    assert!(s.execute("clip.rename", json!({"clips": [ids[0], 999_999], "name": "x"})).is_err(), "an unknown clip renames nothing");
+    assert_eq!(clip(&s, ids[0]).name, "Both");
+}
