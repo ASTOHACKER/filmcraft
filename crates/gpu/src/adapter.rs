@@ -176,7 +176,8 @@ fn dx12_instead(candidates: &[Candidate], preferred: &Candidate) -> Option<usize
 }
 
 /// [`choose`] over enumerated adapters, as egui-wgpu's `native_adapter_selector` for the window
-/// (`surface`). The adapters and the choice go to the log.
+/// (`surface`), and for the off-screen export device (no surface). The adapters and the choice go
+/// to the log.
 pub fn pick(adapters: &[Adapter], surface: Option<&Surface<'_>>, power: PowerPreference) -> Result<Adapter, String> {
     let candidates: Vec<Candidate> = adapters.iter().map(|a| Candidate::of(a, surface)).collect();
     for candidate in &candidates {
