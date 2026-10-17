@@ -28,6 +28,15 @@ The other formats' editions are listed in the module docs (`edl`, `fcp7`, `fcpxm
 falls inside a UTF-8 character. Timeline importers use the shared converter; `tests/file_urls.rs`
 checks expected Unicode paths through the public converter, resolver and EDL importer.
 
+## Absurd frame rates and start timecodes
+
+Importers accept frame rates up to 1 000 000 per second (above video rates and OTIO audio sample
+rates). An FCP7 `timebase` is clamped to it, an OTIO rate beyond it uses the default, and a sequence
+or media rate beyond it (an FCPXML `frameDuration` of `1/9223372036854775807s`) is reset to the
+default with a warning: such a rate overflowed the frame arithmetic of every export. Sequence and
+media start timecodes beyond 360 000 000 000 frames are reset the same way. Covered by
+`tests/rates.rs`, `src/common.rs` (`rates`) and `tests/fcp7.rs` (`absurd_start_timecode_is_bounded`).
+
 ## AAF and OMF
 
 `comp` holds a format-neutral mob-style model (compositions of slots whose sequences of fillers,
@@ -96,11 +105,6 @@ OMF carries no video at all.
 - `tests/uncarried_clips.rs`: every format's export report names each graphic clip and adjustment
   layer once, as a warning; a sequence without them reports nothing; what a re-import gives back
   matches the report; the FCP7 XML import names a clip item whose file is not defined.
-- `tests/rates.rs`, `src/common.rs` (`rates`), `tests/fcp7.rs`: importers accept frame rates up to 1 000 000 per
-  second (above video rates and OTIO audio sample rates). An FCP7 `timebase` is clamped to it, an OTIO rate beyond it
-  uses the default, and a sequence or media rate beyond it (an FCPXML `frameDuration` of `1/9223372036854775807s`)
-  is reset to the default with a warning: such a rate overflowed the frame arithmetic of every export. Sequence and
-  media start timecodes beyond 360 000 000 000 frames are reset the same way (`absurd_start_timecode_is_bounded`).
 - `src/aaf/tests.rs`: written files checked against the required properties of every class
   written (Header, Identification, Mobs, slots, components, descriptors), weak references
   resolving into the dictionary, source clips resolving to mobs and slots, the Edit Protocol
