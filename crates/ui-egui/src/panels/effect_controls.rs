@@ -658,6 +658,33 @@ pub(crate) fn param_row(
                 vui.data_mut(|d| d.remove::<String>(id));
             }
         }
+        // Lumetri's Input LUT / Look LUT: the Lumetri Color panel's menu (it showed only the name, #1123)
+        (ParamKind::Text, ParamValue::Text(cur)) => {
+            let input = pd.id == "input_lut";
+            let auto_id = format!("effectControls.{}.{}", e.effect, pkey);
+            let (rect, pick) = crate::panels::lumetri::lut_menu(&mut vui, app, ("fx-lut", clip.0, idx, pkey), cur, input, 160.0, &auto_id);
+            app.auto.add(&auto_id, rect, pd.label);
+            match pick {
+                Some(crate::panels::lumetri::LutPick::Lut(r)) => set = Some(json!(r)),
+                Some(crate::panels::lumetri::LutPick::Browse) => {
+                    let (param, clip, mask) = (pd.id.to_string(), clip.0, mask);
+                    app.pick_ui(crate::native_dialogs::FileDialog::open_file(tl!("LUT"), &["cube", "3dl"]), move |app, paths| {
+                        let Some(path) = paths.into_iter().next() else { return };
+                        let r = app.session.execute("lut.import", json!({"path": path})).map(|v| v["ref"].clone()).and_then(|r| {
+                            let mut p = json!({"clip": clip, "effect": idx, "param": param, "value": r});
+                            if let Some(k) = mask {
+                                p["mask"] = json!(k);
+                            }
+                            app.session.execute("effects.setParam", p)
+                        });
+                        if let Err(err) = r {
+                            app.ui.status = err.to_string();
+                        }
+                    });
+                }
+                None => {}
+            }
+        }
         _ => {
             vui.label(param_text(&app.session.project, pd.id, &value));
         }

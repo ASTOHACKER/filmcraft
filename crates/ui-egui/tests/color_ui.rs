@@ -167,6 +167,31 @@ fn lumetri_lut_menus_and_section_switches() {
 }
 
 #[test]
+fn effect_controls_lut_rows_pick_a_lut() {
+    // #1123: Input LUT / Look LUT in Effect Controls were a read-only label
+    let mut d = Driver::demo();
+    let clip = select_first_clip(&mut d);
+    d.exec("effects.apply", json!({"clips": [clip], "effect": "lumetri"}));
+    d.ok("ui.panel.show", json!({"panel": "EffectControls"}));
+    // maximized, so the Lumetri rows fit
+    d.ok("ui.set", json!({"focused": "EffectControls"}));
+    d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
+    d.frames(4);
+    let ids = d.ids("effectControls.lumetri.input_lut");
+    assert!(ids.iter().any(|i| i == "effectControls.lumetri.input_lut"), "{ids:?}");
+    d.click("effectControls.lumetri.input_lut");
+    d.frames(2);
+    d.click("effectControls.lumetri.input_lut.lut.builtin:slog3-sgamut3cine-to-rec709");
+    d.frames(2);
+    let e = lumetri(&mut d, clip);
+    assert_eq!(e["params"]["input_lut"]["value"], json!("Text(\"builtin:slog3-sgamut3cine-to-rec709\")"), "{e}");
+    // one undo step
+    d.exec("edit.undo", json!({}));
+    let e = lumetri(&mut d, clip);
+    assert_eq!(e["params"]["input_lut"]["value"], json!("Text(\"\")"), "{e}");
+}
+
+#[test]
 fn interpret_footage_and_sequence_color_dialogs_and_hdr_scopes() {
     let mut d = Driver::demo();
     d.ok("ui.set", json!({"workspace": "Color"}));
