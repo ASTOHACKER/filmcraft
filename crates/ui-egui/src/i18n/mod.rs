@@ -49,6 +49,7 @@ pub enum Language {
     It,
     /// Korean; Hangul needs an installed system font ([`korean_font_available`]).
     Ko,
+    Tr,
 }
 
 static JAPANESE: OnceLock<Catalog> = OnceLock::new();
@@ -62,9 +63,11 @@ static FRENCH: OnceLock<Catalog> = OnceLock::new();
 static KOREAN: OnceLock<Catalog> = OnceLock::new();
 static INDONESIAN: OnceLock<Catalog> = OnceLock::new();
 static ITALIAN: OnceLock<Catalog> = OnceLock::new();
+static TURKISH: OnceLock<Catalog> = OnceLock::new();
 
 impl Language {
-    pub const ALL: [Self; 12] = [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It];
+    pub const ALL: [Self; 13] =
+        [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It, Self::Tr];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -80,6 +83,7 @@ impl Language {
             Self::Id => "Bahasa Indonesia",
             Self::It => "Italiano",
             Self::Ko => "한국어",
+            Self::Tr => "Türkçe",
         }
     }
 
@@ -97,6 +101,7 @@ impl Language {
             "id" => Some(Self::Id),
             "it" => Some(Self::It),
             "ko" => Some(Self::Ko),
+            "tr" => Some(Self::Tr),
             _ => None,
         }
     }
@@ -107,11 +112,11 @@ impl Language {
     /// any German (`de-AT`, `de_CH.UTF-8`…) gets the German one and any French (`fr-CA`, `fr_BE.UTF-8`…)
     /// the French one; any Indonesian (`id-ID`, `id_ID.UTF-8`, and the legacy `in-ID` that older Java
     /// and Android runtimes report) the Indonesian one; any Italian (`it-IT`, `it-CH`, `it_IT.UTF-8`…)
-    /// the Italian one. Chinese gets the Simplified catalog
+    /// the Italian one; any Turkish (`tr`, `tr-TR`, `tr_TR.UTF-8`…) the Turkish one. Chinese gets the Simplified catalog
     /// only for Simplified locales (`zh`, `zh-CN`, `zh-SG`, `zh-Hans…`); Traditional ones (`zh-TW`,
     /// `zh-HK`, `zh-MO`, `zh-Hant…`) are skipped.
     pub fn from_locales(tags: &[String]) -> Self {
-        const PRIMARY: [(&str, Language); 12] = [
+        const PRIMARY: [(&str, Language); 13] = [
             ("en", Language::En),
             ("ja", Language::Ja),
             ("es", Language::Es),
@@ -124,6 +129,7 @@ impl Language {
             ("in", Language::Id),
             ("it", Language::It),
             ("ko", Language::Ko),
+            ("tr", Language::Tr),
         ];
         tags.iter()
             .find_map(|tag| {
@@ -156,6 +162,7 @@ impl Language {
             Self::Id => "id",
             Self::It => "it",
             Self::Ko => "ko",
+            Self::Tr => "tr",
         }
     }
 
@@ -174,6 +181,7 @@ impl Language {
             Self::Id => Some(INDONESIAN.get_or_init(|| Catalog::parse(include_str!("id.tsv")))),
             Self::It => Some(ITALIAN.get_or_init(|| Catalog::parse(include_str!("it.tsv")))),
             Self::Ko => Some(KOREAN.get_or_init(|| Catalog::parse(include_str!("ko.tsv")))),
+            Self::Tr => Some(TURKISH.get_or_init(|| Catalog::parse(include_str!("tr.tsv")))),
         }
     }
 
@@ -354,6 +362,7 @@ mod tests {
             ("id", include_str!("id.tsv")),
             ("it", include_str!("it.tsv")),
             ("ko", include_str!("ko.tsv")),
+            ("tr", include_str!("tr.tsv")),
         ] {
             let (entries, errors) = catalog::parse_entries(text);
             assert!(errors.is_empty(), "{code}: {errors:?}");
@@ -415,6 +424,13 @@ mod tests {
         assert_eq!(Language::It.tr("An untranslated label"), "An untranslated label");
         assert_eq!(Language::parse("it"), Some(Language::It));
         assert_eq!(Language::parse("it-IT"), None, "the preference stores the bare code");
+        assert_eq!(Language::Tr.name(), "Türkçe");
+        assert_eq!(Language::Tr.tr("File"), "Dosya");
+        assert_eq!(Language::Tr.tr("Save As…"), "Farklı Kaydet…");
+        assert_eq!(Language::Tr.tr("Tatil videosu.mp4"), "Tatil videosu.mp4");
+        assert_eq!(Language::Tr.tr("An untranslated label"), "An untranslated label");
+        assert_eq!(Language::parse("tr"), Some(Language::Tr));
+        assert_eq!(Language::parse("tr-TR"), None, "the preference stores the bare code");
         for l in Language::ALL {
             assert_eq!(Language::parse(l.code()), Some(l));
             let json = serde_json::to_string(&l).unwrap();
@@ -997,6 +1013,24 @@ mod tests {
         let mut restarted = filmcraft_engine::Session::default();
         restarted.prefs = serde_json::from_str(&prefs).unwrap();
         assert_eq!(crate::FilmcraftApp::new(restarted).ui.language, Language::It);
+        let result = crate::menus::invoke(&mut app, &ctx, "app.language.turkish", serde_json::json!({})).unwrap();
+        assert_eq!(result, serde_json::json!("tr"));
+        assert_eq!((app.ui.language, current()), (Language::Tr, Language::Tr));
+        assert_eq!(app.session.prefs.general.interface_language, "tr");
+        for it in crate::menus::menu_items(&app).iter().filter(|it| it.id.starts_with("app.language.")) {
+            assert_eq!(it.checked, Some(it.id == "app.language.turkish"), "{}", it.id);
+        }
+        let items = crate::menus::menu_items(&app);
+        let label = |id: &str| items.iter().find(|it| it.id == id).map(|it| it.label.as_str());
+        assert_eq!(label("file.saveAs"), Some("Farklı Kaydet…"));
+        assert_eq!(label("app.language.italian"), Some("Italiano"));
+        assert_eq!(label("app.language.turkish"), Some("Türkçe"));
+        let saved = serde_json::to_string(&app.ui).unwrap();
+        assert!(saved.contains("\"language\":\"tr\""), "{saved}");
+        let prefs = serde_json::to_string(&app.session.prefs).unwrap();
+        let mut restarted = filmcraft_engine::Session::default();
+        restarted.prefs = serde_json::from_str(&prefs).unwrap();
+        assert_eq!(crate::FilmcraftApp::new(restarted).ui.language, Language::Tr);
         crate::menus::invoke(&mut app, &ctx, "app.language.english", serde_json::json!({})).unwrap();
         assert_eq!(app.ui.language, Language::En);
         set_current(Language::En);
@@ -1040,6 +1074,13 @@ mod tests {
         }
         assert_eq!(l(&["it-CH", "de-CH", "fr-CH", "en"]), Language::It);
         for none in [&["ita"][..], &["i"], &["-it"]] {
+            assert_eq!(l(none), Language::En, "{none:?}");
+        }
+        for tag in ["tr", "TR", "tr-TR", "tr_TR.UTF-8", "tr_TR.UTF-8@euro", "tr_TR"] {
+            assert_eq!(l(&[tag]), Language::Tr, "{tag}");
+        }
+        assert_eq!(l(&["tr-TR", "de-CH", "fr-CH", "en"]), Language::Tr);
+        for none in [&["tur"][..], &["t"], &["-tr"]] {
             assert_eq!(l(none), Language::En, "{none:?}");
         }
         assert_eq!(l(&["sv-SE", "nl", "es-MX", "ja"]), Language::Es, "the first one the interface has");
@@ -1266,6 +1307,40 @@ mod tests {
         set_current(Language::En);
     }
 
+    /// Turkish covers the whole interface (the Spanish catalog's entries and the native macOS
+    /// Settings menu); like Italian, the tests require only the core menus, so strings added
+    /// later show in English until they are translated, and every entry must have a Spanish
+    /// counterpart.
+    #[test]
+    fn turkish_covers_the_menus_and_has_no_dead_entries() {
+        let (entries, errors) = catalog::parse_entries(include_str!("tr.tsv"));
+        assert!(errors.is_empty(), "{errors:?}");
+        for (ctx, en, _) in &entries {
+            assert!(ctx.is_empty() && (Language::Es.has(en) || en == "Settings"), "Turkish entry without a Spanish one: {ctx:?} {en:?}");
+        }
+        let (core, _) = catalog::parse_entries(include_str!("uk.tsv"));
+        for (_, en, _) in core {
+            assert!(Language::Tr.has(&en), "missing Turkish menu label: {en}");
+        }
+        for en in crate::menus::MENUS.into_iter().chain(["Audio", "Settings"]) {
+            assert!(Language::Tr.has(en), "untranslated Turkish menu: {en}");
+        }
+        // beyond the menus: panels, effects and their parameters, settings, status messages
+        for (en, tr) in [
+            ("Settings", "Ayarlar"),
+            ("Gaussian Blur", "Gauss Bulanıklığı"),
+            ("Audio Track Mixer", "Ses İzi Karıştırıcısı"),
+            ("Sequence", "Sekans"),
+            ("Playhead", "Oynatma Kafası"),
+        ] {
+            assert_eq!(Language::Tr.tr(en), tr);
+        }
+        set_current(Language::Tr);
+        assert!(matches_query("Gaussian Blur", "bulanıklığı"));
+        assert!(matches_query("Gaussian Blur", "gaussian"));
+        set_current(Language::En);
+    }
+
     /// Every non-ASCII character of `text` renders with the bundled interface fonts, in every family.
     fn assert_bundled_fonts_cover(text: impl Iterator<Item = char>) {
         let ctx = egui::Context::default();
@@ -1336,6 +1411,16 @@ mod tests {
         let alphabet = "ÀÈÉÌÍÎÒÓÙÚàèéìíîòóùú";
         let letters = entries.iter().flat_map(|(_, _, it)| it.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
         assert_bundled_fonts_cover(alphabet.chars().chain(Language::It.name().chars()).chain(letters));
+    }
+
+    #[test]
+    fn turkish_renders_with_bundled_fonts() {
+        let (entries, _) = catalog::parse_entries(include_str!("tr.tsv"));
+        // every Turkish letter (ç, ğ, ı, ö, ş, ü, Ç, Ğ, İ, Ö, Ş, Ü), even ones no entry uses yet,
+        // and every letter, curly quote, dash and ellipsis the entries use (symbols such as ✔ come from the English sources)
+        let alphabet = "ÇĞİÖŞÜçğıöşü";
+        let letters = entries.iter().flat_map(|(_, _, tr)| tr.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
+        assert_bundled_fonts_cover(alphabet.chars().chain(Language::Tr.name().chars()).chain(letters));
     }
 
     #[test]
