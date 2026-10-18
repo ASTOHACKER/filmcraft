@@ -667,15 +667,17 @@ pub(crate) fn param_row(
             match pick {
                 Some(crate::panels::lumetri::LutPick::Lut(r)) => set = Some(json!(r)),
                 Some(crate::panels::lumetri::LutPick::Browse) => {
-                    let (param, clip, mask) = (pd.id.to_string(), clip.0, mask);
+                    let (param, clip, mask, label) = (pd.id.to_string(), clip.0, mask, pd.label);
                     app.pick_ui(crate::native_dialogs::FileDialog::open_file(tl!("LUT"), &["cube", "3dl"]), move |app, paths| {
                         let Some(path) = paths.into_iter().next() else { return };
-                        let r = app.session.execute("lut.import", json!({"path": path})).map(|v| v["ref"].clone()).and_then(|r| {
+                        // importing into the LUT library and setting the parameter undo as one step
+                        let r = app.session.edit_group(label, |s| {
+                            let r = s.execute("lut.import", json!({"path": path}))?["ref"].clone();
                             let mut p = json!({"clip": clip, "effect": idx, "param": param, "value": r});
                             if let Some(k) = mask {
                                 p["mask"] = json!(k);
                             }
-                            app.session.execute("effects.setParam", p)
+                            s.execute("effects.setParam", p)
                         });
                         if let Err(err) = r {
                             app.ui.status = err.to_string();
