@@ -87,10 +87,13 @@ fn key(target: &FxTarget) -> String {
     }
 }
 
-/// Command that sets one parameter on the target.
-fn set_cmd(target: &FxTarget, pid: &str, v: Value) -> (String, Value) {
+/// Command that sets one parameter on the target. A number on an insert goes through its mixer
+/// lane (`fx.<slot>.<param>`), which writes a keyframe at the playhead when the lane is automated
+/// and read, and sets the value otherwise; switches and choices are plain settings.
+fn set_cmd(target: &FxTarget, pid: &str, v: Value, lane: bool) -> (String, Value) {
     match target {
         FxTarget::Clip { clip, index } => ("effects.setParam".into(), json!({"clip": clip, "effect": index, "param": pid, "value": v})),
+        FxTarget::Insert { strip, slot } if lane => ("mixer.setValue".into(), json!({"strip": strip, "lane": format!("fx.{slot}.{pid}"), "value": v})),
         FxTarget::Insert { strip, slot } => ("mixer.setInsert".into(), json!({"strip": strip, "slot": slot, "params": {pid: v}})),
     }
 }
@@ -122,9 +125,13 @@ impl Ed<'_> {
         }
     }
     fn commit(&mut self, pid: &str, v: f64) {
-        let is_bool = matches!(self.inst.def().and_then(|d| d.param(pid)).map(|p| &p.kind), Some(ParamKind::Bool));
-        let val = if is_bool { json!(v >= 0.5) } else { json!(v) };
-        self.acts.push(set_cmd(self.target, pid, val));
+        let kind = self.inst.def().and_then(|d| d.param(pid)).map(|p| &p.kind);
+        let (val, lane) = match kind {
+            Some(ParamKind::Bool) => (json!(v >= 0.5), false),
+            Some(ParamKind::Float { min, max, .. }) => (json!(v.clamp(*min, *max)), true),
+            _ => (json!(v), false),
+        };
+        self.acts.push(set_cmd(self.target, pid, val, lane));
         // keep showing the new value until the project catches up this frame
         self.drafts.insert(pid.to_string(), v);
     }
@@ -168,6 +175,27 @@ impl Ed<'_> {
         let (min, max, unit) = self.range(pid);
         let mut v = self.v(pid);
         let r = ui.add(egui::Slider::new(&mut v, min..=max).text(format!("{label} {unit}").trim().to_string()).logarithmic(log && min > 0.0).max_decimals(2));
+        self.auto(format!("fxEditor.{}.param.{pid}", self.fx), r.rect, label);
+        if r.dragged() {
+            self.drafts.insert(pid.to_string(), v);
+        }
+        if r.drag_stopped() {
+            self.release(ui, &[pid]);
+        } else if r.changed() && !r.dragged() {
+            self.commit(pid, v);
+        }
+    }
+    /// [`Self::slider`] over the parameter's soft range (the useful part of a wide one, as Effect
+    /// Controls' sliders); a typed value may go up to the hard range.
+    fn soft_slider(&mut self, ui: &mut egui::Ui, pid: &str, label: &str) {
+        let (lo, hi) = match self.inst.def().and_then(|d| d.param(pid)).map(|p| &p.kind) {
+            Some(ParamKind::Float { soft_min, soft_max, .. }) => (*soft_min, *soft_max),
+            _ => (0.0, 1.0),
+        };
+        let unit = self.range(pid).2;
+        let mut v = self.v(pid);
+        let r =
+            ui.add(egui::Slider::new(&mut v, lo..=hi).clamping(egui::SliderClamping::Never).text(format!("{label} {unit}").trim().to_string()).max_decimals(2));
         self.auto(format!("fxEditor.{}.param.{pid}", self.fx), r.rect, label);
         if r.dragged() {
             self.drafts.insert(pid.to_string(), v);
@@ -241,6 +269,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 p.get("param")
                     .and_then(Value::as_str)
                     .map(str::to_string)
+                    .or_else(|| p.get("lane").and_then(Value::as_str).and_then(|l| l.splitn(3, '.').nth(2)).map(str::to_string))
                     .or_else(|| p.get("params").and_then(Value::as_object).and_then(|o| o.keys().next().cloned()))
             })
             .collect();
@@ -545,7 +574,7 @@ fn generic(ui: &mut egui::Ui, ed: &mut Ed) {
     for pd in generic_params(&fx) {
         let label = crate::i18n::t(pd.label);
         match &pd.kind {
-            ParamKind::Float { .. } => ed.slider(ui, pd.id, label, false),
+            ParamKind::Float { .. } => ed.soft_slider(ui, pd.id, label),
             ParamKind::Bool => ed.toggle(ui, pd.id, label),
             ParamKind::Choice(opts) => {
                 let cur = ed.v(pd.id).max(0.0) as usize;
@@ -565,7 +594,7 @@ fn generic(ui: &mut egui::Ui, ed: &mut Ed) {
                     ed.auto(format!("fxEditor.{}.choice.{}", ed.fx, pd.id), r.response.rect, label);
                 });
                 if let Some(i) = pick {
-                    ed.acts.push(set_cmd(ed.target, pd.id, json!(i)));
+                    ed.acts.push(set_cmd(ed.target, pd.id, json!(i), false));
                 }
             }
             _ => {}

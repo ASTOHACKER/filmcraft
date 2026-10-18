@@ -261,6 +261,17 @@ fn any_mixer_insert_can_be_edited() {
     d.drag("fxEditor.highpass.param.cutoff", 80.0, 0.0, 5);
     let after = cutoff(&mut d);
     assert!(after > before, "cutoff {before} -> {after}");
+    // an automated lane read by the strip: the edit writes a keyframe at the playhead, so it is heard
+    d.exec("mixer.setKeyframe", json!({"strip": "A1", "lane": "fx.0.cutoff", "time": 0, "value": 100.0}));
+    d.exec("mixer.setStrip", json!({"strip": "A1", "mode": "Read"}));
+    d.frames(3);
+    let at_playhead = |d: &mut Driver| {
+        let s = &d.harness.state().session;
+        s.active_sequence().unwrap().audio_tracks[0].lane_value("fx.0.cutoff", s.playhead())
+    };
+    assert!((at_playhead(&mut d) - 100.0).abs() < 1e-6);
+    d.drag("fxEditor.highpass.param.cutoff", 60.0, 0.0, 5);
+    assert!(at_playhead(&mut d) > 100.0, "the automation at the playhead follows the edit: {}", at_playhead(&mut d));
     d.click("fxEditor.highpass.close");
     assert!(d.ids("fxEditor.highpass.").is_empty(), "window closed");
 }
