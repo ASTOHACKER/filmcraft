@@ -219,3 +219,47 @@ fn export_location_browse_works_with_the_runner_and_with_synchronous_pickers() {
     assert_eq!(d.app().ui.export.location, "/tmp/exports-b");
     assert!(!d.app().native_dialog_open());
 }
+
+/// #2211: Quit ▸ Save on a new project with a dialog the host answers later (Linux, Windows):
+/// once the file is picked the project is saved and the window closes; a cancelled dialog brings
+/// the prompt back and nothing quits.
+#[test]
+fn quit_save_waits_for_a_save_dialog_answered_later() {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("native-dialogs-quit");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("quit.fcproj");
+    let _ = std::fs::remove_file(&path);
+    let mut d = Driver::new(true);
+    d.app().session.path = None;
+    d.ok("engine.execute", json!({"command": "file.newBin", "params": {"name": "Unsaved"}}));
+    assert!(d.app().session.is_dirty());
+    let close = |d: &mut Driver| {
+        d.harness.input_mut().viewports.entry(egui::ViewportId::ROOT).or_default().events.push(egui::ViewportEvent::Close);
+        d.frames(3);
+    };
+    let closes =
+        |d: &Driver| d.harness.output().viewport_output.get(&egui::ViewportId::ROOT).is_some_and(|v| v.commands.contains(&egui::ViewportCommand::Close));
+    // cancelled: the prompt comes back, nothing quits
+    close(&mut d);
+    d.click("quit.save");
+    let (dialog, answer) = d.asked();
+    assert!(matches!(dialog, FileDialog::SaveProject { .. }), "{dialog:?}");
+    answer.send(Vec::new()).unwrap();
+    d.frames(3);
+    assert!(d.app().ui.clip_dialog.is_some() && !d.app().quit_confirmed, "back to the prompt");
+    // a file is picked a few frames later: saved, and the window closes
+    d.click("quit.save");
+    let (_, answer) = d.asked();
+    d.frames(3);
+    assert!(!d.app().quit_confirmed, "waits for the answer");
+    answer.send(vec![path.to_string_lossy().into_owned()]).unwrap();
+    let mut closed = false;
+    for _ in 0..10 {
+        d.frames(1);
+        closed |= closes(&d);
+    }
+    assert!(d.app().quit_confirmed && !d.app().session.is_dirty(), "saved and quitting");
+    assert!(closed, "the window was asked to close");
+    assert!(path.exists());
+    let _ = std::fs::remove_file(&path);
+}
