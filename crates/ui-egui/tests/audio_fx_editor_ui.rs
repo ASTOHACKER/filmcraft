@@ -237,3 +237,30 @@ fn track_fx_editor_from_the_mixer_slot() {
     assert!(xo2 > 2200.0, "crossover after drag: {xo2} ({a1})");
     d.snapshot("fx-editor-multiband");
 }
+
+/// #1758: an insert without a graphical editor (Highpass) still opens the Track Fx Editor, with a
+/// control per parameter that edits the insert.
+#[test]
+fn any_mixer_insert_can_be_edited() {
+    let mut d = Driver::demo();
+    d.exec("mixer.addInsert", json!({"strip": "A1", "effect": "highpass"}));
+    d.ok("ui.set", json!({"workspace": "Audio"}));
+    d.frames(3);
+    d.click("mixer.showEffects");
+    d.click("mixer.A1.fx.0");
+    d.click("mixer.A1.fx.0.edit");
+    d.frames(3);
+    let ids = d.ids("fxEditor.highpass.");
+    assert!(ids.iter().any(|i| i == "fxEditor.highpass.param.cutoff"), "{ids:?}");
+    let cutoff = |d: &mut Driver| {
+        let m = d.exec("mixer.inspect", json!({}));
+        let a1 = m["strips"].as_array().unwrap().iter().find(|s| s["ref"] == "A1").unwrap().clone();
+        num(&a1["inserts"][0]["params"]["cutoff"])
+    };
+    let before = cutoff(&mut d);
+    d.drag("fxEditor.highpass.param.cutoff", 80.0, 0.0, 5);
+    let after = cutoff(&mut d);
+    assert!(after > before, "cutoff {before} -> {after}");
+    d.click("fxEditor.highpass.close");
+    assert!(d.ids("fxEditor.highpass.").is_empty(), "window closed");
+}
