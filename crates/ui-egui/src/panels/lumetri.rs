@@ -463,7 +463,7 @@ fn lerp_col(a: Color32, b: Color32, f: f32) -> Color32 {
 fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col: Color32, t: &Tokens, actions: &mut Actions, clip: ClipId, idx: usize) -> Rect {
     let pts: Vec<[f32; 2]> = e.param(id).and_then(|p| p.value.as_curve().map(|c| c.to_vec())).unwrap_or_default();
     // as wide as the panel (it stayed 260 px wide in a wide panel, #1658), not taller than 420 px
-    let w = ui.available_width().max(60.0);
+    let w = ui.available_width().max(1.0);
     let h = if hue { w * 0.45 } else { w }.min(420.0);
     let (area, resp) = ui.allocate_exact_size(vec2(w, h), Sense::click_and_drag());
     let p = ui.painter();
@@ -513,6 +513,10 @@ fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col:
     };
     let line: Vec<Pos2> = lut.iter().enumerate().map(|(i, y)| to_screen([i as f32 / 127.0, y.clamp(0.0, 1.0)])).collect();
     p.add(egui::Shape::line(line, Stroke::new(1.5, col)));
+    // the point nearest `pos` within reach (drag and double-click pick the same one)
+    let nearest = |pos: Pos2| {
+        pts.iter().enumerate().map(|(i, q)| (i, to_screen(*q).distance(pos))).filter(|(_, d)| *d < 9.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0)
+    };
     let drag_key = egui::Id::new(("curve-drag", clip.0, id));
     let mut dragging: Option<usize> = ui.data(|d| d.get_temp(drag_key));
     let mut new_pts = pts.clone();
@@ -524,8 +528,7 @@ fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col:
     if resp.drag_started()
         && let Some(pos) = resp.interact_pointer_pos()
     {
-        let near =
-            pts.iter().enumerate().map(|(i, q)| (i, to_screen(*q).distance(pos))).filter(|(_, d)| *d < 9.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0);
+        let near = nearest(pos);
         dragging = near.or_else(|| {
             new_pts.push(from_screen(pos));
             changed = true;
@@ -544,7 +547,7 @@ fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col:
     }
     if resp.double_clicked()
         && let Some(pos) = resp.interact_pointer_pos()
-        && let Some(i) = pts.iter().position(|q| to_screen(*q).distance(pos) < 9.0)
+        && let Some(i) = nearest(pos)
     {
         if let Some(rest) = without_point(&pts, i, hue) {
             new_pts = rest;
