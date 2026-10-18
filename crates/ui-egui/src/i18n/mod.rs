@@ -194,6 +194,24 @@ impl Language {
     pub fn has(self, text: &str) -> bool {
         self.catalog().and_then(|c| c.plain(text)).is_some()
     }
+
+    /// Uppercase `text`, using Turkish-aware rules (`i` → `İ`, `ı` → `I`) when the language is
+    /// Turkish.
+    pub fn to_uppercase(self, text: &str) -> String {
+        if self == Self::Tr {
+            let mapped: String = text
+                .chars()
+                .map(|c| match c {
+                    'i' => 'İ',
+                    'ı' => 'I',
+                    other => other,
+                })
+                .collect();
+            mapped.to_uppercase()
+        } else {
+            text.to_uppercase()
+        }
+    }
 }
 
 thread_local! {
@@ -218,9 +236,36 @@ pub fn t(text: &str) -> &str {
     current().tr(text)
 }
 
+/// Uppercase `text` in the current interface language (with Turkish-aware casing when the
+/// language is Turkish).
+pub fn to_uppercase(text: &str) -> String {
+    current().to_uppercase(text)
+}
+
+fn fold_query(s: &str) -> String {
+    s.replace('İ', "i").replace('\u{0307}', "").to_lowercase()
+}
+
+fn fold_turkish(s: &str) -> String {
+    let mapped: String = s
+        .chars()
+        .map(|c| match c {
+            'İ' => 'i',
+            'I' => 'ı',
+            other => other,
+        })
+        .collect();
+    mapped.replace('\u{0307}', "").to_lowercase()
+}
+
 /// Match a lowercased search query against both the source and the displayed label.
 pub fn matches_query(text: &str, query: &str) -> bool {
-    text.to_lowercase().contains(query) || t(text).to_lowercase().contains(query)
+    let q = fold_query(query);
+    if fold_query(text).contains(&q) || fold_query(t(text)).contains(&q) {
+        return true;
+    }
+    let q_tr = fold_turkish(query);
+    fold_turkish(t(text)).contains(&q_tr) || fold_turkish(text).contains(&q_tr)
 }
 
 /// Like [`t`], for an English string that needs a disambiguating `context` (a catalog row whose
@@ -1338,7 +1383,19 @@ mod tests {
         set_current(Language::Tr);
         assert!(matches_query("Gaussian Blur", "bulanıklığı"));
         assert!(matches_query("Gaussian Blur", "gaussian"));
+        assert!(matches_query("Review", "inceleme"));
+        assert!(matches_query("İnceleme", "inceleme"));
+        assert!(matches_query("Işık", "ışık"));
+        assert!(matches_query("Işık", "IŞIK"));
+        assert!(matches_query("Import", "import"));
+        assert_eq!(to_uppercase("Birleştirme"), "BİRLEŞTİRME");
+        assert_eq!(to_uppercase("Altyazılar ve Grafikler"), "ALTYAZILAR VE GRAFİKLER");
+        assert_eq!(Language::Tr.to_uppercase("Birleştirme"), "BİRLEŞTİRME");
+        assert_eq!(Language::Tr.to_uppercase("Altyazılar ve Grafikler"), "ALTYAZILAR VE GRAFİKLER");
         set_current(Language::En);
+        assert_eq!(to_uppercase("Birleştirme"), "BIRLEŞTIRME");
+        assert!(matches_query("Işık", "ışık"));
+        assert!(matches_query("Import", "import"));
     }
 
     /// Every non-ASCII character of `text` renders with the bundled interface fonts, in every family.
