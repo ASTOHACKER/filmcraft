@@ -1701,7 +1701,9 @@ impl FilmcraftApp {
         let focused = ctx.input(|i| i.focused);
         let was_focused: bool = ctx.data(|d| d.get_temp(focus_key)).unwrap_or(focused);
         ctx.data_mut(|d| d.insert_temp(focus_key, focused));
-        if !on || filmcraft_engine::media_watch::media_files(&self.session.project, &self.session.media).is_empty() {
+        // Listing the media files resolves every item's path: only when a scan is due (it ran on
+        // every frame, #1142); between scans a cheap look for file media decides the next wake-up.
+        if !on || !has_file_media(&self.session.project) {
             return;
         }
         let last: f64 = ctx.data(|d| d.get_temp(last_key)).unwrap_or(f64::NEG_INFINITY);
@@ -2127,7 +2129,10 @@ impl eframe::App for FilmcraftApp {
                 let _ = w.send(json!({"ok": true, "result": null}));
             }
         }
-        if self.frames.queue_len() > 0 {
+        // Only the web renders queued frames in the UI pass (`pump`): poll for them there. Native
+        // workers wake the UI when a frame is done, so a backlog (thumbnails after launch, slow
+        // effects) doesn't run empty passes at 60 Hz beside them (#1142, #1606).
+        if cfg!(target_arch = "wasm32") && self.frames.queue_len() > 0 {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
     }
@@ -2135,6 +2140,12 @@ impl eframe::App for FilmcraftApp {
 
 /// Effective sample rate for shuttle playback. The audio device still runs at `device_rate`,
 /// so at 2x its output samples represent twice the timeline duration. Reverse and
+/// Whether the project has online file media (what the growing-files refresh watches).
+fn has_file_media(p: &filmcraft_project::Project) -> bool {
+    use filmcraft_project::{ItemKind, MediaRef};
+    p.items.values().any(|i| matches!(&i.kind, ItemKind::Media(m) if !m.offline && matches!(m.media, MediaRef::File { .. })))
+}
+
 /// extreme shuttle speeds remain silent rather than asking the mixer for invalid rates.
 fn shuttle_mix_rate(device_rate: u32, speed: f64) -> Option<u32> {
     if device_rate == 0 || !speed.is_finite() || !(0.5..=4.0).contains(&speed) {
@@ -2810,5 +2821,49 @@ mod native_menu_tests {
         app.sync_native_menu();
         assert_eq!(last(&sent, "edit.undo"), Some(false));
         assert_eq!(last(&sent, "edit.redo"), Some(true), "the undone edit can be redone");
+    }
+}
+
+#[cfg(test)]
+mod media_watch_tests {
+    use filmcraft_engine::Session;
+    use serde_json::json;
+
+    /// The per-frame check for file media agrees with the media file list it stands in for: the
+    /// demo's generated media has no files, an imported file does, a made-offline one doesn't.
+    #[test]
+    fn has_file_media_matches_the_media_file_list() {
+        let mut s = Session::default();
+        s.execute("file.openDemoProject", json!({})).unwrap();
+        let agrees = |s: &Session| super::has_file_media(&s.project) == !filmcraft_engine::media_watch::media_files(&s.project, &s.media).is_empty();
+        assert!(!super::has_file_media(&s.project) && agrees(&s));
+        let dir = std::env::temp_dir().join(format!("fc-has-file-media-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let wav = dir.join("a.wav");
+        let mut b = b"RIFF".to_vec();
+        b.extend_from_slice(&(36u32 + 16).to_le_bytes());
+        b.extend_from_slice(b"WAVEfmt ");
+        for v in [
+            16u32.to_le_bytes().to_vec(),
+            1u16.to_le_bytes().to_vec(),
+            1u16.to_le_bytes().to_vec(),
+            8000u32.to_le_bytes().to_vec(),
+            16000u32.to_le_bytes().to_vec(),
+            2u16.to_le_bytes().to_vec(),
+            16u16.to_le_bytes().to_vec(),
+        ] {
+            b.extend_from_slice(&v);
+        }
+        b.extend_from_slice(b"data");
+        b.extend_from_slice(&16u32.to_le_bytes());
+        b.extend_from_slice(&[0u8; 16]);
+        std::fs::write(&wav, b).unwrap();
+        let r = s.execute("file.import", json!({"paths": [wav.to_string_lossy()]})).unwrap();
+        assert!(super::has_file_media(&s.project) && agrees(&s), "{r}");
+        let item = r["items"][0].as_u64().unwrap();
+        s.execute("project.select", json!({"items": [item]})).unwrap();
+        let _ = s.execute("media.makeOffline", json!({"items": [item]}));
+        assert!(agrees(&s));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
