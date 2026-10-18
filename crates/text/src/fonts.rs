@@ -615,8 +615,16 @@ mod tests {
         let faces = DirectorySource { dirs: vec![root.clone()] }.faces();
         let _ = std::fs::remove_dir_all(&root);
         assert_eq!(faces.iter().filter(|f| f.family == "Inter").count(), 2, "{:?}", faces.iter().map(|f| &f.data).collect::<Vec<_>>());
-        if cfg!(any(target_os = "macos", windows)) {
-            assert!(DirectorySource::system().dirs.iter().any(|d| d.ends_with("livetype")));
+        // and the system scan includes the whole CoreSync path
+        let expected = if cfg!(target_os = "macos") {
+            std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Library/Application Support/Adobe/CoreSync/plugins/livetype"))
+        } else if cfg!(windows) {
+            std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("Adobe\\CoreSync\\plugins\\livetype"))
+        } else {
+            None
+        };
+        if let Some(expected) = expected {
+            assert!(DirectorySource::system().dirs.contains(&expected), "{expected:?}");
         }
     }
 
