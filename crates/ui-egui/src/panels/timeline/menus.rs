@@ -145,8 +145,8 @@ pub(super) fn edit_point_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &
 /// The menu of a right-click on the header column away from any track: the Add Tracks and Delete
 /// Tracks dialogs. Automation ids `timeline.tracks.menu.<item>`.
 pub(super) fn track_column_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, picked: &mut Option<(String, Value)>) {
-    for (key, text, command) in [("addTracks", "Add Tracks…", "sequence.addTracks"), ("deleteTracks", "Delete Tracks…", "sequence.deleteTracks")] {
-        let text = crate::i18n::t(text);
+    for (key, text, command) in [("addTracks", tl!("Add Tracks…"), "sequence.addTracks"), ("deleteTracks", tl!("Delete Tracks…"), "sequence.deleteTracks")]
+    {
         let button = ui.add_enabled(app.session.is_enabled(command), egui::Button::new(text));
         app.auto.add(&format!("timeline.tracks.menu.{key}"), button.rect, text);
         if button.clicked() {
@@ -161,7 +161,6 @@ pub(super) fn track_column_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, picke
 /// ids `timeline.track.<V1|A1…>.menu.<item>`.
 pub(super) fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label: &str, track: TrackId, video: bool, picked: &mut Option<(String, Value)>) {
     let mut item = |ui: &mut egui::Ui, key: &str, text: &str, command: &str, params: Value| {
-        let text = crate::i18n::t(text);
         let button = ui.add_enabled(app.session.is_enabled(command), egui::Button::new(text));
         app.auto.add(&format!("timeline.track.{label}.menu.{key}"), button.rect, text);
         if button.clicked() {
@@ -170,11 +169,11 @@ pub(super) fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label
         }
     };
     let after = if video { json!({"video": 1, "audio": 0, "videoAfter": label}) } else { json!({"video": 0, "audio": 1, "audioAfter": label}) };
-    item(ui, "addTrack", "Add Track", "sequence.addTracks", after);
-    item(ui, "addTracks", "Add Tracks…", "sequence.addTracks", json!({}));
+    item(ui, "addTrack", tl!("Add Track"), "sequence.addTracks", after);
+    item(ui, "addTracks", tl!("Add Tracks…"), "sequence.addTracks", json!({}));
     ui.separator();
-    item(ui, "deleteTrack", "Delete Track", "sequence.deleteTrack", json!({"track": track.0}));
-    item(ui, "deleteTracks", "Delete Tracks…", "sequence.deleteTracks", json!({}));
+    item(ui, "deleteTrack", tl!("Delete Track"), "sequence.deleteTrack", json!({"track": track.0}));
+    item(ui, "deleteTracks", tl!("Delete Tracks…"), "sequence.deleteTracks", json!({}));
 }
 
 /// The menu of a right-clicked gap: Ripple Delete closes it.
