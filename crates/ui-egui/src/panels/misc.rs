@@ -96,7 +96,7 @@ pub(crate) fn open_marker_dialog(app: &mut FilmcraftApp, marker: &filmcraft_proj
     let kind = MARKER_KINDS.iter().find(|k| k.0 == marker.kind).map_or("comment", |k| k.1);
     app.ui.marker_dialog = Some(crate::state::MarkerDraft {
         sequence: sequence.0,
-        project: project_identity(app),
+        generation: app.session.project_generation,
         duration0: duration.clone(),
         marker: marker.id.0,
         name: marker.name.clone(),
@@ -105,11 +105,6 @@ pub(crate) fn open_marker_dialog(app: &mut FilmcraftApp, marker: &filmcraft_proj
         color: marker.color.name().into(),
         kind: kind.into(),
     });
-}
-
-/// What tells the open project from another for the Edit Marker dialog: its file, else its name.
-fn project_identity(app: &FilmcraftApp) -> String {
-    app.session.path.clone().unwrap_or_else(|| format!("unsaved:{}", app.session.project.name))
 }
 
 /// "Edit Marker…" in a marker's right-click menu (automation id `<prefix>.edit`).
@@ -131,7 +126,7 @@ pub(crate) fn marker_edit_item(app: &mut FilmcraftApp, ui: &mut egui::Ui, marker
 pub(crate) fn marker_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.marker_dialog.clone() else { return };
     // another project or sequence: the marker id may name another marker there
-    let same_place = app.session.state.active_sequence.map(|s| s.0) == Some(d.sequence) && project_identity(app) == d.project;
+    let same_place = app.session.state.active_sequence.map(|s| s.0) == Some(d.sequence) && app.session.project_generation == d.generation;
     let Some(seq) = app.session.active_sequence().filter(|_| same_place) else {
         app.ui.marker_dialog = None;
         return;

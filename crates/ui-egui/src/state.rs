@@ -802,15 +802,15 @@ pub enum ColorDialog {
 }
 
 /// The Edit Marker dialog (#2416): the marker it edits and its fields as typed. `duration` is a
-/// timecode, `color` a label name, `kind` a `markers.edit` kind. `sequence` and `project` (its
-/// file, else its name) tie it to where it was opened: in another project the same marker id is
-/// another marker. `duration0` is the duration as the dialog opened, so OK leaves a duration it
+/// timecode, `color` a label name, `kind` a `markers.edit` kind. `sequence` and `generation` (the
+/// session's `project_generation`) tie it to where it was opened: in another project, or the same
+/// file opened again, the same marker id is another marker. `duration0` is the duration as the dialog opened, so OK leaves a duration it
 /// cannot show exactly (part of a frame) alone unless it was edited.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MarkerDraft {
     pub sequence: u64,
-    pub project: String,
+    pub generation: u64,
     pub duration0: String,
     pub marker: u64,
     pub name: String,

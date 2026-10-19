@@ -157,8 +157,8 @@ fn renaming_a_marker_leaves_a_duration_it_cannot_show_exactly() {
     assert_eq!((m.name.as_str(), m.duration), ("Renamed", before), "the name changes, the duration stays");
 }
 
-/// #2470 review: a dialog left open while another project opens closes instead of editing a marker
-/// of that project that happens to have the same id.
+/// #2470 review: a dialog left open while another project opens (or the same one again) closes
+/// instead of editing a marker of that project that happens to have the same id.
 #[test]
 fn the_dialog_closes_when_another_project_opens() {
     let mut d = Driver::demo();
@@ -167,7 +167,10 @@ fn the_dialog_closes_when_another_project_opens() {
     d.frames(3);
     d.click("timeline.markerMenu.edit");
     assert!(d.app().ui.marker_dialog.is_some());
-    d.app().session.path = Some("/elsewhere/other.fcproj".into());
+    // the demo again: the same sequence and marker ids, but another project
+    d.exec("file.openDemoProject", json!({}));
+    let id_again = d.exec("markers.add", json!({"frame": 30}))["marker"].as_u64().unwrap();
+    assert_eq!(id_again, id, "the reopened project has a marker with the same id");
     d.frames(2);
     assert!(d.app().ui.marker_dialog.is_none(), "another project: the dialog closes");
 }
