@@ -483,9 +483,11 @@ fn close_all_projects_asks_to_save() {
     assert!(d.app().ui.clip_dialog.is_none());
     // nothing unsaved: no question
     d.exec("file.openDemoProject", json!({}));
-    d.exec("file.saveAs", json!({"path": std::env::temp_dir().join(format!("fc-close-all-{}.fcproj", std::process::id())).to_string_lossy()}));
+    let path = std::env::temp_dir().join(format!("fc-close-all-{}.fcproj", std::process::id()));
+    d.exec("file.saveAs", json!({"path": path.to_string_lossy()}));
     assert!(!d.app().session.is_dirty());
     d.menu("file.closeAllProjects");
+    let _ = std::fs::remove_file(&path);
     assert!(d.app().ui.clip_dialog.is_none());
     assert!(d.app().session.project.items.is_empty(), "closed at once");
 }
