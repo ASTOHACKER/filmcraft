@@ -265,3 +265,23 @@ fn damaged_video_index_entries_lose_no_pictures() {
     assert!(e.contains("damaged"), "{e}");
     assert_eq!(ours(&src, 4_800), ours(&good, 4_800));
 }
+
+/// Two video streams, the first declaring frames whose chunks are all gone: the second, which has
+/// its pictures, is the file's video.
+#[test]
+fn a_video_stream_with_pictures_comes_before_an_empty_one() {
+    let mut args = PIC.to_vec();
+    args.extend(["-map", "0:v", "-map", "0:v", "-c:v", "mjpeg", "-q:v", "3", "-pix_fmt", "yuvj420p", "-f", "avi"]);
+    let Some(path) = fixture_path("avi_two_mjpeg.avi", &args) else { return };
+    let bytes = std::fs::read(&path).unwrap();
+    let mut lost = bytes.clone();
+    while let Some(i) = lost.windows(4).position(|w| w == b"00dc") {
+        lost[i..i + 4].copy_from_slice(b"JUNK");
+    }
+    let (good, src) = (crate::open_bytes("two.avi", bytes.into()).unwrap(), crate::open_bytes("lost.avi", lost.into()).unwrap());
+    let rate = src.info().frame_rate();
+    for k in [0, 31] {
+        let at = || FrameRequest::full(rate.tick_of(k));
+        assert!(src.video_frame(at()).unwrap().to_rgba8() == good.video_frame(at()).unwrap().to_rgba8(), "frame {k}");
+    }
+}

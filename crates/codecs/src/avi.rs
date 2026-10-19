@@ -227,8 +227,10 @@ impl AviSource {
         let bytes = crate::Src(reader);
         let file = filmcraft_avi::open(&bytes).map_err(|e| CodecError::Container(e.to_string()))?;
         // A video stream that declares frames but whose chunks a damaged file lost is still the
-        // file's video: its frames say so, rather than the file passing for audio only.
-        let vstream = file.streams.iter().position(|s| s.kind == StreamKind::Video && s.video.is_some() && (!s.chunks.is_empty() || s.length > 0));
+        // file's video when no other has pictures: its frames say so, rather than the file passing
+        // for audio only.
+        let video = |has: fn(&filmcraft_avi::Stream) -> bool| file.streams.iter().position(|s| s.kind == StreamKind::Video && s.video.is_some() && has(s));
+        let vstream = video(|s| !s.chunks.is_empty()).or_else(|| video(|s| s.length > 0));
         let pictures = vstream.and_then(|i| file.streams.get(i)).is_some_and(|s| !s.chunks.is_empty());
         let astreams: Vec<usize> = file
             .streams
