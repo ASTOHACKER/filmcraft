@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex};
 
 use filmcraft_engine::clip_ops::source_view;
-use filmcraft_project::ItemId;
+use filmcraft_project::{ItemId, ItemKind};
 use filmcraft_render::SourceProvider;
 use filmcraft_time::Tick;
 use serde_json::json;
@@ -68,9 +68,15 @@ impl FilmcraftApp {
     fn start_source_playback(&mut self, start: Option<Tick>, stop: Option<Tick>, speed: f64) -> Result<(), String> {
         let item = self.session.state.source_item.ok_or("Open a media file in the Source monitor first")?;
         let view = source_view(&self.session, item).ok_or("Source item is unavailable")?;
-        let media = self.session.project.item(view.media).and_then(|i| i.as_media()).ok_or("Source playback currently supports media files and subclips")?;
-        if media.offline {
-            return Err("Source media is offline: use Link Media first".into());
+        let pi = self.session.project.item(view.media).ok_or("Source playback currently supports media files and subclips and sequences")?;
+        match &pi.kind {
+            ItemKind::Media(media) => {
+                if media.offline {
+                    return Err("Source media is offline: use Link Media first".into());
+                }
+            }
+            ItemKind::Sequence(_) => {}
+            _ => return Err("Source playback currently supports media files, subclips and sequences".into()),
         }
         if view.end <= view.start {
             return Err("Source clip has no playable duration".into());
