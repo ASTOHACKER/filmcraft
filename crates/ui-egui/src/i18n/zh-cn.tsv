@@ -3605,3 +3605,5 @@
 	AV1 needs a hardware encoder; none was found on this machine, and FilmCraft has no software AV1 encoder yet.	AV1 需要硬件编码器；本机未找到，且 FilmCraft 尚无软件 AV1 编码器。
 	Show Video Names	显示视频名称
 	Show Audio Names	显示音频名称
+	Video Names	视频名称
+	Audio Names	音频名称

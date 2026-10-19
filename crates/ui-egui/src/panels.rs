@@ -364,6 +364,8 @@ pub(crate) fn panel_items(app: &mut FilmcraftApp, ui: &mut egui::Ui, p: PanelKin
         }
         ui.checkbox(&mut app.ui.timeline.show_thumbnails, tl!("Video Thumbnails"));
         ui.checkbox(&mut app.ui.timeline.show_waveforms, tl!("Audio Waveforms"));
+        ui.checkbox(&mut app.ui.timeline.show_video_names, tl!("Video Names"));
+        ui.checkbox(&mut app.ui.timeline.show_audio_names, tl!("Audio Names"));
         let mut work_area = app.session.active_sequence().is_some_and(|q| q.work_area.is_some());
         let r = ui.add_enabled(app.session.state.active_sequence.is_some(), egui::Checkbox::new(&mut work_area, tl!("Work Area Bar")));
         app.auto.add("panel.menu.Timeline.workAreaBar", r.rect, "Work Area Bar");

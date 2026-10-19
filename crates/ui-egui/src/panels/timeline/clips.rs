@@ -249,16 +249,18 @@ pub(super) fn draw_clip(
     }
     let clip_p = p.with_clip_rect(body.shrink2(vec2(1.0, 0.0)).intersect(p.clip_rect()));
     // name band (View ▸ the wrench menu's Show Video Names / Show Audio Names)
+    // a hidden name keeps the multicam angle and the speed, which say something the name does not
     let names = if kind == TrackKind::Video { app.ui.timeline.show_video_names } else { app.ui.timeline.show_audio_names };
-    if w > 24.0 && names {
-        let mut label = it.name.clone();
-        if let Some(m) = it.multicam.filter(|m| m.enabled) {
-            let cam = app.session.project.sequence(it.item).and_then(|q| q.cameras().cameras.get(m.angle as usize).map(|c| c.name.clone()));
-            label = format!("[MC{}] {}", m.angle + 1, cam.unwrap_or(label));
-        }
-        if (it.speed - 1.0).abs() > 1e-6 || it.reverse {
-            label = format!("{label} [{}%]", ((if it.reverse { -1.0 } else { 1.0 }) * it.speed * 100.0).round());
-        }
+    let mut label = if names { it.name.clone() } else { String::new() };
+    if let Some(m) = it.multicam.filter(|m| m.enabled) {
+        let cam = app.session.project.sequence(it.item).and_then(|q| q.cameras().cameras.get(m.angle as usize).map(|c| c.name.clone()));
+        label = if names { format!("[MC{}] {}", m.angle + 1, cam.unwrap_or(label)) } else { format!("[MC{}]", m.angle + 1) };
+    }
+    if (it.speed - 1.0).abs() > 1e-6 || it.reverse {
+        let speed = format!("[{}%]", ((if it.reverse { -1.0 } else { 1.0 }) * it.speed * 100.0).round());
+        label = if label.is_empty() { speed } else { format!("{label} {speed}") };
+    }
+    if w > 24.0 && !label.is_empty() {
         clip_p.text(
             pos2(body.min.x + 6.0, body.min.y + 8.5),
             Align2::LEFT_CENTER,
