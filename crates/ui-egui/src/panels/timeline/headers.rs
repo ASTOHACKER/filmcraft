@@ -58,6 +58,17 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         }
         let p = ui.painter().with_clip_rect(visible);
         p.rect_filled(hrect, 0.0, t.tl_header_bg);
+        let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
+        // right-click anywhere on the header: add or delete tracks, here or through the dialogs of
+        // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the colour strip and the
+        // buttons so they win where they overlap; a right-click on one still opens the menu, since it
+        // takes only the click. Automation ids `timeline.track.<V1|A1…>.menu.<item>`.
+        let menu_resp = ui.interact(visible, egui::Id::new(("hdr-menu", r.track.0)), Sense::click());
+        let mut menu = egui::Popup::context_menu(&menu_resp);
+        if ui.input(|i| i.pointer.secondary_clicked()) && ui.rect_contains_pointer(visible) {
+            menu = menu.open_memory(egui::SetOpenCommand::Bool(true));
+        }
+        menu.show(|ui| track_header_menu(app, ui, &label, r.track, r.kind == TrackKind::Video, &mut header_menu));
         // 0. colour label (#1186): a tint over the header, and the strip at its left edge, which
         // opens the colour menu
         let strip = Rect::from_min_max(hrect.min, pos2(hrect.min.x + 9.0, hrect.max.y));
@@ -92,17 +103,6 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         if r.kind == TrackKind::Video && r.index + 1 == seq.video_tracks.len() {
             p.line_segment([pos2(hrect.min.x, hrect.min.y + 0.5), pos2(hrect.max.x, hrect.min.y + 0.5)], Stroke::new(1.0, t.separator));
         }
-        let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
-        // right-click anywhere on the header: add or delete tracks, here or through the dialogs of
-        // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the buttons so they win where
-        // they overlap; a right-click on a button still opens the menu, since the button takes only
-        // the click. Automation ids `timeline.track.<V1|A1…>.menu.<item>`.
-        let menu_resp = ui.interact(visible, egui::Id::new(("hdr-menu", r.track.0)), Sense::click());
-        let mut menu = egui::Popup::context_menu(&menu_resp);
-        if ui.input(|i| i.pointer.secondary_clicked()) && ui.rect_contains_pointer(visible) {
-            menu = menu.open_memory(egui::SetOpenCommand::Bool(true));
-        }
-        menu.show(|ui| track_header_menu(app, ui, &label, r.track, r.kind == TrackKind::Video, &mut header_menu));
         let btn_rect = |x0: f32| Rect::from_min_max(pos2(hrect.min.x + x0, hrect.min.y + 1.0), pos2(hrect.min.x + x0 + 24.0, hrect.max.y - 2.0));
         // 1. source patch (absent when unpatched)
         let patched = if r.kind == TrackKind::Video { tg.video_dest == Some(r.track) } else { tg.audio_dest == Some(r.track) };
