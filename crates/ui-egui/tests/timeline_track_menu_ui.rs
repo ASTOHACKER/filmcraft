@@ -86,11 +86,13 @@ fn a_track_header_menu_adds_and_deletes_tracks() {
     d.frames(2);
     assert_eq!(counts(&d), (v0 + 1, a0));
     // Delete Track on an audio header removes that track
+    let a2 = d.harness.state().session.active_sequence().unwrap().audio_tracks[1].id;
     let (x, y) = header_point(&mut d, "A2");
     d.ok("ui.click", json!({"x": x, "y": y, "button": "right"}));
     d.ok("ui.click", json!({"id": "timeline.track.A2.menu.deleteTrack"}));
     d.frames(2);
     assert_eq!(counts(&d), (v0 + 1, a0 - 1));
+    assert!(d.harness.state().session.active_sequence().unwrap().track(a2).is_none(), "A2 itself is gone");
     // the strip at the right of a tall header opens it too
     let lock = rect(&mut d, "timeline.track.V1.locked");
     let tracks = rect(&mut d, "timeline.tracks");
