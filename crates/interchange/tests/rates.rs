@@ -24,3 +24,30 @@ fn absurd_fcpxml_frame_duration_does_not_overflow_the_export() {
         assert!(report.mentions("implausible frame rate"), "{fd}: {report}");
     }
 }
+
+/// The FCP7 `timebase` clamp and the OTIO rate fallback happen while parsing, so they must report
+/// themselves; only the FCPXML path used to (via the post-import pass).
+#[test]
+fn clamped_timebase_and_replaced_otio_rate_are_reported() {
+    let xml = r#"<?xml version="1.0"?><xmeml version="4"><sequence id="s"><name>S</name><rate><timebase>9223372036854775807</timebase><ntsc>FALSE</ntsc></rate>
+<media><video><track><clipitem id="c"><name>A</name><start>0</start><end>100</end><in>0</in><out>100</out>
+<file id="f"><name>a.mov</name><pathurl>file:///tmp/a.mov</pathurl><media><video/></media></file></clipitem></track></video></media></sequence></xmeml>"#;
+    let (_, rep) = import(xml.as_bytes(), Format::Fcp7Xml, None).unwrap();
+    assert!(rep.mentions("timebase above 1000000"), "{rep}");
+
+    let otio = |rate: &str| {
+        format!(
+            r#"{{"OTIO_SCHEMA":"Timeline.1","name":"T","tracks":{{"OTIO_SCHEMA":"Stack.1","children":[{{"OTIO_SCHEMA":"Track.1","kind":"Video","children":[
+{{"OTIO_SCHEMA":"Clip.1","name":"c","source_range":{{"OTIO_SCHEMA":"TimeRange.1","start_time":{{"OTIO_SCHEMA":"RationalTime.1","value":0,"rate":{rate}}},"duration":{{"OTIO_SCHEMA":"RationalTime.1","value":10,"rate":{rate}}}}},
+"media_reference":{{"OTIO_SCHEMA":"MissingReference.1"}}}}]}}]}}}}"#
+        )
+    };
+    // DSD64's 2 822 400 Hz is beyond the limit too
+    for rate in ["2822400", "1e300"] {
+        let (_, rep) = import(otio(rate).as_bytes(), Format::Otio, None).unwrap();
+        assert!(rep.mentions("OTIO rate above 1000000"), "{rate}: {rep}");
+    }
+    // an ordinary rate says nothing
+    let (_, rep) = import(otio("24").as_bytes(), Format::Otio, None).unwrap();
+    assert!(!rep.mentions("above 1000000"), "{rep}");
+}
