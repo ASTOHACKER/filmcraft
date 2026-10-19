@@ -17,7 +17,7 @@
 
 	About FilmCraft	Om FilmCraft
 	Add Audio Submix Track	Lägg till ljudsubmixspår
-	Add Caption at Playhead	Lägg till undertext vid spelhuvudet
+	Add Caption at Playhead	Lägg till undertext vid spelmarkören
 	Add Chapter Marker…	Lägg till kapitelmarkör…
 	Add Edit	Lägg till snitt
 	Add Edit to All Tracks	Lägg till snitt på alla spår
@@ -57,8 +57,8 @@
 	Auto Save…	Autosparning…
 	Automate to Sequence…	Automatisera till sekvens…
 	Bars and Tone…	Färgstaplar och ton…
-	Bin	Korg
-	Bin From Selection	Korg från markering
+	Bin	Bin
+	Bin From Selection	Bin från markering
 	Black Video…	Svart video…
 	Blue	Blå
 	Bottom	Nederkant
@@ -88,7 +88,7 @@
 	Color Management…	Färghantering…
 	Color Matte…	Färgmatte…
 	Comparison View	Jämförelsevy
-	Composite Video	Sammansatt video
+	Composite Video	Kompositvideo
 	Consolidate Duplicates	Slå samman dubbletter
 	Copy	Kopiera
 	Copy Paste Includes Sequence Markers	Kopiering och inklistring tar med sekvensmarkörer
@@ -146,7 +146,7 @@
 	Frame Blending	Bildblandning
 	Frame Hold Options…	Frysbildsalternativ…
 	Frame Sampling	Bildsampling
-	From Bin	Från korg
+	From Bin	Från bin
 	From Source Monitor	Från källmonitor
 	From Source Monitor, Match Frame	Från källmonitor, matcha bildruta
 	From file…	Från fil…
@@ -242,7 +242,7 @@
 	Paused Resolution	Upplösning vid paus
 	Playback Resolution	Uppspelningsupplösning
 	Playback…	Uppspelning…
-	Plugins…	Plugin-program…
+	Plugins…	Plugins…
 	Polygon	Polygon
 	Preferences	Inställningar
 	Previous in Sequence	Föregående i sekvens
@@ -272,7 +272,7 @@
 	Render Effects In to Out	Rendera effekter från in till ut
 	Render In to Out	Rendera från in till ut
 	Render Selection	Rendera markering
-	Replace Fonts in Projects…	Ersätt teckensnitt i projekt…
+	Replace Fonts in Projects…	Ersätt typsnitt i projekt…
 	Replace With Clip	Ersätt med klipp
 	Report an Issue…	Rapportera ett problem…
 	Reset All Parameters	Återställ alla parametrar
@@ -299,7 +299,7 @@
 	Scale to Frame Size	Skala till bildstorlek
 	Scene Edit Detection…	Identifiera scenbyten…
 	Scratch Disks…	Arbetsdiskar…
-	Search Bin	Sökkorg
+	Search Bin	Sökbin
 	Select	Markera
 	Select All	Markera alla
 	Select All Matching	Markera alla matchande
@@ -308,7 +308,7 @@
 	Select Next Layer	Markera nästa lager
 	Select Previous Graphic	Markera föregående grafik
 	Select Previous Layer	Markera föregående lager
-	Selection Follows Playhead	Markeringen följer spelhuvudet
+	Selection Follows Playhead	Markeringen följer spelmarkören
 	Selection as FilmCraft Project…	Markering som FilmCraft-projekt…
 	Selection…	Markering…
 	Send Backward	Flytta bakåt
@@ -422,7 +422,7 @@
 	Join the ArtCraft Discord	Gå med i ArtCraft på Discord
 	Source code on GitHub	Källkod på GitHub
 	Report an issue	Rapportera ett problem
-	MIT OR Apache-2.0. Fonts: Inter, Noto Serif and JetBrains Mono (SIL OFL 1.1).	MIT OR Apache-2.0. Teckensnitt: Inter, Noto Serif och JetBrains Mono (SIL OFL 1.1).
+	MIT OR Apache-2.0. Fonts: Inter, Noto Serif and JetBrains Mono (SIL OFL 1.1).	MIT OR Apache-2.0. Typsnitt: Inter, Noto Serif och JetBrains Mono (SIL OFL 1.1).
 	just now	nyss
 	{n} s ago	för {n} s sedan
 	{n} min ago	för {n} min sedan
@@ -494,7 +494,7 @@
 	Codec:	Kodek:
 	Duration:	Längd:
 	Settings:	Inställningar:
-	Playhead:	Spelhuvud:
+	Playhead:	Spelmarkör:
 	Video {n}:	Video {n}:
 	Audio {n}:	Ljud {n}:
 	UI:	Gränssnitt:
@@ -505,7 +505,7 @@
 	Close All	Stäng alla
 	Maximize Frame	Maximera ram
 	Restore Frame	Återställ ram
-	Restore Workspace	Återställ arbetsyta
+	Restore Workspace	Återställ arbetsmiljö
 	Reveal Sequence in Project	Visa sekvens i projektet
 	Video Thumbnails	Videominiatyrer
 	Audio Waveforms	Ljudvågformer
@@ -535,13 +535,13 @@
 	Add a timecode row	Lägg till en tidskodsrad
 	Panner	Panorering
 	Mute	Tysta
-	Send {n} Level	Sändning {n}-nivå
+	Send {n} Level	Nivå för send {n}
 	Show Keyframes	Visa nyckelbildrutor
 	Clip Keyframes	Klippnyckelbildrutor
 	Track Keyframes	Spårnyckelbildrutor
 	Delete	Radera
-	Untitled Workspace	Namnlös arbetsyta
-	New Workspace	Ny arbetsyta
+	Untitled Workspace	Namnlös arbetsmiljö
+	New Workspace	Ny arbetsmiljö
 	Edit Workspaces	Redigera arbetsytor
 	Rename	Byt namn
 	Restore Original	Återställ original
@@ -573,11 +573,11 @@
 	Create new caption track	Skapa nytt undertextspår
 	Import captions file…	Importera undertextfil…
 	New {format} track	Nytt {format}-spår
-	Add caption at playhead	Lägg till undertext vid spelhuvudet
-	Split caption at playhead	Dela undertext vid spelhuvudet
+	Add caption at playhead	Lägg till undertext vid spelmarkören
+	Split caption at playhead	Dela undertext vid spelmarkören
 	Merge selected captions	Sammanfoga markerade undertexter
 	Delete selected captions	Radera markerade undertexter
-	No captions on this track. Press + to add one at the playhead.	Inga undertexter på det här spåret. Tryck på + för att lägga till en vid spelhuvudet.
+	No captions on this track. Press + to add one at the playhead.	Inga undertexter på det här spåret. Tryck på + för att lägga till en vid spelmarkören.
 	No matching captions.	Inga matchande undertexter.
 	Open a sequence to see its transcript	Öppna en sekvens för att se dess transkription
 	Transcribe sequence	Transkribera sekvens
@@ -625,7 +625,7 @@
 	Pre-roll:	Förrullning:
 	 seconds	 sekunder
 	Post-roll:	Efterrullning:
-	Playback starts the pre-roll before the playhead (or the In point); with In/Out marked, recording punches in and out there.	Uppspelningen börjar med förrullningen före spelhuvudet (eller in-punkten). När in och ut är markerade startar och stoppar inspelningen där.
+	Playback starts the pre-roll before the playhead (or the In point); with In/Out marked, recording punches in and out there.	Uppspelningen börjar med förrullningen före spelmarkören (eller in-punkten). När in och ut är markerade startar och stoppar inspelningen där.
 	Effect	Effekt
 	Clip Fx Editor	Fx-redigerare för klipp
 	Track Fx Editor	Fx-redigerare för spår
@@ -714,11 +714,11 @@
 	Clip Names	Klippnamn
 	Enumerate Cameras	Numrera kameror
 	Camera Angle Metadata	Metadata för kameravinkel
-	Move source clips to Processed Clips bin	Flytta källklipp till korgen Bearbetade klipp
+	Move source clips to Processed Clips bin	Flytta källklipp till binen Bearbetade klipp
 	Synchronized {n} clip group(s)	Synkroniserade {n} klippgrupp(er)
 	Merged clip created	Sammanslaget klipp skapat
 	Multi-camera source sequence with {n} camera(s)	Flerkamerakällsekvens med {n} kamera/kameror
-	No multi-camera clip at the playhead	Inget flerkameraklipp vid spelhuvudet
+	No multi-camera clip at the playhead	Inget flerkameraklipp vid spelmarkören
 	Camera {n} — {name}	Kamera {n} — {name}
 	Page {page} of {pages}	Sida {page} av {pages}
 	Previous page	Föregående sida
@@ -756,7 +756,7 @@
 	Channel Volume	Kanalvolym
 	In Point	In-punkt
 	Out Point	Ut-punkt
-	Playhead	Spelhuvud
+	Playhead	Spelmarkör
 	Source Timecode	Källtidskod
 	Sequence Time	Sekvenstid
 	Video Attributes	Videoattribut
@@ -867,14 +867,14 @@
 	Reduce Rumble	Minska muller
 	DeHum	Ta bort brum
 	DeEss	Minska väsljud
-	Reduce Reverb	Minska efterklang
+	Reduce Reverb	Minska reverb
 	Dynamics	Dynamik
 	EQ	EQ
 	Enhance Speech	Förbättra tal
 	Low Tone	Låg ton
 	High Tone	Hög ton
 	Mix	Mix
-	Reverb	Efterklang
+	Reverb	Reverb
 	Stereo Width	Stereobredd
 	Remixing music to a target duration is not available yet. Trim the clip and add a crossfade instead.	Remix av musik till en mållängd är inte tillgängligt än. Trimma klippet och lägg till en korstoning i stället.
 	Pan	Panorering
@@ -964,7 +964,7 @@
 	Video and Waveform	Video och vågform
 	System Default	Systemstandard
 	Default location	Standardplats
-	Font family	Teckensnittsfamilj
+	Font family	Typsnittsfamilj
 	Label Colors	Etikettfärger
 	Decoded frames held for the monitors and thumbnails: {used} of {budget}.	Avkodade bildrutor som hålls för monitorer och miniatyrer: {used} av {budget}.
 	FilmCraft keeps the rest of the RAM free for other applications.	FilmCraft lämnar resten av RAM-minnet fritt för andra program.
@@ -1022,7 +1022,7 @@
 	Align Top	Justera överkant
 	Align Center Vertically	Centrera lodrätt
 	Align Bottom	Justera nederkant
-	Font	Teckensnitt
+	Font	Typsnitt
 	Font Style	Teckenstil
 	Font Size	Teckenstorlek
 	Alignment	Justering
@@ -1079,7 +1079,7 @@
 	Pin To	Fäst vid
 	Pinned Edges	Fästa kanter
 	FilmCraft Graphics Template	FilmCraft-grafikmall
-	{n} Font	{n} teckensnitt
+	{n} Font	{n} typsnitt
 	{n} Size	{n} storlek
 	{n} Color	{n} färg
 	{n} Position	{n} position
@@ -1090,12 +1090,12 @@
 	Editable properties:	Redigerbara egenskaper:
 	Saved as a FilmCraft graphics template (.fcgt) in your templates folder.	Sparad som FilmCraft-grafikmall (.fcgt) i din mallmapp.
 	Exported graphics template to {path}	Exporterade grafikmall till {path}
-	Replace Fonts in Projects	Ersätt teckensnitt i projekt
-	Fonts used in the project:	Teckensnitt som används i projektet:
+	Replace Fonts in Projects	Ersätt typsnitt i projekt
+	Fonts used in the project:	Typsnitt som används i projektet:
 	{f} (missing)	{f} (saknas)
 	Replace:	Ersätt:
-	Replaced {n} font uses	Ersatte {n} teckensnittsanvändningar
-	Show/Hide Effects and Sends	Visa/dölj effekter och sändningar
+	Replaced {n} font uses	Ersatte {n} typsnittsanvändningar
+	Show/Hide Effects and Sends	Visa/dölj effekter och sends
 	Audio Track Mixer menu	Ljudspårsmixerns meny
 	Show/Hide Tracks…	Visa/dölj spår…
 	Meter Input(s) Only	Mät endast ingång(ar)
@@ -1106,8 +1106,8 @@
 	Fill the slots above first	Fyll platserna ovanför först
 	pre 	före 
 	Pre-Fader	Före fader
-	Mute Send	Tysta sändning
-	Remove Send	Ta bort sändning
+	Mute Send	Tysta send
+	Remove Send	Ta bort send
 	New Submix	Ny submix
 	Pan / balance (drag; double-click: centre)	Panorering/balans (dra; dubbelklicka: mitten)
 	Solo safe	Solosäker
@@ -1156,7 +1156,7 @@
 	Generating waveform…	Genererar vågform…
 	Reference  {tc}	Referens  {tc}
 	Set	Ange
-	Set the reference to the playhead	Ställ referensen på spelhuvudet
+	Set the reference to the playhead	Ställ referensen på spelmarkören
 	Reference: next frame	Referens: nästa bildruta
 	Reference: previous frame	Referens: föregående bildruta
 	RGBA Channels	RGBA-kanaler
@@ -1169,7 +1169,7 @@
 	Position:	Position:
 	No saved guide templates.	Inga sparade stödlinjemallar.
 	Project: {name}	Projekt: {name}
-	Bin: {name}	Korg: {name}
+	Bin: {name}	Bin: {name}
 	Up one level	Upp en nivå
 	Video Usage: {vu}  Audio Usage: {au}	Videoanvändning: {vu}  Ljudanvändning: {au}
 	Icon View	Ikonvy
@@ -1177,7 +1177,7 @@
 	Sort Icons	Sortera ikoner
 	Clear (Delete)	Rensa (Delete)
 	New Item	Nytt objekt
-	New Bin	Ny korg
+	New Bin	Ny bin
 	Find	Sök
 	Automate to Sequence	Automatisera till sekvens
 	Select items to clear	Markera objekt att rensa
@@ -1185,8 +1185,8 @@
 	Descending	Fallande
 	Refresh Project	Uppdatera projekt
 	Reveal Project in Finder…	Visa projekt i Finder…
-	New Bin From Selection	Ny korg från markering
-	New Search Bin	Ny sökkorg
+	New Bin From Selection	Ny bin från markering
+	New Search Bin	Ny sökbin
 	New Project Shortcut	Ny projektgenväg
 	List	Lista
 	Icon	Ikon
@@ -1267,7 +1267,7 @@
 	59.94 fps Non Drop-Frame	59,94 bild/s non-drop-frame
 	ASC CDL	ASC CDL
 	Accessible color contrast	Tillgänglig färgkontrast
-	Action-Safe Margin	Handlingssäker marginal
+	Action-Safe Margin	Marginal för bildsäkert område
 	Active Monitor	Aktiv monitor
 	Add	Addera
 	Add tracks automatically when editing source clips onto the Timeline	Lägg till spår automatiskt när källklipp redigeras in i tidslinjen
@@ -1282,7 +1282,7 @@
 	Aggressive	Aggressiv
 	Align and Transform	Justera och transformera
 	All lines	Alla rader
-	Allow Selection tool to choose Roll and Ripple trims without modifier key	Låt markeringsverktyget välja rullnings- och rippeltrimning utan modifieringstangent
+	Allow Selection tool to choose Roll and Ripple trims without modifier key	Låt markeringsverktyget välja roll- och rippeltrimning utan modifieringstangent
 	Allow current tool to change trim type of previously selected edit point	Låt aktuellt verktyg ändra trimtyp för tidigare markerad redigeringspunkt
 	Allow duplicate media during project import	Tillåt dubblettmedia vid projektimport
 	Alpha Adjust	Alfajustering
@@ -1302,7 +1302,7 @@
 	Amplitude	Amplitud
 	Amplitude and Compression	Amplitud och kompression
 	Analog	Analog
-	Analog Delay	Analog fördröjning
+	Analog Delay	Analog delay
 	Analyze all imported media to search for visuals or audio	Analysera all importerad media för att kunna söka efter bild eller ljud
 	Anamorphic	Anamorfisk
 	Anchor	Ankare
@@ -1373,7 +1373,7 @@
 	Bevel Alpha	Alfafasning
 	Bevel join	Fasad fog
 	Binauralizer - Ambisonics	Binauralizer - Ambisonics
-	Bins	Korgar
+	Bins	Binar
 	Black	Svart
 	Black & White	Svartvitt
 	Black Input Level	Svartnivå in
@@ -1524,7 +1524,7 @@
 	Constant Gain	Konstant förstärkning
 	Constant Power	Konstant effekt
 	Conversion Type	Konverteringstyp
-	Convolution Reverb	Faltningsefterklang
+	Convolution Reverb	Faltningsreverb
 	Cool Blue	Kall blå
 	Cool, desaturated and punchy	Kall, avmättad och slagkraftig
 	Core Width	Kärnbredd
@@ -1577,19 +1577,19 @@
 	Decay	Avklingning
 	Decay Time (RT60)	Avklingningstid (RT60)
 	Default Audio Tracks	Standardljudspår
-	Default Emoji font	Standardteckensnitt för emoji
+	Default Emoji font	Standardtypsnitt för emoji
 	Default Media Scaling	Standardskalning av media
 	Default Output	Standardutgång
-	Default closed caption font	Standardteckensnitt för dold textning
+	Default closed caption font	Standardtypsnitt för dold textning
 	Default language	Standardspråk
 	Default paragraph direction	Standardriktning för stycken
-	Default subtitle and text font	Standardteckensnitt för undertexter och text
-	Delay	Fördröjning
-	Delay 1	Fördröjning 1
-	Delay 2	Fördröjning 2
-	Delay 3	Fördröjning 3
-	Delay 4	Fördröjning 4
-	Delay and Echo	Fördröjning och eko
+	Default subtitle and text font	Standardtypsnitt för undertexter och text
+	Delay	Delay
+	Delay 1	Delay 1
+	Delay 2	Delay 2
+	Delay 3	Delay 3
+	Delay 4	Delay 4
+	Delay and Echo	Delay och eko
 	Delete files older than	Radera filer äldre än
 	Delete oldest files when the cache exceeds	Radera de äldsta filerna när cachen överstiger
 	Delete…	Radera…
@@ -1635,7 +1635,7 @@
 	Double-click	Dubbelklick
 	Draft decoding at reduced playback resolution (H.264: faster, some frames less filtered)	Utkastavkodning vid reducerad uppspelningsupplösning (H.264: snabbare, vissa bildrutor mindre filtrerade)
 	Drive	Drive
-	Drop Shadow	Släppskugga
+	Drop Shadow	Slagskugga
 	Dry	Originalsignal
 	Dry Out	Originalsignal ut
 	Dry Up a Roomy Voice	Torka upp en rumsklingande röst
@@ -1694,11 +1694,11 @@
 	Far Away	Långt bort
 	Fast	Snabb
 	Faster Motion	Snabbare rörelse
-	Feedback	Återkoppling
-	Feedback 1	Återkoppling 1
-	Feedback 2	Återkoppling 2
-	Feedback 3	Återkoppling 3
-	Feedback 4	Återkoppling 4
+	Feedback	Feedback
+	Feedback 1	Feedback 1
+	Feedback 2	Feedback 2
+	Feedback 3	Feedback 3
+	Feedback 4	Feedback 4
 	Feet + Frames 16mm	Fot + bildrutor 16 mm
 	Feet + Frames 35mm	Fot + bildrutor 35 mm
 	Female	Kvinnlig
@@ -1918,13 +1918,13 @@
 	Join Through Edits	Sammanfoga genomgående snitt
 	Ripple Trim In	Rippeltrimma in
 	Ripple Trim Out	Rippeltrimma ut
-	Roll Edit	Rullningsredigering
+	Roll Edit	Roll-redigering
 	Trim In	Trimma in
 	Trim Out	Trimma ut
 	Kaleidoscope	Kalejdoskop
 	Keep a recovery copy of unsaved changes	Behåll en återställningskopia av osparade ändringar
 	Key Color	Nyckelfärg
-	Keying	Nyckling
+	Keying	Keying
 	Korean	Koreanska
 	Label Defaults	Standardetiketter
 	Label speakers	Märk talare
@@ -1932,7 +1932,7 @@
 	Large Hall	Stor sal
 	Large Trim Offset	Stor trimförskjutning
 	Large Volume Adjustment	Stor volymjustering
-	Latch	Håll
+	Latch	Latch
 	Layer Name	Lagernamn
 	Layers	Lager
 	Leave Color	Behåll färg
@@ -1944,7 +1944,7 @@
 	Legacy	Äldre
 	Length	Längd
 	Lens Blur	Linsoskärpa
-	Lens Distortion	Linsdistorsion
+	Lens Distortion	Objektivdistorsion
 	Lens Flare	Linsreflex
 	Lens Type	Objektivtyp
 	Level 1	Nivå 1
@@ -2069,7 +2069,7 @@
 	Minor Radius	Liten radie
 	Mirror	Spegel
 	Mirror Alternate	Spegla växelvis
-	Missing font replacement	Ersättning för saknade teckensnitt
+	Missing font replacement	Ersättning för saknade typsnitt
 	Miter join	Spetsig fog
 	Miter limit	Spetsgräns
 	Mixed Crystals	Blandade kristaller
@@ -2097,7 +2097,7 @@
 	Multiband Compressor	Flerbandskompressor
 	Multichannel Mono Media	Flerkanaliga monomedia
 	Multiply	Multiplicera
-	Multitap Delay	Multitap-fördröjning
+	Multitap Delay	Multitap-delay
 	Music	Musik
 	Mute input during timeline recording	Tysta ingången vid inspelning i tidslinjen
 	Name	Namn
@@ -2108,7 +2108,7 @@
 	Night	Natt
 	No Motion	Ingen rörelse
 	No Scroll	Ingen rullning
-	No plugins are installed. Changes will take effect the next time you start FilmCraft.	Inga plugin-program är installerade. Ändringarna börjar gälla nästa gång du startar FilmCraft.
+	No plugins are installed. Changes will take effect the next time you start FilmCraft.	Inga plugins är installerade. Ändringarna börjar gälla nästa gång du startar FilmCraft.
 	Noise	Brus
 	Noise & Grain	Brus och korn
 	Noise (Legacy)	Brus (äldre)
@@ -2177,7 +2177,7 @@
 	Pause Media Encoder queue during playback	Pausa Media Encoder-kön under uppspelning
 	Peak Frequency	Toppfrekvens
 	Peak Gain	Toppförstärkning
-	Pedestal	Sockel
+	Pedestal	Svartnivå
 	Pentagon	Pentagon
 	Per line	Per rad
 	Percent Blur	Oskärpa i procent
@@ -2203,8 +2203,8 @@
 	Play after rendering previews	Spela upp efter rendering av förhandsgranskningar
 	Play audio while scrubbing in Source and Program Monitors	Spela upp ljud vid skrubbning i käll- och programmonitorn
 	Playback	Uppspelning
-	Playhead position determines trim monitor loop playback	Spelhuvudets position styr loopuppspelningen i trimmonitorn
-	Plugins	Plugin-program
+	Playhead position determines trim monitor loop playback	Spelmarkörens position styr loopuppspelningen i trimmonitorn
+	Plugins	Plugins
 	Podcast Voice	Podcaströst
 	Point 1	Punkt 1
 	Point 1 Color	Färg för punkt 1
@@ -2233,7 +2233,7 @@
 	Position, Scale, Rotation	Position, skala, rotation
 	Posterize	Posterisera
 	Posterize Time	Posterisera tid
-	Pre-Delay	Förfördröjning
+	Pre-Delay	Pre-delay
 	Prefix	Prefix
 	Presence Lift	Närvarolyft
 	Preserve Luminosity	Bevara luminositet
@@ -2310,7 +2310,7 @@
 	Reveal Nested Sequence	Visa kapslad sekvens
 	Reveal Original Image	Visa originalbilden
 	Reveal in Project	Visa i projektet
-	Reverb Amount	Efterklangsmängd
+	Reverb Amount	Reverbmängd
 	Reverse	Omvänd
 	Right - Left	Höger - vänster
 	Right - Right	Höger - höger
@@ -2379,7 +2379,7 @@
 	Shift Center To	Flytta centrum till
 	Shift clips that overlap trim point during ripple trimming	Flytta klipp som överlappar trimpunkten vid rippeltrimning
 	Shot	Bild
-	Show "Project:" and "Bin:" in Project panel tab	Visa "Projekt:" och "Korg:" på projektpanelens flik
+	Show "Project:" and "Bin:" in Project panel tab	Visa "Projekt:" och "Bin:" på projektpanelens flik
 	Show Clip Mismatch Warning dialog	Visa varningsdialog vid klippavvikelse
 	Show Event Indicator	Visa händelseindikator
 	Show Focus Area	Visa fokusområde
@@ -2390,7 +2390,7 @@
 	Show Project Load Error Dialog	Visa dialogruta vid fel vid projektinläsning
 	Show Rich Tool Tips	Visa utförliga verktygstips
 	Show Tool Tips	Visa verktygstips
-	Show Workspace Reset Warning dialog on double click	Visa varning om återställning av arbetsyta vid dubbelklick
+	Show Workspace Reset Warning dialog on double click	Visa varning om återställning av arbetsmiljö vid dubbelklick
 	Show system compatibility issues at startup	Visa systemkompatibilitetsproblem vid start
 	Shrink	Krymp
 	Shutter Angle	Slutarvinkel
@@ -2418,7 +2418,7 @@
 	Smooth Motion	Mjuk rörelse
 	Smooth Scroll	Mjuk rullning
 	Smoothness	Mjukhet
-	Snap playhead in Timeline when Snap is enabled	Fäst spelhuvudet i tidslinjen när fästning är aktiverad
+	Snap playhead in Timeline when Snap is enabled	Fäst spelmarkören i tidslinjen när Fäst är aktiverat
 	Soft	Mjuk
 	Soft Clamp	Mjuk begränsning
 	Soft Edges (Best Quality)	Mjuka kanter (bästa kvalitet)
@@ -2510,7 +2510,7 @@
 	Stroke Width	Konturbredd
 	Stroke line cap	Konturens linjeände
 	Stroke line join	Konturens hörnfog
-	Studio Reverb	Studioefterklang
+	Studio Reverb	Studioreverb
 	Stylize	Stilisera
 	Subclip End	Delklippets slut
 	Subclip Start	Delklippets början
@@ -2521,7 +2521,7 @@
 	Super Narrow	Supersmal
 	Surface Gloss	Ytglans
 	Surface Material	Ytmaterial
-	Surround Reverb	Surroundefterklang
+	Surround Reverb	Surroundreverb
 	Swap	Byt plats
 	Swap Channels	Byt plats på kanaler
 	Swivel	Svängning
@@ -2557,8 +2557,8 @@
 	Top Center	Uppe i mitten
 	Top Left	Uppe till vänster
 	Top Right	Uppe till höger
-	Touch	Beröring
-	Track Matte Key	Spårmattenyckel
+	Touch	Touch
+	Track Matte Key	Track matte-key
 	Transcription	Transkribering
 	Transcription preferences	Inställningar för transkribering
 	Transform	Transformera
@@ -2732,9 +2732,9 @@
 	General…	Allmänt…
 	OMF…	OMF…
 	OpenTimelineIO…	OpenTimelineIO…
-	Save Changes to this Workspace	Spara ändringar i den här arbetsytan
-	Save as New Workspace…	Spara som ny arbetsyta…
-	Create Search Bin	Skapa sökkorg
+	Save Changes to this Workspace	Spara ändringar i den här arbetsmiljön
+	Save as New Workspace…	Spara som ny arbetsmiljö…
+	Create Search Bin	Skapa sökbin
 	Edit Offline File	Redigera offlinefil
 	Source Settings	Källinställningar
 	Update Metadata	Uppdatera metadata
@@ -2782,7 +2782,7 @@
 	Capture Format:	Inspelningsformat:
 	Action and Title Safe Areas	Handlingssäkra och titelsäkra områden
 	Title Safe Area	Titelsäkert område
-	Action Safe Area	Handlingssäkert område
+	Action Safe Area	Bildsäkert område
 	Total Duration	Total längd
 	Average Data Rate	Genomsnittlig datahastighet
 	Colour	Färg
@@ -2813,7 +2813,7 @@
 	Ignore Audio	Ignorera ljud
 	Ignore Video	Ignorera video
 	Apply a cut at each detected cut point	Lägg in ett snitt vid varje identifierad snittpunkt
-	Create a bin of subclips from each detected cut point	Skapa en korg med delklipp från varje identifierad snittpunkt
+	Create a bin of subclips from each detected cut point	Skapa en bin med delklipp från varje identifierad snittpunkt
 	Create a clip marker at each detected cut point	Skapa en klippmarkör vid varje identifierad snittpunkt
 	Sensitivity:	Känslighet:
 	Normalize Mix Track to:	Normalisera mixspår till:
@@ -2842,7 +2842,7 @@
 	Match {n} of {total}	Träff {n} av {total}
 	Saved template {path}	Sparade mallen {path}
 	Scene Edit Detection: analysing in the background (see Progress)	Identifiering av scensnitt: analyserar i bakgrunden (se Förlopp)
-	Delete Search Bin	Radera sökkorg
+	Delete Search Bin	Radera sökbin
 	 (removed from {list})	 (borttaget från {list})
 	{key} can't be used as a shortcut	{key} kan inte användas som kortkommando
 	Keyboard Shortcuts	Kortkommandon
@@ -2976,8 +2976,8 @@
 	Drag an edge to change the clip's speed so it fills the new duration.	Dra en kant för att ändra klippets hastighet så att det fyller den nya längden.
 	Drag the edge of a music clip to remix it to the new duration at musically matching beats.	Dra kanten på ett musikklipp för att remixa det till den nya längden vid musikaliskt matchande taktslag.
 	Click to split a clip. Shift-click to split all tracks.	Klicka för att dela ett klipp. Shift-klicka för att dela alla spår.
-	Drag a clip to slip its source in/out without moving it.	Dra ett klipp för att förskjuta dess käll-in/ut utan att flytta det.
-	Drag a clip to slide it between its neighbours.	Dra ett klipp för att låta det glida mellan grannklippen.
+	Drag a clip to slip its source in/out without moving it.	Dra ett klipp för att slip-trimma dess käll-in/ut utan att flytta det.
+	Drag a clip to slide it between its neighbours.	Dra ett klipp för att slide-flytta det mellan grannklippen.
 	Drag to scroll the timeline.	Dra för att rulla tidslinjen.
 	Click to zoom in; Opt-click to zoom out.	Klicka för att zooma in; Opt-klicka för att zooma ut.
 	FilmCraft hit an error	FilmCraft stötte på ett fel
@@ -2986,7 +2986,7 @@
 	(empty)	(tom)
 	Step Back 1 Frame	Stega bakåt 1 bildruta
 	Step Forward 1 Frame	Stega framåt 1 bildruta
-	Match Playhead	Matcha spelhuvud
+	Match Playhead	Matcha spelmarkör
 	Gang to Program	Koppla till programmonitorn
 	AAC Audio	AAC-ljud
 	AAC Audio 48 kHz 320 kbps	AAC-ljud 48 kHz 320 kbps
@@ -3043,7 +3043,7 @@
 	Clear Edit Point Selection	Rensa markering av redigeringspunkter
 	Clear Finished Exports	Rensa slutförda exporter
 	Clear Poster Frame	Rensa affischbild
-	Close Bin	Stäng korg
+	Close Bin	Stäng bin
 	Close Sequence	Stäng sekvens
 	Contains	Innehåller
 	Cut to Camera 1	Klipp till kamera 1
@@ -3081,9 +3081,9 @@
 	Entire Source	Hela källan
 	EssentialSound	Grundläggande ljud
 	Export Frame	Exportera bildruta
-	Extend Next Edit To Playhead	Förläng nästa snitt till spelhuvudet
-	Extend Previous Edit To Playhead	Förläng föregående snitt till spelhuvudet
-	Extend Selected Edit to Playhead	Förläng markerat snitt till spelhuvudet
+	Extend Next Edit To Playhead	Förläng nästa snitt till spelmarkören
+	Extend Previous Edit To Playhead	Förläng föregående snitt till spelmarkören
+	Extend Selected Edit to Playhead	Förläng markerat snitt till spelmarkören
 	Extend Selection Down	Utöka markering nedåt
 	Extend Selection Left	Utöka markering åt vänster
 	Extend Selection Right	Utöka markering åt höger
@@ -3177,24 +3177,24 @@
 	Navigate to Start of Segment	Gå till början av segmentet
 	Navigation	Navigering
 	Next Multi-Camera Page	Nästa flerkamerasida
-	Nudge Clip Selection Down	Knuffa klippmarkering nedåt
-	Nudge Clip Selection Left Five Frames	Knuffa klippmarkering fem bildrutor åt vänster
-	Nudge Clip Selection Left One Frame	Knuffa klippmarkering en bildruta åt vänster
-	Nudge Clip Selection Right Five Frames	Knuffa klippmarkering fem bildrutor åt höger
-	Nudge Clip Selection Right One Frame	Knuffa klippmarkering en bildruta åt höger
-	Nudge Clip Selection Up	Knuffa klippmarkering uppåt
-	Nudge Selected Object down by five	Knuffa markerat objekt fem steg nedåt
-	Nudge Selected Object down by one	Knuffa markerat objekt ett steg nedåt
-	Nudge Selected Object to left by five	Knuffa markerat objekt fem steg åt vänster
-	Nudge Selected Object to left by one	Knuffa markerat objekt ett steg åt vänster
-	Nudge Selected Object to right by five	Knuffa markerat objekt fem steg åt höger
-	Nudge Selected Object to right by one	Knuffa markerat objekt ett steg åt höger
-	Nudge Selected Object up by five	Knuffa markerat objekt fem steg uppåt
-	Nudge Selected Object up by one	Knuffa markerat objekt ett steg uppåt
-	Nudge Volume +1dB	Knuffa volym +1dB
-	Nudge Volume +3dB	Knuffa volym +3dB
-	Nudge Volume -1dB	Knuffa volym -1dB
-	Nudge Volume -3dB	Knuffa volym -3dB
+	Nudge Clip Selection Down	Flytta klippmarkeringen stegvis nedåt
+	Nudge Clip Selection Left Five Frames	Flytta klippmarkeringen fem bildrutor åt vänster
+	Nudge Clip Selection Left One Frame	Flytta klippmarkeringen en bildruta åt vänster
+	Nudge Clip Selection Right Five Frames	Flytta klippmarkeringen fem bildrutor åt höger
+	Nudge Clip Selection Right One Frame	Flytta klippmarkeringen en bildruta åt höger
+	Nudge Clip Selection Up	Flytta klippmarkeringen stegvis uppåt
+	Nudge Selected Object down by five	Flytta markerat objekt fem steg nedåt
+	Nudge Selected Object down by one	Flytta markerat objekt ett steg nedåt
+	Nudge Selected Object to left by five	Flytta markerat objekt fem steg åt vänster
+	Nudge Selected Object to left by one	Flytta markerat objekt ett steg åt vänster
+	Nudge Selected Object to right by five	Flytta markerat objekt fem steg åt höger
+	Nudge Selected Object to right by one	Flytta markerat objekt ett steg åt höger
+	Nudge Selected Object up by five	Flytta markerat objekt fem steg uppåt
+	Nudge Selected Object up by one	Flytta markerat objekt ett steg uppåt
+	Nudge Volume +1dB	Höj volymen 1 dB
+	Nudge Volume +3dB	Höj volymen 3 dB
+	Nudge Volume -1dB	Sänk volymen 1 dB
+	Nudge Volume -3dB	Sänk volymen 3 dB
 	Numbered BMP stills (24-bit)	Numrerade BMP-stillbilder (24 bitar)
 	JPEG	JPEG
 	Targa	Targa
@@ -3212,7 +3212,7 @@
 	Numbered TIFF stills (RGB, 8-bit)	Numrerade TIFF-stillbilder (RGB, 8 bitar)
 	Opacity 0 → 100 % over the first second	Opacitet 0 → 100 % under första sekunden
 	Opacity 100 → 0 % over the last second	Opacitet 100 → 0 % under sista sekunden
-	Open Bin	Öppna korg
+	Open Bin	Öppna bin
 	Open Search	Öppna sökning
 	PNG	PNG
 	PNG Sequence	PNG-sekvens
@@ -3222,7 +3222,7 @@
 	Picture-in-picture: 35 % scale in the upper right	Bild-i-bild: 35 % skala uppe till höger
 	Play Around	Spela runt
 	Play In to Out with Preroll/Postroll	Spela från in till ut med förrullning/efterrullning
-	Play from Playhead to Out Point	Spela från spelhuvudet till ut-punkten
+	Play from Playhead to Out Point	Spela från spelmarkören till ut-punkten
 	Play/Stop	Spela/stoppa
 	Previous Multi-Camera Page	Föregående flerkamerasida
 	Progressive	Progressiv
@@ -3247,9 +3247,9 @@
 	Remix Tool	Remixverktyg
 	Right align text	Högerjustera text
 	Ripple Edit Tool	Rippelredigeringsverktyg
-	Ripple Trim Next Edit to Playhead	Rippeltrimma nästa snitt till spelhuvudet
-	Ripple Trim Previous Edit to Playhead	Rippeltrimma föregående snitt till spelhuvudet
-	Rolling Edit Tool	Rullningsverktyg
+	Ripple Trim Next Edit to Playhead	Rippeltrimma nästa snitt till spelmarkören
+	Ripple Trim Previous Edit to Playhead	Rippeltrimma föregående snitt till spelmarkören
+	Rolling Edit Tool	Roll-verktyg
 	Select Camera 1	Välj kamera 1
 	Select Camera 2	Välj kamera 2
 	Select Camera 3	Välj kamera 3
@@ -3259,7 +3259,7 @@
 	Select Camera 7	Välj kamera 7
 	Select Camera 8	Välj kamera 8
 	Select Camera 9	Välj kamera 9
-	Select Clip at Playhead	Markera klipp vid spelhuvudet
+	Select Clip at Playhead	Markera klipp vid spelmarkören
 	Select Find Box	Markera sökrutan
 	Select Next Clip	Markera nästa klipp
 	Select Next Panel	Markera nästa panel
@@ -3284,16 +3284,16 @@
 	Shuttle Slow Left	Shuttla långsamt vänster
 	Shuttle Slow Right	Shuttla långsamt höger
 	Shuttle Stop	Stoppa shuttling
-	Slide Clip Selection Left Five Frames	Glid klippmarkering fem bildrutor åt vänster
-	Slide Clip Selection Left One Frame	Glid klippmarkering en bildruta åt vänster
-	Slide Clip Selection Right Five Frames	Glid klippmarkering fem bildrutor åt höger
-	Slide Clip Selection Right One Frame	Glid klippmarkering en bildruta åt höger
-	Slide Tool	Glidverktyg
-	Slip Clip Selection Left Five Frames	Förskjut klippmarkering fem bildrutor åt vänster
-	Slip Clip Selection Left One Frame	Förskjut klippmarkering en bildruta åt vänster
-	Slip Clip Selection Right Five Frames	Förskjut klippmarkering fem bildrutor åt höger
-	Slip Clip Selection Right One Frame	Förskjut klippmarkering en bildruta åt höger
-	Slip Tool	Förskjutningsverktyg
+	Slide Clip Selection Left Five Frames	Slide-flytta klippmarkeringen fem bildrutor åt vänster
+	Slide Clip Selection Left One Frame	Slide-flytta klippmarkeringen en bildruta åt vänster
+	Slide Clip Selection Right Five Frames	Slide-flytta klippmarkeringen fem bildrutor åt höger
+	Slide Clip Selection Right One Frame	Slide-flytta klippmarkeringen en bildruta åt höger
+	Slide Tool	Slide-verktyg
+	Slip Clip Selection Left Five Frames	Slip-flytta klippmarkeringen fem bildrutor åt vänster
+	Slip Clip Selection Left One Frame	Slip-flytta klippmarkeringen en bildruta åt vänster
+	Slip Clip Selection Right Five Frames	Slip-flytta klippmarkeringen fem bildrutor åt höger
+	Slip Clip Selection Right One Frame	Slip-flytta klippmarkeringen en bildruta åt höger
+	Slip Tool	Slip-verktyg
 	Social Vertical 1080×1920	Sociala medier, stående 1080×1920
 	Soft Vignette	Mjuk vinjett
 	Source In/Out	Källans in/ut
@@ -3346,8 +3346,8 @@
 	Track Select Backward Tool	Verktyg för spårmarkering bakåt
 	Track Select Forward Tool	Verktyg för spårmarkering framåt
 	Track Selected Mask	Spåra markerad mask
-	Trim Next Edit to Playhead	Trimma nästa snitt till spelhuvudet
-	Trim Previous Edit to Playhead	Trimma föregående snitt till spelhuvudet
+	Trim Next Edit to Playhead	Trimma nästa snitt till spelmarkören
+	Trim Previous Edit to Playhead	Trimma föregående snitt till spelmarkören
 	Trimming	Trimning
 	Type Tool	Textverktyg
 	Unstack Clips	Ta isär staplade klipp
@@ -3442,9 +3442,9 @@
 	out	ut
 	in	in
 	The language changed but could not be saved: {e}	Språket ändrades men kunde inte sparas: {e}
-	no Chinese font is installed on this system; the interface stays in English	inget kinesiskt teckensnitt är installerat på systemet; gränssnittet förblir på engelska
-	no Korean font is installed on this system; the interface stays in English	inget koreanskt teckensnitt är installerat på systemet; gränssnittet förblir på engelska
-	no Japanese font is installed on this system; the interface stays in English	inget japanskt teckensnitt är installerat på systemet; gränssnittet förblir på engelska
+	no Chinese font is installed on this system; the interface stays in English	inget kinesiskt typsnitt är installerat på systemet; gränssnittet förblir på engelska
+	no Korean font is installed on this system; the interface stays in English	inget koreanskt typsnitt är installerat på systemet; gränssnittet förblir på engelska
+	no Japanese font is installed on this system; the interface stays in English	inget japanskt typsnitt är installerat på systemet; gränssnittet förblir på engelska
 	Show	Visa
 	Sort	Sortera
 	Reverse the order	Vänd på ordningen
@@ -3605,3 +3605,9 @@
 	Shows the version, community links and credits in a FilmCraft window.	Visar version, communitylänkar och medverkande i ett FilmCraft-fönster.
 	Couldn't open your web browser	Det gick inte att öppna webbläsaren
 	Open this address in your browser yourself:	Öppna den här adressen i webbläsaren själv:
+	Animate zoom, scrolling and menus	Animera zoom, rullning och menyer
+	Reset Interface Zoom	Återställ gränssnittszoom
+	Track Color	Spårfärg
+	Open a sequence to search its graphics	Öppna en sekvens för att söka i dess grafik
+	No text graphics in this sequence. Add text with the Type tool.	Det finns ingen textgrafik i den här sekvensen. Lägg till text med textverktyget.
+	No matching text.	Ingen text matchar.

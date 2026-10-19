@@ -1329,7 +1329,7 @@ mod tests {
             ("Gaussian Blur", "Gaussisk oskärpa"),
             ("Audio Track Mixer", "Ljudspårsmixer"),
             ("Sequence", "Sekvens"),
-            ("Playhead", "Spelhuvud"),
+            ("Playhead", "Spelmarkör"),
         ] {
             assert_eq!(Language::Sv.tr(en), sv);
         }
