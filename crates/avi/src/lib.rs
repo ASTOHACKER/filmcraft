@@ -294,7 +294,7 @@ pub fn open_with<S: ByteSource + ?Sized>(src: &S, opts: OpenOptions) -> Result<A
         read_idx1(src, &mut streams, at, size, first.0);
         // idx1 only covers the first RIFF: the AVIX extensions are scanned
         for &(_, from, to) in movis.iter().skip(1) {
-            scan(src, &mut streams, from, to, 0);
+            scan(src, &mut streams, &|_| true, from, to, 0);
         }
         if streams.iter().all(|s| s.chunks.is_empty()) {
             scan_all(src, &mut streams, &movis)
@@ -308,24 +308,17 @@ pub fn open_with<S: ByteSource + ?Sized>(src: &S, opts: OpenOptions) -> Result<A
     Ok(AviFile { header, streams, index })
 }
 
-/// A stream the index left without a single chunk while others have theirs (its entries damaged
-/// or missing) gets its chunks from a scan of the `movi` lists, as a file without an index does;
-/// its key frames are then unknown. The indexed streams keep their tables, and a stream that has
-/// no data at all stays empty.
+/// A stream that declares data (`length`) but that the index left without a single chunk while
+/// others have theirs (its entries damaged or missing) gets its chunks from a scan of the first
+/// `movi` list, as a file without an index does (the extensions were scanned already); its key
+/// frames are then unknown. The indexed streams keep their tables, and a stream that declares no
+/// data is not looked for.
 fn scan_missing<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], movis: &[(u64, u64, u64)]) {
-    if !streams.iter().any(|s| s.chunks.is_empty()) {
-        return;
-    }
-    let indexed: Vec<Vec<Chunk>> = streams.iter_mut().map(|s| std::mem::take(&mut s.chunks)).collect();
-    for &(_, from, to) in movis {
-        scan(src, streams, from, to, 0);
-    }
-    for (s, chunks) in streams.iter_mut().zip(indexed) {
-        if chunks.is_empty() {
-            s.keyframes_known = false;
-        } else {
-            s.chunks = chunks;
-        }
+    let missing: Vec<bool> = streams.iter().map(|s| s.chunks.is_empty() && s.length > 0).collect();
+    let (true, Some(&(_, from, to))) = (missing.contains(&true), movis.first()) else { return };
+    scan(src, streams, &|n| missing.get(n) == Some(&true), from, to, 0);
+    for (s, _) in streams.iter_mut().zip(&missing).filter(|(_, m)| **m) {
+        s.keyframes_known = false;
     }
 }
 
@@ -339,7 +332,7 @@ fn clear(streams: &mut [Stream]) {
 fn scan_all<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], movis: &[(u64, u64, u64)]) -> IndexSource {
     clear(streams);
     for &(_, from, to) in movis {
-        scan(src, streams, from, to, 0);
+        scan(src, streams, &|_| true, from, to, 0);
     }
     for s in streams.iter_mut() {
         s.keyframes_known = false;
@@ -538,22 +531,23 @@ fn read_idx1<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], at: u64, s
     }
 }
 
-/// Append the data chunks of a `movi` list (`[from, to)`) to the streams' tables, in file order.
-fn scan<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], from: u64, to: u64, depth: u32) {
+/// Append the data chunks of a `movi` list (`[from, to)`) to the tables of the streams `want`
+/// picks, in file order.
+fn scan<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], want: &dyn Fn(usize) -> bool, from: u64, to: u64, depth: u32) {
     if depth >= MAX_DEPTH {
         return;
     }
     for (id, size, data) in children(src, from, to) {
         if id == *b"LIST" {
             if size >= 4 {
-                scan(src, streams, data + 4, data + size, depth + 1);
+                scan(src, streams, want, data + 4, data + size, depth + 1);
             }
             continue;
         }
         if &id[..2] == b"ix" || &id[2..] == b"pc" {
             continue;
         }
-        if let Some(s) = Stream::number(&id).and_then(|n| streams.get_mut(n)) {
+        if let Some(s) = Stream::number(&id).filter(|&n| want(n)).and_then(|n| streams.get_mut(n)) {
             s.chunks.push(Chunk { offset: data, size: u32::try_from(size).unwrap_or(u32::MAX), key: true });
         }
     }

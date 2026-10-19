@@ -23,6 +23,8 @@ fn strl(video: bool) -> Vec<u8> {
     let (scale, rate, ss) = if video { (1u32, 25u32, 0u32) } else { (4, 192_000, 4) };
     strh[20..24].copy_from_slice(&scale.to_le_bytes());
     strh[24..28].copy_from_slice(&rate.to_le_bytes());
+    // declared length: 3 frames, 6 audio blocks
+    strh[32..36].copy_from_slice(&(if video { 3u32 } else { 6 }).to_le_bytes());
     strh[44..48].copy_from_slice(&ss.to_le_bytes());
     let strf = if video {
         let mut b = vec![0u8; 40];
@@ -175,6 +177,41 @@ fn a_stream_whose_index_entries_are_damaged_is_scanned() {
     let f = open(&silent).unwrap();
     assert!(f.streams[0].chunks.is_empty());
     assert_eq!(table(&f, 1), vec![(16, true), (8, true)]);
+}
+
+/// A healthy file whose index leaves a stream empty because it declares no data (an audio track
+/// that never recorded a sample) opens from the index alone: the stream is not looked for in
+/// `movi`, which a large file would pay for with a read per chunk.
+#[test]
+fn an_empty_stream_that_declares_no_data_is_not_scanned() {
+    struct Counted<'a>(&'a [u8], std::cell::Cell<usize>);
+    impl ByteSource for Counted<'_> {
+        fn len(&self) -> u64 {
+            self.0.len() as u64
+        }
+        fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<()> {
+            self.1.set(self.1.get() + 1);
+            self.0.read_at(offset, buf)
+        }
+    }
+    let open_counted = |file: &[u8]| {
+        let src = Counted(file, Default::default());
+        (open(&src).unwrap(), src.1.get())
+    };
+    let intact = avi(true, false, false);
+    // the audio's index entries gone and its length zero; its chunks stay where a scan would find them
+    let mut file = intact.clone();
+    let ix = file.windows(4).rposition(|w| w == b"idx1").unwrap() + 8;
+    for e in file[ix..].as_chunks_mut::<16>().0.iter_mut().filter(|e| &e[..4] == b"01wb") {
+        e[..4].copy_from_slice(b"JUNK");
+    }
+    let strh = file.windows(4).enumerate().filter(|(_, w)| w == b"strh").nth(1).unwrap().0 + 8;
+    file[strh + 32..strh + 36].fill(0);
+    let (f, reads) = open_counted(&file);
+    assert_eq!(f.index, IndexSource::Idx1);
+    assert_eq!(table(&f, 0), vec![(10, true), (6, false), (7, true)]);
+    assert!(f.streams[1].chunks.is_empty() && f.streams[1].keyframes_known);
+    assert_eq!(reads, open_counted(&intact).1);
 }
 
 /// Every single-byte change and every truncation of a valid file opens or fails, never panics, and
