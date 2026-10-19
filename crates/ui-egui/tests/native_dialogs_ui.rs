@@ -302,3 +302,21 @@ fn a_late_save_answer_finishes_the_newest_prompt_and_only_for_its_project() {
     d.frames(5);
     assert!(!path.exists(), "the other project was not saved under the old project's file");
 }
+
+/// Save on the quit prompt while another file dialog is already open: no Save dialog can be shown,
+/// so the prompt stays (with the reason) instead of disappearing.
+#[test]
+fn quit_save_keeps_the_prompt_when_no_dialog_can_open() {
+    let mut d = Driver::new(true);
+    d.app().session.path = None;
+    d.ok("engine.execute", json!({"command": "file.newBin", "params": {"name": "Unsaved"}}));
+    // another dialog, still open
+    d.ok("ui.menu.invoke", json!({"id": "file.open"}));
+    let _pending = d.asked();
+    d.harness.input_mut().viewports.entry(egui::ViewportId::ROOT).or_default().events.push(egui::ViewportEvent::Close);
+    d.frames(3);
+    d.click("quit.save");
+    assert_eq!(d.app().ui.clip_dialog.as_ref().map(|c| c.command.clone()).as_deref(), Some("app.quit"), "the prompt stays");
+    assert!(!d.app().ui.status.is_empty(), "with the reason");
+    assert!(d.asked.lock().unwrap().is_empty(), "no second dialog");
+}

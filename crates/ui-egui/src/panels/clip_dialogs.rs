@@ -653,8 +653,10 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 }
                 r
             });
+            // no dialog shown (another one is open): the prompt stays, with the reason
             if let Err(e) = r {
                 app.ui.status = e;
+                app.ui.clip_dialog = Some(d);
             }
             return;
         }
