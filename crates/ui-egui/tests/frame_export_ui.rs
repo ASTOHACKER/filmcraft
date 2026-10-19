@@ -309,7 +309,8 @@ fn a_failed_export_shows_its_error_in_the_dialog() {
     step(&mut h);
     assert!(!has(&h, "exportFrame.error"));
     let folder = h.state().auto.elements.iter().find(|e| e.id == "exportFrame.path").map(|e| e.label.clone()).unwrap();
-    assert_ne!(folder, ".", "a new project's stills go to a real folder");
+    // a new project's stills go to the home folder (`.` only without one)
+    assert_eq!(folder, h.state().session.services.home_dir().unwrap_or_else(|| ".".to_owned()));
     click(&mut h, "exportFrame.browse");
     click(&mut h, "exportFrame.export");
     assert!(has(&h, "exportFrame.name"), "the dialog stays open");
