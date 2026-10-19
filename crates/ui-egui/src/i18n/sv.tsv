@@ -7,7 +7,7 @@
 #   lines starting with # and blank lines are ignored.
 #
 # Clean-room: every entry was written from the plain meaning of the English text using ordinary
-# Swedish video-editing vocabulary (spår, spelhuvud, sekvens, korg, snitt, nyckelbildruta,
+# Swedish video-editing vocabulary (spår, spelmarkör, sekvens, bin, snitt, nyckelbildruta,
 # undertext, rendera…). No proprietary localisation resource, string table or product UI was
 # consulted or copied, and no other FilmCraft catalog was translated from; add entries the same
 # way. Product, technology and format names (FilmCraft, ArtCraft, Lumetri, ProRes, LUFS, H.264…)
@@ -2268,7 +2268,7 @@
 	Ray Length	Strållängd
 	Rays	Strålar
 	Rays Only	Endast strålar
-	Read	Läs
+	Read	Read
 	Rec. 2100	Rec. 2100
 	Rec. 601	Rec. 601
 	Rec. 709	Rec. 709
@@ -2699,7 +2699,7 @@
 	Wipe Angle	Ridåvinkel
 	Wonder Glow	Magisk glöd
 	Wrap Back	Slå runt
-	Write	Skriv
+	Write	Write
 	Write XMP ID to files on import	Skriv XMP-ID till filer vid import
 	Write clip markers to XMP	Skriv klippmarkörer till XMP
 	Write-on	Framskrivning
