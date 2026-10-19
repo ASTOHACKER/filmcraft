@@ -1731,6 +1731,9 @@ impl FilmcraftApp {
             ctx.request_repaint_after(std::time::Duration::from_secs(1));
         }
         self.sync_pool();
+        // a frame server rebuilt by sync_pool (another project opened) gets its wake-up now: no
+        // poll asks for the next frame, so its finished frames would wait for the mouse (#2438 review)
+        self.frames.set_context(&ctx);
         self.apply_prefs(&ctx);
         #[cfg(not(target_arch = "wasm32"))]
         self.tick_media_refresh(&ctx);
@@ -2138,14 +2141,16 @@ impl eframe::App for FilmcraftApp {
     }
 }
 
-/// Effective sample rate for shuttle playback. The audio device still runs at `device_rate`,
-/// so at 2x its output samples represent twice the timeline duration. Reverse and
-/// Whether the project has online file media (what the growing-files refresh watches).
+/// Whether the project has online file media (what the growing-files refresh watches). It can
+/// say yes for a file `media_files` leaves out (a stored path the pool won't follow): then a scan
+/// just finds nothing to watch.
 fn has_file_media(p: &filmcraft_project::Project) -> bool {
     use filmcraft_project::{ItemKind, MediaRef};
     p.items.values().any(|i| matches!(&i.kind, ItemKind::Media(m) if !m.offline && matches!(m.media, MediaRef::File { .. })))
 }
 
+/// Effective sample rate for shuttle playback. The audio device still runs at `device_rate`,
+/// so at 2x its output samples represent twice the timeline duration. Reverse and
 /// extreme shuttle speeds remain silent rather than asking the mixer for invalid rates.
 fn shuttle_mix_rate(device_rate: u32, speed: f64) -> Option<u32> {
     if device_rate == 0 || !speed.is_finite() || !(0.5..=4.0).contains(&speed) {
@@ -2862,8 +2867,8 @@ mod media_watch_tests {
         assert!(super::has_file_media(&s.project) && agrees(&s), "{r}");
         let item = r["items"][0].as_u64().unwrap();
         s.execute("project.select", json!({"items": [item]})).unwrap();
-        let _ = s.execute("media.makeOffline", json!({"items": [item]}));
-        assert!(agrees(&s));
+        s.execute("media.makeOffline", json!({"items": [item]})).unwrap();
+        assert!(!super::has_file_media(&s.project) && agrees(&s), "a made-offline file is not watched");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -212,3 +212,17 @@ fn queued_frames_do_not_poll_the_ui() {
     });
     assert!(idle, "the UI kept repainting while frames were queued");
 }
+
+/// #2438 review: when another project's media pool replaces the session's, the frame server is
+/// rebuilt in the middle of a frame; it must be able to wake the UI at once, since nothing polls
+/// for its queued frames any more.
+#[test]
+fn a_rebuilt_frame_server_wakes_the_ui_from_its_first_frame() {
+    let mut d = Driver::demo();
+    let before = d.harness.state().frames.clone();
+    d.harness.state_mut().session.media = std::sync::Arc::new(filmcraft_engine::media_pool::MediaPool::default());
+    d.harness.step();
+    let after = d.harness.state().frames.clone();
+    assert!(!std::sync::Arc::ptr_eq(&before, &after), "the frame server was rebuilt");
+    assert!(after.wakes_ui(), "its finished frames wake the UI");
+}
