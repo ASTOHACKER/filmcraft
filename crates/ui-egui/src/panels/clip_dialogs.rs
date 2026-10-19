@@ -623,10 +623,22 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
             // of its answer, not of this frame (#2211); a cancelled dialog shows the prompt again.
             app.ui.clip_dialog = None;
             let (prompt, ctx2) = (d.clone(), ctx.clone());
+            // the project the dialog saves (not one opened, created or closed to meanwhile)
+            let project = app.session.project_generation;
             let name = format!("{}.fcproj", app.session.project.name);
             let r = app.pick(crate::native_dialogs::FileDialog::SaveProject { name }, move |app, paths| {
+                if app.session.project_generation != project {
+                    return Ok(Value::Null);
+                }
+                // a newer prompt (Quit asked while Close Project's dialog was open) is the one to
+                // finish or to show again
+                let newer = matches!(app.ui.clip_dialog.as_ref().map(|c| c.command.as_str()), Some("app.quit" | "file.closeProject"));
+                let prompt = if newer { app.ui.clip_dialog.take().unwrap_or(prompt) } else { prompt };
                 let Some(path) = paths.into_iter().next() else {
-                    app.ui.clip_dialog = Some(prompt);
+                    // cancelled: the prompt again, unless another dialog is open now
+                    if app.ui.clip_dialog.is_none() {
+                        app.ui.clip_dialog = Some(prompt);
+                    }
                     return Ok(Value::Null);
                 };
                 let r = app.session.execute("file.saveAs", json!({"path": path})).map_err(|e| e.to_string());

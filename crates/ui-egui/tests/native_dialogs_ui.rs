@@ -263,3 +263,42 @@ fn quit_save_waits_for_a_save_dialog_answered_later() {
     assert!(path.exists());
     let _ = std::fs::remove_file(&path);
 }
+
+/// While Close Project ▸ Save's dialog is open the window is asked to close: once a file is picked
+/// the project is saved and the app quits (the newer Quit prompt is the one finished). And an
+/// answer that arrives after another project was opened saves nothing.
+#[test]
+fn a_late_save_answer_finishes_the_newest_prompt_and_only_for_its_project() {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("native-dialogs-late");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("late.fcproj");
+    let _ = std::fs::remove_file(&path);
+    let mut d = Driver::new(true);
+    d.app().session.path = None;
+    d.ok("engine.execute", json!({"command": "file.newBin", "params": {"name": "Unsaved"}}));
+    d.ok("ui.menu.invoke", json!({"id": "file.closeProject"}));
+    d.frames(2);
+    d.click("closeProject.save");
+    let (_, answer) = d.asked();
+    // Quit while the Save dialog is open
+    d.harness.input_mut().viewports.entry(egui::ViewportId::ROOT).or_default().events.push(egui::ViewportEvent::Close);
+    d.frames(3);
+    assert_eq!(d.app().ui.clip_dialog.as_ref().map(|c| c.command.clone()).as_deref(), Some("app.quit"));
+    answer.send(vec![path.to_string_lossy().into_owned()]).unwrap();
+    d.frames(5);
+    assert!(path.exists() && d.app().quit_confirmed, "saved, then quit (not just closed)");
+    let _ = std::fs::remove_file(&path);
+
+    // a project opened while the dialog is open: the late answer saves nothing
+    let mut d = Driver::new(true);
+    d.app().session.path = None;
+    d.ok("engine.execute", json!({"command": "file.newBin", "params": {"name": "Unsaved"}}));
+    d.ok("ui.menu.invoke", json!({"id": "file.closeProject"}));
+    d.frames(2);
+    d.click("closeProject.save");
+    let (_, answer) = d.asked();
+    d.ok("engine.execute", json!({"command": "file.newProject", "params": {"force": true}}));
+    answer.send(vec![path.to_string_lossy().into_owned()]).unwrap();
+    d.frames(5);
+    assert!(!path.exists(), "the other project was not saved under the old project's file");
+}
