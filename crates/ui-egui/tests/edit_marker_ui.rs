@@ -132,3 +132,42 @@ fn edit_marker_dialog_edits_a_marker_in_one_undo_step() {
     assert!(d.app().ui.marker_dialog.is_none(), "Escape closes it");
     assert_eq!(marker(&mut d), before, "Escape changes nothing");
 }
+
+/// #2470 review: OK used to send the duration as the dialog showed it, in whole frames, so renaming
+/// a marker whose duration is part of a frame changed its length (or made a range marker a point).
+#[test]
+fn renaming_a_marker_leaves_a_duration_it_cannot_show_exactly() {
+    let mut d = Driver::demo();
+    d.exec("markers.clearAll", json!({}));
+    let frame = d.app().session.sequence_rate().tick_of(1).0;
+    let id = d.exec("markers.addRange", json!({"frame": 30, "duration": frame / 2}))["marker"].as_u64().unwrap();
+    let duration = |d: &mut Driver| d.app().session.active_sequence().unwrap().markers.iter().find(|m| m.id.0 == id).unwrap().duration;
+    let before = duration(&mut d);
+    assert!(before.0 > 0 && before.0 < frame);
+    d.ok("ui.panel.show", json!({"panel": "Markers"}));
+    d.frames(3);
+    d.ok("ui.click", json!({"id": format!("markers.row.{id}"), "button": "right"}));
+    d.frames(2);
+    d.click("markers.menu.edit");
+    d.click("markerDialog.name");
+    d.ok("ui.type", json!({"text": "Renamed"}));
+    d.click("markerDialog.ok");
+    assert!(d.app().ui.marker_dialog.is_none());
+    let m = d.app().session.active_sequence().unwrap().markers.iter().find(|m| m.id.0 == id).unwrap().clone();
+    assert_eq!((m.name.as_str(), m.duration), ("Renamed", before), "the name changes, the duration stays");
+}
+
+/// #2470 review: a dialog left open while another project opens closes instead of editing a marker
+/// of that project that happens to have the same id.
+#[test]
+fn the_dialog_closes_when_another_project_opens() {
+    let mut d = Driver::demo();
+    let id = d.exec("markers.add", json!({"frame": 30}))["marker"].as_u64().unwrap();
+    d.ok("ui.click", json!({"id": format!("timeline.marker.{id}"), "button": "right"}));
+    d.frames(3);
+    d.click("timeline.markerMenu.edit");
+    assert!(d.app().ui.marker_dialog.is_some());
+    d.app().session.path = Some("/elsewhere/other.fcproj".into());
+    d.frames(2);
+    assert!(d.app().ui.marker_dialog.is_none(), "another project: the dialog closes");
+}

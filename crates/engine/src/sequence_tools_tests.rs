@@ -547,6 +547,28 @@ fn edit_marker_sets_every_field_in_one_undo_step_and_rejects_hostile_values() {
 }
 
 #[test]
+fn edit_marker_holds_source_markers_to_the_same_rules() {
+    // #2470 review: a Source marker's edit went around the `kind` and duration checks
+    let (mut s, bars) = fresh();
+    s.execute("source.open", json!({"item": bars})).unwrap();
+    let id = s.execute("markers.add", json!({"target": "source", "frame": 10})).unwrap()["marker"].as_u64().unwrap();
+    let before = s.project.to_json();
+    for p in [
+        json!({"target": "source", "marker": id, "kind": 42, "name": "x"}),
+        json!({"target": "source", "marker": id, "kind": "nope"}),
+        json!({"target": "source", "marker": id, "durationFrames": 10_000_001}),
+        json!({"target": "program", "marker": id, "kind": 42, "name": "x"}),
+    ] {
+        assert!(s.execute("markers.edit", p.clone()).is_err(), "{p} must be rejected");
+        assert_eq!(s.project.to_json(), before, "{p} must leave the project unchanged");
+    }
+    s.execute("markers.edit", json!({"target": "source", "marker": id, "kind": "chapter", "durationFrames": null})).unwrap();
+    let item = s.project.item(ItemId(bars)).unwrap();
+    let m = item.as_media().unwrap().markers.iter().find(|m| m.id.0 == id).unwrap();
+    assert_eq!(m.kind, MarkerKind::Chapter);
+}
+
+#[test]
 fn ripple_sequence_markers_follow_ripple_edits() {
     let mut s = demo();
     s.execute("markers.clearAll", json!({})).unwrap();

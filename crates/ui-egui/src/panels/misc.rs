@@ -91,10 +91,13 @@ const MARKER_KINDS: [(filmcraft_project::MarkerKind, &str, &str); 5] = {
 
 /// Opens the Edit Marker dialog on a marker of the active sequence (#2416).
 pub(crate) fn open_marker_dialog(app: &mut FilmcraftApp, marker: &filmcraft_project::Marker) {
-    let Some(seq) = app.session.active_sequence() else { return };
+    let (Some(seq), Some(sequence)) = (app.session.active_sequence(), app.session.state.active_sequence) else { return };
     let duration = format_time(marker.duration, seq.settings.frame_rate, seq.settings.drop_frame, TimeDisplay::Timecode, 48000);
     let kind = MARKER_KINDS.iter().find(|k| k.0 == marker.kind).map_or("comment", |k| k.1);
     app.ui.marker_dialog = Some(crate::state::MarkerDraft {
+        sequence: sequence.0,
+        project: project_identity(app),
+        duration0: duration.clone(),
         marker: marker.id.0,
         name: marker.name.clone(),
         comment: marker.comment.clone(),
@@ -102,6 +105,11 @@ pub(crate) fn open_marker_dialog(app: &mut FilmcraftApp, marker: &filmcraft_proj
         color: marker.color.name().into(),
         kind: kind.into(),
     });
+}
+
+/// What tells the open project from another for the Edit Marker dialog: its file, else its name.
+fn project_identity(app: &FilmcraftApp) -> String {
+    app.session.path.clone().unwrap_or_else(|| format!("unsaved:{}", app.session.project.name))
 }
 
 /// "Edit Marker…" in a marker's right-click menu (automation id `<prefix>.edit`).
@@ -122,7 +130,9 @@ pub(crate) fn marker_edit_item(app: &mut FilmcraftApp, ui: &mut egui::Ui, marker
 /// `markerDialog.color.<label>`, `markerDialog.kind.<kind>`, `markerDialog.ok`, `markerDialog.cancel`.
 pub(crate) fn marker_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.marker_dialog.clone() else { return };
-    let Some(seq) = app.session.active_sequence() else {
+    // another project or sequence: the marker id may name another marker there
+    let same_place = app.session.state.active_sequence.map(|s| s.0) == Some(d.sequence) && project_identity(app) == d.project;
+    let Some(seq) = app.session.active_sequence().filter(|_| same_place) else {
         app.ui.marker_dialog = None;
         return;
     };
@@ -210,10 +220,15 @@ pub(crate) fn marker_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
         keep = false;
     }
     if ok {
-        match parse_timecode(&d.duration, rate, drop_frame, 0) {
+        let mut p = serde_json::json!({"target": "program", "marker": d.marker, "name": d.name, "comment": d.comment, "color": d.color, "kind": d.kind});
+        // the duration only when it was edited: the field shows whole frames, and a marker's
+        // duration need not be (#2470 review)
+        let duration = if d.duration.trim() == d.duration0.trim() { Ok(None) } else { parse_timecode(&d.duration, rate, drop_frame, 0).map(Some) };
+        match duration {
             Ok(frames) => {
-                let p = serde_json::json!({"target": "program", "marker": d.marker, "name": d.name, "comment": d.comment,
-                    "color": d.color, "durationFrames": frames, "kind": d.kind});
+                if let Some(f) = frames {
+                    p["durationFrames"] = serde_json::json!(f);
+                }
                 match app.session.execute("markers.edit", p) {
                     Ok(_) => keep = false,
                     Err(e) => app.ui.status = e.to_string(),

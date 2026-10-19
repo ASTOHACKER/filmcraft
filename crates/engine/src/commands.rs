@@ -185,6 +185,29 @@ pub(crate) fn named_items(s: &Session, spec: &CommandSpec, p: &Value) -> Option<
 /// The longest marker `markers.edit` takes, in frames (over 46 hours at 60 fps).
 const MAX_MARKER_FRAMES: i64 = 10_000_000;
 
+/// `markers.edit`'s `durationFrames`: absent or null is `None`; anything but a whole number from 0
+/// to [`MAX_MARKER_FRAMES`] is an error.
+fn marker_frames_p(p: &Value) -> Result<Option<i64>> {
+    match p.get("durationFrames").filter(|v| !v.is_null()) {
+        None => Ok(None),
+        Some(v) => match v.as_i64() {
+            Some(f @ 0..=MAX_MARKER_FRAMES) => Ok(Some(f)),
+            _ => Err(bad("markers.edit", "`durationFrames` must be a whole number from 0 to 10000000")),
+        },
+    }
+}
+
+/// `markers.edit`'s `kind`: absent or null is `None`; anything but one of the kind names is an
+/// error.
+pub(crate) fn marker_kind_p(p: &Value) -> Result<Option<MarkerKind>> {
+    match p.get("kind").filter(|v| !v.is_null()) {
+        None => Ok(None),
+        Some(v) => {
+            v.as_str().and_then(marker_kind).map(Some).ok_or_else(|| bad("markers.edit", "`kind` must be comment, chapter, segmentation, webLink or flashCue"))
+        }
+    }
+}
+
 /// A marker type by its `markers.edit` name.
 fn marker_kind(name: &str) -> Option<MarkerKind> {
     Some(match name {
@@ -2484,23 +2507,15 @@ fn build() -> Vec<CommandSpec> {
             r#"{"target":"program|source","marker":id,"name":str?,"comment":str?,"color":label?,"durationFrames":i64?,"kind":"comment|chapter|segmentation|webLink|flashCue"?}"#,
             always,
             |s, p| {
+                // checked before routing, so Source markers are held to the same limits
+                let frames = marker_frames_p(p)?;
+                let kind = marker_kind_p(p)?;
                 if let Some(v) = crate::source_monitor::route(s, "markers.edit", p)? {
                     return Ok(v);
                 }
                 let id = u64_p(p, "marker").map(MarkerId).ok_or_else(|| bad("markers.edit", "need `marker`"))?;
                 let rate = s.sequence_rate();
                 let color = marker_color_p(p, "markers.edit")?;
-                let frames = match p.get("durationFrames").filter(|v| !v.is_null()) {
-                    None => None,
-                    Some(v) => match v.as_i64() {
-                        Some(f @ 0..=MAX_MARKER_FRAMES) => Some(f),
-                        _ => return Err(bad("markers.edit", "`durationFrames` must be a whole number from 0 to 10000000")),
-                    },
-                };
-                let kind = match str_p(p, "kind") {
-                    None => None,
-                    Some(k) => Some(marker_kind(k).ok_or_else(|| bad("markers.edit", "`kind` must be comment, chapter, segmentation, webLink or flashCue"))?),
-                };
                 let p = p.clone();
                 s.edit_sequence("Edit Marker", |q, _, _| {
                     let m = q.markers.iter_mut().find(|m| m.id == id).ok_or_else(|| bad("markers.edit", "no such marker"))?;
