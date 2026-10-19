@@ -994,6 +994,9 @@ fn slipping_by_the_most_negative_delta_clamps_instead_of_overflowing() {
         s.execute("timeline.slip", params).unwrap();
         // both stop at the start of the media, together
         assert_eq!((clip(&s, v).source_in, clip(&s, a).source_in), (Tick::ZERO, Tick::ZERO));
+        // back off the start, so a case that slipped nothing could not pass on the previous one's result
+        s.execute("timeline.slip", json!({"clip": v, "deltaFrames": 20})).unwrap();
+        assert_eq!((clip(&s, v).source_in, clip(&s, a).source_in), (Tick(fr.0 * 20), Tick(fr.0 * 20)));
     }
     s.execute("timeline.slip", json!({"clip": v, "delta": i64::MAX})).unwrap();
     assert_eq!((clip(&s, v).source_in, clip(&s, a).source_in), (Tick(fr.0 * 40), Tick(fr.0 * 40)), "and at its end the other way");
