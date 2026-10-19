@@ -1892,18 +1892,24 @@ fn build() -> Vec<CommandSpec> {
         }),
         // ================= Clip =================
         cmd!("clip.rename", "Rename…", ["Clip"], None, r#"{"clip":id?,"clips":[id]?,"item":id?,"name":str}"#, always, |s, p| {
-            let name = str_p(p, "name").ok_or_else(|| bad("clip.rename", "need `name`"))?.to_string();
+            // a blank name is refused, as the Project panel's inline rename keeps the old one
+            let name = str_p(p, "name").map(str::trim).filter(|n| !n.is_empty()).ok_or_else(|| bad("clip.rename", "need a non-empty `name`"))?.to_string();
             let item = item_p(p, "item");
             // `clips` renames them all (a linked picture and sound, as Clip ▸ Rename… does)
             let clips: Vec<ClipId> = match p.get("clips").and_then(Value::as_array) {
                 Some(a) => a.iter().filter_map(|v| v.as_u64().map(ClipId)).collect(),
                 None => clip_p(p, "clip").or_else(|| s.state.selection.first().copied()).into_iter().collect(),
             };
+            // nothing to rename is refused before the edit, so no empty undo step is recorded
+            if item.is_none() && clips.is_empty() {
+                return Err(bad("clip.rename", "need a clip or an item"));
+            }
             let seq = s.state.active_sequence;
             s.edit("Rename", |pr, _| {
                 if let Some(i) = item {
                     pr.item_mut(i).ok_or_else(|| bad("clip.rename", "no such item"))?.name = name;
-                } else if let Some(q) = seq.and_then(|q| pr.sequence_mut(q)) {
+                } else {
+                    let q = seq.and_then(|q| pr.sequence_mut(q)).ok_or_else(|| bad("clip.rename", "no active sequence"))?;
                     for c in &clips {
                         q.find_item_mut(*c).ok_or_else(|| bad("clip.rename", "no such clip"))?.1.name = name.clone();
                     }

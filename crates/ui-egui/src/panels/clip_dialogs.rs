@@ -123,7 +123,7 @@ pub fn route(app: &mut FilmcraftApp, id: &str, params: &Value) -> Option<Result<
     }
     meta(id)?;
     if id == "clip.rename" && rename_target(app).is_none() {
-        let e = "select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename".to_string();
+        let e = tl!("Select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename").to_string();
         app.ui.status = e.clone();
         return Some(Err(e));
     }

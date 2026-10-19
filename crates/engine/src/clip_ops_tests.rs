@@ -1175,4 +1175,10 @@ fn rename_takes_several_clips() {
     assert_eq!(s.history.undo.len(), undo + 1);
     assert!(s.execute("clip.rename", json!({"clips": [ids[0], 999_999], "name": "x"})).is_err(), "an unknown clip renames nothing");
     assert_eq!(clip(&s, ids[0]).name, "Both");
+    // nothing to rename and a blank name are refused without an undo step
+    let undo = s.history.undo.len();
+    assert!(s.execute("clip.rename", json!({"clips": [], "name": "x"})).is_err());
+    assert!(s.execute("clip.rename", json!({"clips": ids, "name": "  "})).is_err());
+    assert_eq!(s.history.undo.len(), undo);
+    assert_eq!(clip(&s, ids[0]).name, "Both");
 }
