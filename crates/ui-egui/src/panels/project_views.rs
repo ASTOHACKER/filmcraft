@@ -264,7 +264,7 @@ fn item_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, id: ItemId, kind: &ItemK
         ui.close();
     }
     let b = ui.button(tl!("Interpret Footage…"));
-    app.auto.add("project.itemMenu.interpretFootage", b.rect, "Interpret Footage…");
+    app.auto.add("project.itemMenu.interpretFootage", b.rect, tl!("Interpret Footage…"));
     if b.clicked() {
         let items = interpret_targets(&app.session.state.project_selection, id);
         actions.push(("clip.interpretFootage".into(), json!({"items": items.iter().map(|i| i.0).collect::<Vec<_>>()})));
