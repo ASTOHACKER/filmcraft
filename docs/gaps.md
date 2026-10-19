@@ -231,24 +231,29 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
   (audio-only `.m4a`, or ADTS `.aac`; #814); ProRes 4444 / 4444 XQ in the export UI (#342).
 - **Estimate:** 60–110 h. Doc: [file-format-parity.md](file-format-parity.md).
 
-## G14. Localization: 3 of the 12 key languages missing
+## G14. Localization: 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese)
 
 - **Have:** Spanish, Japanese, Simplified Chinese, French (#498, #804), Portuguese (Brazil) (#859,
-  #866), Indonesian (#867, #878), Korean (#508) and Italian catalogs cover 99.1–99.9% of the 3,576 cataloged strings
-  (measured 2026-10-12 from `crates/ui-egui/src/i18n/*.tsv`: distinct context + source pairs);
-  German (#630, 374 strings), Russian (#610, 352) and Ukrainian (352) are menus only (~10% each).
+  #866), Indonesian (#867, #878), Korean (#508), Italian and German (#630) catalogs cover
+  98.9–100% of the 3,597 cataloged strings (measured 2026-10-12 on the merged tree from
+  `crates/ui-egui/src/i18n/*.tsv`: distinct context + source pairs with a translation);
+  Russian (#610, 355 strings) and Ukrainian (355) are menus only (~10% each).
 - **Missing:** Hindi, Arabic (no RTL interface layout or catalog; the interface has Arabic and Hebrew
   fallback fonts and shows captions in reading order, but other names and fields keep egui's
   left-to-right run order; Arabic titles reported broken, #395),
-  Vietnamese (no catalog on main); German
-  beyond menus (#490); Premiere also ships Russian beyond menus. Engine errors,
-  CLI and MCP stay English. No language has a recorded native-speaker review.
-- **Done:** Indonesian (#867): `id.tsv` covers 3,544 of 3,576 strings (99.1%), in Edit ▸
+  Vietnamese (no catalog on main). These three are the languages with no catalog at all, which
+  is what the heading counts. Russian and Ukrainian are menus only (#610). Engine errors,
+  CLI and MCP stay English. Apart from the German menus (#630), no language has a recorded
+  native-speaker review.
+- **Done:** Indonesian (#867): `id.tsv` covers 3,559 of 3,597 strings (98.9%), in Edit ▸
   Language, Settings ▸ General and the native macOS menu; System Language picks it for `id-*` (and
   legacy `in-*`) locales. Native-speaker review welcome.
 - **Done:** Italian: `it.tsv` has every entry of the Spanish catalog (~100%), in Edit ▸ Language,
   Settings ▸ General and the native macOS menu; System Language picks it for `it-*` locales.
   Native-speaker review welcome.
+- **Done:** German: `de.tsv` has every entry of the Spanish catalog (~100%), beyond the menus of
+  #630 (panels, dialogs, effects and their parameters, settings, status messages). The menus are
+  native-reviewed; review of the rest welcome.
 - **Estimate:** 150–230 h. Doc: [localization-parity.md](localization-parity.md).
 
 ## G15. Interchange never validated in Avid / Pro Tools; slow XML import
@@ -315,7 +320,7 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | G14: heading and summary row now say 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese; German menus only; Korean and Italian merged from upstream); catalog counts re-measured on main (union 3,576 strings); other entries untouched (see #1412) |
+| 2026-10-12 | minor | G14: heading and summary row now say 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese have no catalog; Korean, Italian and German are full; Russian and Ukrainian menus only); catalog counts re-measured on the merged tree (union 3,597 strings); other entries untouched (see #1412) |
 | 2026-10-10 | major | Created from ROADMAP.md's "Where we are lacking" (2026-10-05); re-ranked against Premiere 26.5.2 and the 188 open issues; added `.prproj`, 10-bit / 4:2:2 camera decode, launch crashes and missing PR CI, localization, delivery formats |
 | 2026-10-12 | minor | G10: MP1 (`A_MPEG/L1`) in Matroska imports (#1402) |
 | 2026-10-12 | minor | G10: OpenEXR PXR24 import |
