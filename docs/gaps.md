@@ -235,8 +235,7 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 ## G14. Localization: 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese)
 
 - **Have:** Spanish, Japanese, Simplified Chinese, French (#498) and Portuguese (Brazil) (#859)
-  catalogs cover ~99.6–100% of the ~3,500 cataloged strings; German (#630), Russian (#610) and
-  Ukrainian ~10% each (menus only).
+  catalogs cover ~99.6–100% of the ~3,500 cataloged strings; Ukrainian ~10% (menus).
 - **Missing:** Hindi, Arabic (no RTL interface layout or catalog; the interface has Arabic and Hebrew
   fallback fonts and shows captions in reading order, but other names and fields keep egui's
   left-to-right run order; Arabic titles reported broken, #395),
@@ -320,7 +319,7 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Removed shipped items: AVI import (#598), FLAC in MP4 (#603), multicam paging, deselect on empty space (#683), Project marquee (#578), image-sequence downloads in Chrome (#378), slow interchange import (#461); German and Russian menus listed |
+| 2026-10-12 | minor | Removed shipped items: AVI import (#598), FLAC in MP4 (#603), multicam paging, deselect on empty space (#683), Project marquee (#578), image-sequence downloads in Chrome (#378), slow interchange import (#461) |
 | 2026-10-10 | major | Created from ROADMAP.md's "Where we are lacking" (2026-10-05); re-ranked against Premiere 26.5.2 and the 188 open issues; added `.prproj`, 10-bit / 4:2:2 camera decode, launch crashes and missing PR CI, localization, delivery formats |
 | 2026-10-12 | minor | G10: MP1 (`A_MPEG/L1`) in Matroska imports (#1402) |
 | 2026-10-12 | minor | G10: OpenEXR PXR24 import |
