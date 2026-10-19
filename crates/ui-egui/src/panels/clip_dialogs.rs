@@ -645,7 +645,11 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 match &r {
                     Ok(_) if !app.session.is_dirty() => leave(app, &ctx2, &prompt.command),
                     Ok(_) => app.ui.clip_dialog = Some(prompt),
-                    Err(e) => app.ui.status = e.clone(),
+                    // the save failed: the prompt stays, with the reason in the status bar
+                    Err(e) => {
+                        app.ui.status = e.clone();
+                        app.ui.clip_dialog = Some(prompt);
+                    }
                 }
                 r
             });

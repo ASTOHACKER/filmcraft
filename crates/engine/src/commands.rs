@@ -1155,6 +1155,7 @@ fn build() -> Vec<CommandSpec> {
         cmd!("file.openDemoProject", "Demo Project", ["File", "New"], None, "{}", always, |s, _| {
             let (p, seq) = crate::demo::demo_project(&s.media);
             s.project = std::sync::Arc::new(p);
+            s.project_generation += 1;
             s.history = Default::default();
             s.history.limit = 200;
             s.state = crate::Session::default().state;
