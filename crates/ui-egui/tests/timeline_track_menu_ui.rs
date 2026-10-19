@@ -123,3 +123,21 @@ fn the_empty_part_of_the_header_column_offers_the_dialogs() {
     d.frames(3);
     assert!(d.harness.state().dialog.is_some(), "the dialog opens");
 }
+
+/// A right-click on one of the header's buttons opens the same menu, and the button keeps its state.
+#[test]
+fn a_right_click_on_a_header_button_opens_the_menu() {
+    let mut d = Driver::demo();
+    let before = serde_json::to_value(d.harness.state().session.active_sequence().unwrap().video_tracks[0].clone()).unwrap();
+    for (label, button) in [("V1", "sourcePatch"), ("V1", "locked"), ("V1", "target"), ("V1", "syncLock"), ("V1", "enabled"), ("A1", "muted"), ("A1", "solo")] {
+        let r = rect(&mut d, &format!("timeline.track.{label}.{button}"));
+        d.ok("ui.click", json!({"x": r[0] + r[2] / 2.0, "y": r[1] + r[3] / 2.0, "button": "right"}));
+        assert!(has(&mut d, &format!("timeline.track.{label}.menu.addTrack")), "a right-click on {button} opens the menu");
+        d.ok("ui.key", json!({"key": "Escape"}));
+        d.frames(2);
+        assert!(!has(&mut d, &format!("timeline.track.{label}.menu.addTrack")), "Escape closes it");
+    }
+    let q = d.harness.state().session.active_sequence().unwrap();
+    assert_eq!(serde_json::to_value(q.video_tracks[0].clone()).unwrap(), before, "no button toggled");
+    assert!(!q.audio_tracks[0].muted && !q.audio_tracks[0].solo);
+}
