@@ -268,7 +268,7 @@ const SEI_WINDOW: usize = 2048;
 
 /// Whether an H.264 SEI NAL (`nal` is the NAL header byte and the payload, as in the stream)
 /// holds a recovery point message (payloadType 6, H.264 D.1.7) with recovery_frame_cnt 0.
-fn sei_has_recovery_point(nal: &[u8]) -> bool {
+pub fn sei_has_recovery_point(nal: &[u8]) -> bool {
     // undo emulation prevention so that payload sizes are in RBSP bytes
     let mut b = Vec::with_capacity(nal.len());
     let mut zeros = 0;
