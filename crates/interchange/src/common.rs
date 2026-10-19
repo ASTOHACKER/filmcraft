@@ -534,6 +534,11 @@ pub(crate) fn settings_for(rate: FrameRate, width: u32, height: u32, drop_frame:
 }
 
 /// Source time advanced by a timeline duration at `speed` (exact for integral speeds).
+///
+/// This is the one place the importers multiply a `Tick` by a number from a file: `Tick` has no
+/// `Mul`, and its `Add`/`Sub` saturate, so every other sum of durations already clamps. It saturates
+/// at the `i64` bounds like those operators do (not at `Tick::MAX`, which the editing code uses as
+/// its "no next item" sentinel).
 pub(crate) fn scaled(d: Tick, speed: f64) -> Tick {
     let s = speed.abs();
     // saturating: a duration read from a file times a speed from the same file can exceed an i64 of ticks
