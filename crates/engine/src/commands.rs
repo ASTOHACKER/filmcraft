@@ -1897,12 +1897,21 @@ fn build() -> Vec<CommandSpec> {
             let item = item_p(p, "item");
             // `clips` renames them all (a linked picture and sound, as Clip ▸ Rename… does)
             let clips: Vec<ClipId> = match p.get("clips").and_then(Value::as_array) {
-                Some(a) => a.iter().filter_map(|v| v.as_u64().map(ClipId)).collect(),
+                // an explicit list is renamed as a whole: one entry that is not a clip id refuses it
+                Some(a) => a.iter().map(|v| v.as_u64().map(ClipId)).collect::<Option<_>>().ok_or_else(|| bad("clip.rename", "`clips` must be clip ids"))?,
                 None => clip_p(p, "clip").or_else(|| s.state.selection.first().copied()).into_iter().collect(),
             };
             // nothing to rename is refused before the edit, so no empty undo step is recorded
             if item.is_none() && clips.is_empty() {
                 return Err(bad("clip.rename", "need a clip or an item"));
+            }
+            // OK on an unchanged name records no undo step and leaves the project unmodified
+            let unchanged = match item {
+                Some(i) => s.project.item(i).is_some_and(|it| it.name == name),
+                None => s.active_sequence().is_some_and(|q| clips.iter().all(|c| q.find_item(*c).is_some_and(|(_, it)| it.name == name))),
+            };
+            if unchanged {
+                return Ok(Value::Null);
             }
             let seq = s.state.active_sequence;
             s.edit("Rename", |pr, _| {

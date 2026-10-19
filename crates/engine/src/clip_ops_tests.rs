@@ -1179,6 +1179,10 @@ fn rename_takes_several_clips() {
     let undo = s.history.undo.len();
     assert!(s.execute("clip.rename", json!({"clips": [], "name": "x"})).is_err());
     assert!(s.execute("clip.rename", json!({"clips": ids, "name": "  "})).is_err());
-    assert_eq!(s.history.undo.len(), undo);
+    // a list with one entry that is not an id renames nothing
+    assert!(s.execute("clip.rename", json!({"clips": [ids[0], "x"], "name": "y"})).is_err());
     assert_eq!(clip(&s, ids[0]).name, "Both");
+    // the same name again changes nothing and records nothing
+    s.execute("clip.rename", json!({"clips": ids, "name": "Both"})).unwrap();
+    assert_eq!(s.history.undo.len(), undo);
 }
