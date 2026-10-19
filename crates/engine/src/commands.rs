@@ -182,6 +182,21 @@ pub(crate) fn named_items(s: &Session, spec: &CommandSpec, p: &Value) -> Option<
 
 // ---------- param helpers ----------
 
+/// The longest marker `markers.edit` takes, in frames (over 46 hours at 60 fps).
+const MAX_MARKER_FRAMES: i64 = 10_000_000;
+
+/// A marker type by its `markers.edit` name.
+fn marker_kind(name: &str) -> Option<MarkerKind> {
+    Some(match name {
+        "comment" => MarkerKind::Comment,
+        "chapter" => MarkerKind::Chapter,
+        "segmentation" => MarkerKind::Segmentation,
+        "webLink" => MarkerKind::WebLink,
+        "flashCue" => MarkerKind::FlashCue,
+        _ => return None,
+    })
+}
+
 pub(crate) fn bad(cmd: &str, msg: impl Into<String>) -> EngineError {
     EngineError::BadParams { cmd: cmd.into(), msg: msg.into() }
 }
@@ -2466,7 +2481,7 @@ fn build() -> Vec<CommandSpec> {
             "Edit Marker…",
             [],
             None,
-            r#"{"target":"program|source","marker":id,"name":str?,"comment":str?,"color":label?,"durationFrames":i64?}"#,
+            r#"{"target":"program|source","marker":id,"name":str?,"comment":str?,"color":label?,"durationFrames":i64?,"kind":"comment|chapter|segmentation|webLink|flashCue"?}"#,
             always,
             |s, p| {
                 if let Some(v) = crate::source_monitor::route(s, "markers.edit", p)? {
@@ -2475,6 +2490,17 @@ fn build() -> Vec<CommandSpec> {
                 let id = u64_p(p, "marker").map(MarkerId).ok_or_else(|| bad("markers.edit", "need `marker`"))?;
                 let rate = s.sequence_rate();
                 let color = marker_color_p(p, "markers.edit")?;
+                let frames = match p.get("durationFrames").filter(|v| !v.is_null()) {
+                    None => None,
+                    Some(v) => match v.as_i64() {
+                        Some(f @ 0..=MAX_MARKER_FRAMES) => Some(f),
+                        _ => return Err(bad("markers.edit", "`durationFrames` must be a whole number from 0 to 10000000")),
+                    },
+                };
+                let kind = match str_p(p, "kind") {
+                    None => None,
+                    Some(k) => Some(marker_kind(k).ok_or_else(|| bad("markers.edit", "`kind` must be comment, chapter, segmentation, webLink or flashCue"))?),
+                };
                 let p = p.clone();
                 s.edit_sequence("Edit Marker", |q, _, _| {
                     let m = q.markers.iter_mut().find(|m| m.id == id).ok_or_else(|| bad("markers.edit", "no such marker"))?;
@@ -2487,8 +2513,11 @@ fn build() -> Vec<CommandSpec> {
                     if let Some(c) = color {
                         m.color = c;
                     }
-                    if let Some(f) = p.get("durationFrames").and_then(Value::as_i64) {
+                    if let Some(f) = frames {
                         m.duration = rate.tick_of(f);
+                    }
+                    if let Some(k) = kind {
+                        m.kind = k;
                     }
                     Ok(())
                 })?;

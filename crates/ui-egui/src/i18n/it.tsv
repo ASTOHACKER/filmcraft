@@ -3601,3 +3601,14 @@
 	Shows the version, community links and credits in a FilmCraft window.	Mostra la versione, i link della community e i riconoscimenti in una finestra di FilmCraft.
 	Couldn't open your web browser	Impossibile aprire il browser web
 	Open this address in your browser yourself:	Apri tu questo indirizzo nel browser:
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	Modifica marcatore…
+	In:	Attacco:
+	Marker Color:	Colore marcatore:
+	Options:	Opzioni:
+	Comment Marker	Marcatore commento
+	Chapter Marker	Marcatore capitolo
+	Segmentation Marker	Marcatore segmentazione
+	Web Link	Collegamento web
+	Flash Cue Point	Punto Flash Cue
+	Invalid duration: {error}	Durata non valida: {error}

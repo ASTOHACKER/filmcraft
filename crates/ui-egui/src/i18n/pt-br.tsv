@@ -3578,3 +3578,14 @@
 
 # The native macOS application menu (Settings…).
 	Settings	Preferências
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	Editar marcador…
+	In:	Entrada:
+	Marker Color:	Cor do marcador:
+	Options:	Opções:
+	Comment Marker	Marcador de comentário
+	Chapter Marker	Marcador de capítulo
+	Segmentation Marker	Marcador de segmentação
+	Web Link	Link da Web
+	Flash Cue Point	Ponto de referência Flash
+	Invalid duration: {error}	Duração inválida: {error}
