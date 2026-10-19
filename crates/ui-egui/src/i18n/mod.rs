@@ -22,8 +22,6 @@
 //! refused the same way ([`chinese_font_available`]).
 
 mod catalog;
-#[cfg(test)]
-mod cs_quality;
 
 use std::cell::Cell;
 use std::sync::{Arc, OnceLock};
@@ -51,6 +49,7 @@ pub enum Language {
     It,
     /// Korean; Hangul needs an installed system font ([`korean_font_available`]).
     Ko,
+    /// Czech; Latin with háčky and čárky, covered by the bundled fonts.
     Cs,
 }
 

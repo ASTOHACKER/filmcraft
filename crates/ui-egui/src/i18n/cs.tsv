@@ -263,9 +263,9 @@
 	Remix	Remix
 	Remix Properties…	Vlastnosti remixu…
 	Remove Attributes…	Odebrat atributy…
-	Remove Filler Words	Odstranit výplňová slova
-	Remove Pauses	Odstranit pauzy
-	Remove Unused	Odstranit nepoužité
+	Remove Filler Words	Odebrat výplňová slova
+	Remove Pauses	Odebrat pauzy
+	Remove Unused	Odebrat nepoužité
 	Rename…	Přejmenovat…
 	Render Audio	Vykreslit zvuk
 	Render Effects In to Out	Vykreslit efekty mezi vstupním a výstupním bodem
@@ -444,7 +444,7 @@
 	The project had not been saved yet.	Projekt ještě nebyl uložen.
 	{n} sessions have unsaved changes:	Počet relací s neuloženými změnami: {n}
 	Discard	Zahodit
-	Recover	Obnovit neuložené změny
+	Recover	Obnovit
 	Not Now	Teď ne
 	Are you sure you want to discard your changes to '{file}'?	Opravdu chcete zahodit změny v souboru „{file}“?
 	Yes	Ano
@@ -585,7 +585,7 @@
 	Transcribe	Přepsat do textu
 	Extract selected text	Vyjmout vybraný text s posunem
 	Lift selected text	Zvednout vybraný text
-	Remove filler words	Odstranit výplňová slova
+	Remove filler words	Odebrat výplňová slova
 	Create captions	Vytvořit titulky
 	Speaker	Mluvčí
 	Box	Rámeček
@@ -975,7 +975,7 @@
 	Last auto-save {a} · last recovery copy {j}	Poslední automatické uložení {a} · poslední kopie pro obnovení {j}
 	Last auto-save {a}	Poslední automatické uložení {a}
 	Last recovery copy {j}	Poslední kopie pro obnovení {j}
-	Remove Media Cache Files	Odstranit soubory mezipaměti médií
+	Remove Media Cache Files	Vyčistit mezipaměť médií
 	Deleted {n} file(s), {size}.	Odstraněné soubory: {n}, velikost: {size}.
 	Reset…	Obnovit výchozí…
 	Source · {name}	Zdroj · {name}
@@ -3416,7 +3416,7 @@
 	Title Size	Velikost titulku
 	Title – Boxed	Titulek – v rámečku
 	Title – Centered	Titulek – na střed
-	Titles	Titulky
+	Titles	Grafické titulky
 	Select an item to preview it	Vyberte položku pro zobrazení náhledu
 	End Credits	Závěrečné titulky
 	End Credits – Roll	Závěrečné titulky – rolování

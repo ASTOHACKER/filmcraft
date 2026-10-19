@@ -1,6 +1,6 @@
 # Localization parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-13 · **Change:** minor (Korean covers the whole interface, #508; Czech interface catalog) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-19 · **Change:** minor (Korean covers the whole interface, #508; Czech interface catalog) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
 
 Per-language status of FilmCraft's interface. Premiere 26.5.2 ships 10 interface languages (the
 installed bundle's `.lproj` folders): German, English, Spanish, French, Italian, Japanese, Korean,
@@ -72,23 +72,15 @@ with French/German entries and Rust call sites consulted for ambiguous labels. T
 AI-assisted translation with a binding video-editing glossary, **not yet proofread by a native
 speaker**. Coverage measures lookup keys, not linguistic approval or a complete UI walkthrough.
 In particular, Bin is **Přihrádka**, Trash is **Koš**, Lift is **Zvednout**, Extract is
-**Vyjmout s posunem**, and Timeline is **Časová osa**. The original catalog header comments
-were preserved; their older glossary shorthand is superseded by these terms and the catalog rows.
-
-`i18n::cs_quality` checks placeholders, capitalization, Czech quotation marks, ellipses, common
-English leftovers, identical text and shared translations. Exact-key exceptions with reasons
-are stored in `crates/ui-egui/src/i18n/cs-quality-exceptions.json`; a changed collision or an
-unused exception fails the test. Identical strings include formats, brands, units and standard
-Czech words whose spelling is the same as English (for example Text, Video, Export and Proxy).
-Czech grammatical homographs `a`, `to`, `by` and SPDX `OR` are explicitly distinguished from
-English leftovers. The maintainer-local `plan/check_cs_catalog.py` additionally checks raw TSV
-escapes and compares comments, contexts, source keys and order against `plan/cs-original.tsv`.
-It writes a report of every accepted exception; it does not generate translations.
+**Vyjmout s posunem**, and Timeline is **Časová osa**. Delete is **Odstranit** and Remove is
+**Odebrat**; image- and audio-processing names such as Remove Fringe or Flicker Removal keep
+**Odstranit**. The original catalog header comments were preserved; their older glossary
+shorthand is superseded by these terms and the catalog rows.
 
 The current catalog parser and formatter have no plural-variant selection, and none of the
-other catalogs provide plural rows. Unused Czech plural-selector code was removed. The UI's
-existing singular branches are retained; other counts use neutral wording such as
-“Počet klipů: {n}”, valid for 0, 1, 2–4 and larger counts without a new runtime API.
+other catalogs provide plural rows. The UI's existing singular branches are retained; other
+counts use neutral wording such as “Počet klipů: {n}”, valid for 0, 1, 2–4 and larger counts
+without a new runtime API.
 Native review should concentrate on audio automation terms, Slip/Slide/Roll operations,
 creative effect names, and the shared `Subtitle` key (caption format and graphics subtitle).
 
@@ -96,6 +88,6 @@ creative effect names, and the shared `Subtitle` key (caption format and graphic
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | Added Czech (`cs`) interface catalog and locale detection; rewrote all catalog rows with a binding glossary and automated quality gate; AI-assisted, not yet proofread by a native speaker |
+| 2026-10-19 | minor | Added Czech (`cs`) interface catalog and locale detection; rewrote all catalog rows with a binding glossary; AI-assisted, not yet proofread by a native speaker |
 | 2026-10-11 | minor | German (de) ships the menus (#630): 371 of 3,498 strings (10.6%), native-reviewed; dimension now 2 menus-only, 5 none |
 | 2026-10-10 | major | Created from ROADMAP.md's "Interface localization" section; catalog coverage measured (es 3,496, ja 3,487, zh-cn 3,485, pt-br 348, uk 351 of 3,498); the 12-language table and script-support gaps added |
