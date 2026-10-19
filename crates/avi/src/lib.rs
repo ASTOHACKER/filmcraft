@@ -292,14 +292,14 @@ pub fn open_with<S: ByteSource + ?Sized>(src: &S, opts: OpenOptions) -> Result<A
     } else if let (false, Some((at, size)), Some(first)) = (opts.ignore_idx1, idx1, movis.first()) {
         clear(&mut streams);
         read_idx1(src, &mut streams, at, size, first.0);
-        // idx1 only covers the first RIFF: the AVIX extensions are scanned
-        for &(_, from, to) in movis.iter().skip(1) {
-            scan(src, &mut streams, &|_| true, from, to, 0);
-        }
         if streams.iter().all(|s| s.chunks.is_empty()) {
             scan_all(src, &mut streams, &movis)
         } else {
-            scan_missing(src, &mut streams, &movis);
+            scan_missing(src, &mut streams, first);
+            // idx1 only covers the first RIFF: the AVIX extensions are scanned
+            for &(_, from, to) in movis.iter().skip(1) {
+                scan(src, &mut streams, &|_| true, from, to, 0);
+            }
             IndexSource::Idx1
         }
     } else {
@@ -308,14 +308,16 @@ pub fn open_with<S: ByteSource + ?Sized>(src: &S, opts: OpenOptions) -> Result<A
     Ok(AviFile { header, streams, index })
 }
 
-/// A stream that declares data (`length`) but that the index left without a single chunk while
+/// A stream that declares data (`length`) but that `idx1` left without a single chunk while
 /// others have theirs (its entries damaged or missing) gets its chunks from a scan of the first
-/// `movi` list, as a file without an index does (the extensions were scanned already); its key
-/// frames are then unknown. The indexed streams keep their tables, and a stream that declares no
-/// data is not looked for.
-fn scan_missing<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], movis: &[(u64, u64, u64)]) {
+/// `movi` list (the one `idx1` covers), as a file without an index does, before the AVIX
+/// extensions add theirs; its key frames are then unknown. The indexed streams keep their
+/// tables, and a stream that declares no data is not looked for.
+fn scan_missing<S: ByteSource + ?Sized>(src: &S, streams: &mut [Stream], &(_, from, to): &(u64, u64, u64)) {
     let missing: Vec<bool> = streams.iter().map(|s| s.chunks.is_empty() && s.length > 0).collect();
-    let (true, Some(&(_, from, to))) = (missing.contains(&true), movis.first()) else { return };
+    if !missing.contains(&true) {
+        return;
+    }
     scan(src, streams, &|n| missing.get(n) == Some(&true), from, to, 0);
     for (s, _) in streams.iter_mut().zip(&missing).filter(|(_, m)| **m) {
         s.keyframes_known = false;

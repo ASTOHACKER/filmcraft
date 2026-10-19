@@ -169,6 +169,12 @@ fn a_stream_whose_index_entries_are_damaged_is_scanned() {
     assert_eq!(f.read_chunk(&file, 0, 1).unwrap(), vec![3; 6]);
     assert_eq!(table(&f, 1), vec![(16, true), (8, true)]);
     assert!(f.streams[1].keyframes_known);
+    // with an AVIX extension after it: the first RIFF's frames come first, then the extension's
+    let mut extended = file.clone();
+    extended.extend(chunk(b"RIFF", &[b"AVIX".to_vec(), list(b"movi", &chunk(b"00dc", &[6; 9]))].concat()));
+    let f = open(&extended).unwrap();
+    assert_eq!(table(&f, 0), vec![(10, true), (6, true), (7, true), (9, true)]);
+    assert_eq!(table(&f, 1), vec![(16, true), (8, true)]);
     // an audio-only recording of a file that declares video: nothing to find
     let mut silent = avi(true, false, false);
     while let Some(i) = silent.windows(4).position(|w| w == b"00dc") {
