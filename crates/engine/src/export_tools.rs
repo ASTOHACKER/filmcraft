@@ -218,6 +218,11 @@ fn apply_nested_settings(settings: &mut ExportSettings, params: &Value, cmd: &st
     let mut value = serde_json::to_value(&*settings).map_err(|error| EngineError::Other(error.to_string()))?;
     merge(&mut value, patch);
     *settings = serde_json::from_value(value).map_err(|error| bad(cmd, format!("settings: {error}")))?;
+    // A bitrate given in `settings` is the bitrate, as the flat `bitrateKbps` is: an adaptive
+    // bitrate from the preset would otherwise replace it (`ExportSettings::resolve`).
+    if patch.get("bitrateKbps").is_some() && patch.get("adaptiveBitrate").is_none() {
+        settings.adaptive_bitrate = None;
+    }
     // serde ignores unknown keys; detect misspelled or misplaced settings before returning.
     let known = serde_json::to_value(&*settings).map_err(|error| EngineError::Other(error.to_string()))?;
     if let Some(path) = unknown_key(&known, patch, "") {
