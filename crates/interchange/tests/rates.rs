@@ -51,3 +51,31 @@ fn clamped_timebase_and_replaced_otio_rate_are_reported() {
     let (_, rep) = import(otio("24").as_bytes(), Format::Otio, None).unwrap();
     assert!(!rep.mentions("above 1000000"), "{rep}");
 }
+
+/// The AAF and OMF importers return before the shared pass in `import_with`, so they bound start
+/// timecodes themselves: an AAF whose start timecode is beyond the limit is reset with a warning (OMF has none to carry).
+#[test]
+fn aaf_and_omf_start_timecodes_are_bounded() {
+    use filmcraft_interchange::{ImportOptions, aaf, omf};
+    use filmcraft_project::{Project, TrackKind};
+    use filmcraft_time::FrameRate;
+    #[path = "support/mod.rs"]
+    mod support;
+    let r = FrameRate::FPS_25;
+    let mut p = Project::new("t");
+    let a = support::media(&mut p, "/media/A.mov", true, true, r);
+    let s = support::sequence(&mut p, "Seq", r, false);
+    support::clip(&mut p, s, TrackKind::Video, 0, a, 0, 50, 0);
+    support::clip(&mut p, s, TrackKind::Audio, 0, a, 0, 50, 0);
+    p.sequence_mut(s).unwrap().start_timecode = 4_000_000_000_000;
+    for format in [Format::Aaf, Format::Omf] {
+        let (bytes, _) = export(&p, s, format, &ExportOptions::default()).unwrap();
+        let (imp, _, rep) =
+            if format == Format::Aaf { aaf::import(&bytes, &ImportOptions::default()) } else { omf::import(&bytes, &ImportOptions::default()) }.unwrap();
+        // OMF does not carry a sequence start timecode, so only AAF has something to reset
+        assert!(format == Format::Omf || rep.mentions("start timecode"), "{format:?}: {rep}");
+        for q in &imp.sequences {
+            assert!(imp.project.sequence(*q).unwrap().start_timecode <= 360_000_000_000, "{format:?}");
+        }
+    }
+}

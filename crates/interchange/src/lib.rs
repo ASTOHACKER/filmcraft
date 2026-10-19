@@ -288,7 +288,7 @@ const MAX_START_TIMECODE: u64 = 360_000_000_000;
 /// above `common::MAX_RATE` per second (an FCPXML `frameDuration` of `1/9223372036854775807s` made
 /// `frames_round` overflow on export) and start timecodes beyond `MAX_START_TIMECODE` frames. One pass
 /// after every import, so no format can let such a number through.
-fn bound_start_timecodes(imported: &mut Imported, report: &mut Report) {
+pub(crate) fn bound_start_timecodes(imported: &mut Imported, report: &mut Report) {
     for item in imported.project.items.values_mut() {
         let name = item.name.clone();
         if let Some(seq) = item.as_sequence_mut() {
