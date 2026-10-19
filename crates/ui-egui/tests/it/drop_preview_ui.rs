@@ -164,3 +164,52 @@ fn a_picture_only_item_over_an_audio_track_previews_the_video_track_it_goes_to()
     assert_eq!(shown, previews(&["V2"]));
     assert_eq!(d.tracks_holding(item), ["V2".to_string()].into_iter().collect());
 }
+
+/// Review on #2151: with the nest toggle off a sequence edits in as its clips, one track per
+/// source track, counted from the track it is dropped on. Dropped on V2 (not V1), the previewed
+/// rows are the rows the clips land on.
+#[test]
+fn a_sequence_dropped_unnested_on_v2_previews_the_tracks_its_clips_land_on() {
+    let mut d = Driver::demo();
+    d.ok("engine.execute", json!({"command": "sequence.nestSequences", "params": {"on": false}}));
+    let (seq, bin) = {
+        let s = &d.harness.state().session;
+        let p = &s.project;
+        let bin = p
+            .root
+            .children
+            .iter()
+            .find_map(|e| if let BinEntry::Bin(b) = e { (b.name == "Sequences").then(|| b.clone()) } else { None })
+            .expect("the demo's Sequences bin");
+        let seq = bin
+            .children
+            .iter()
+            .find_map(|e| match e {
+                BinEntry::Item(i) if p.sequence(*i).is_some() && Some(*i) != s.state.active_sequence => Some(*i),
+                _ => None,
+            })
+            .expect("the demo sequence");
+        (seq, bin.id)
+    };
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.ok("engine.execute", json!({"command": "project.view.set", "params": {"view": "list"}}));
+    d.ok("ui.menu.invoke", json!({"id": "projectPanel.openBin", "params": {"bin": bin.0, "how": "inPlace"}}));
+    d.frames(4);
+    let from = d.rect(&format!("project.item.{}", seq.0)).center();
+    let shown = d.drag_to_track(from, "V2");
+    let filled: BTreeSet<String> = {
+        let q = d.harness.state().session.active_sequence().unwrap();
+        let named = |letter: char, tracks: &[filmcraft_project::Track]| {
+            tracks
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| !t.items.is_empty())
+                .map(move |(k, _)| format!("timeline.dropPreview.{letter}{}", k + 1))
+                .collect::<Vec<_>>()
+        };
+        named('V', &q.video_tracks).into_iter().chain(named('A', &q.audio_tracks)).collect()
+    };
+    assert!(filled.len() > 2, "the demo sequence spans several tracks: {filled:?}");
+    assert!(!filled.contains("timeline.dropPreview.V1"), "nothing lands below the drop track: {filled:?}");
+    assert_eq!(shown, filled, "the previewed rows are the rows the clips land on");
+}
