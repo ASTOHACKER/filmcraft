@@ -96,3 +96,20 @@ fn a_hidden_name_keeps_the_speed_label() {
     d.frames(3);
     assert!(texts(&d).iter().any(|t| t.contains("[50%]")), "the speed is still drawn: {:?}", texts(&d));
 }
+
+/// The Timeline panel's own menu has the same two toggles, each with an automation id.
+#[test]
+fn the_timeline_panel_menu_has_the_name_toggles() {
+    let mut d = Driver::demo();
+    for (id, video) in [("panel.menu.Timeline.videoNames", true), ("panel.menu.Timeline.audioNames", false)] {
+        d.ok("ui.click", json!({"id": "panel.menu.Timeline"}));
+        d.ok("ui.click", json!({"id": id}));
+        let v = &d.harness.state().ui.timeline;
+        assert!(!(if video { v.show_video_names } else { v.show_audio_names }), "{id} turns its names off");
+        d.ok("ui.click", json!({"id": "panel.menu.Timeline"}));
+        d.ok("ui.click", json!({"id": id}));
+        let v = &d.harness.state().ui.timeline;
+        assert!(if video { v.show_video_names } else { v.show_audio_names }, "{id} turns them on again");
+        d.frames(2);
+    }
+}
