@@ -615,9 +615,10 @@ fn footer(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, v: &View, action
         egui::Popup::menu(&resp).show(|ui| sort_icons_menu(app, ui, pre, actions));
     }
     let mut rx = bar.max.x - 6.0;
-    // Clear and Automate to Sequence need a selection, as in the ≡ menu (#2106)
+    // Clear needs a selection, and Automate to Sequence asks its command (an open sequence and a
+    // selected clip), as the ≡ menu does (#2106)
     let clear = crate::panels::project_views::clear_params(&app.session.state.project_selection, app.ui.project_panel.selected_bin);
-    let has_items = !app.session.state.project_selection.is_empty();
+    let automate = app.session.is_enabled("clip.automateToSequence");
     for (icon, id, tip) in [
         (Icon::Trash, "project.delete", tl!("Clear (Delete)")),
         (Icon::NewItem, "new-item", tl!("New Item")),
@@ -628,7 +629,7 @@ fn footer(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, v: &View, action
         let r = Rect::from_min_size(pos2(rx - 24.0, bar.min.y + 5.0), vec2(24.0, 22.0));
         let enabled = match id {
             "project.delete" => clear.is_some(),
-            "clip.automateToSequence" => has_items,
+            "clip.automateToSequence" => automate,
             _ => true,
         };
         let resp = ui.interact(r, egui::Id::unique((pre, "pb", id)), Sense::click()).on_hover_text(tip);
@@ -771,7 +772,7 @@ pub fn panel_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui) -> bool {
             actions.push(("project.delete".into(), clear.unwrap_or_default()));
         }
         ui.separator();
-        if item(ui, "automateToSequence", tl!("Automate to Sequence…"), !app.session.state.project_selection.is_empty(), None) {
+        if item(ui, "automateToSequence", tl!("Automate to Sequence…"), app.session.is_enabled("clip.automateToSequence"), None) {
             actions.push(("clip.automateToSequence".into(), json!({})));
         }
         if item(ui, "find", tl!("Find…"), true, s_find.as_deref()) {

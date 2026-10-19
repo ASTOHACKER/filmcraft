@@ -687,6 +687,14 @@ fn clear_and_automate_buttons_need_a_selection() {
     d.click("project.button.clip.automateToSequence");
     assert!(d.has("automate.ok"), "the Automate To Sequence dialog");
     d.click("automate.cancel");
+    // with no sequence open, Automate to Sequence has nowhere to go: disabled, as its command is
+    let seq = d.app().session.state.active_sequence.take();
+    d.frames(2);
+    d.click("project.button.clip.automateToSequence");
+    assert!(!d.has("automate.ok"), "no sequence: no dialog");
+    assert!(d.app().ui.status.is_empty(), "no sequence: no message: {}", d.app().ui.status);
+    d.app().session.state.active_sequence = seq;
+    d.frames(2);
     d.click("project.button.project.delete");
     assert!(d.app().session.project.item(item).is_none(), "Clear removes the selected item");
 }
