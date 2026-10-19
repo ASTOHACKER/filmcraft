@@ -221,3 +221,38 @@ fn dragging_a_scrub_bar_keeps_one_output_stream_open() {
         assert!(starts - before.min(starts) <= 1, "{id}: the output was restarted {} times during the drag", starts - before.min(starts));
     }
 }
+
+/// A take can record while playback is stopped (`audio.voiceover.start` is a command like any
+/// other); scrubbing a bar ends it, as every other way of stopping does.
+#[test]
+fn a_scrub_ends_a_take_that_records_while_stopped() {
+    for id in ["program.scrubBar", "timeline.ruler"] {
+        let mut d = Driver::demo();
+        d.ok("engine.execute", json!({"command": "audio.voiceover.start", "params": {"track": "A1", "time": 0, "preroll": 0}}));
+        d.frames(2);
+        assert!(d.harness.state().session.voiceover.recording(), "{id}: the take records");
+        assert_eq!(d.ok("ui.inspect", json!({}))["playback"]["playing"], json!(false), "{id}: nothing plays");
+        let bar = d.element(id).unwrap_or_else(|| panic!("{id}"));
+        let r = &bar["rect"];
+        let (x, y, w) = (r[0].as_f64().unwrap() as f32, r[1].as_f64().unwrap() as f32 + r[3].as_f64().unwrap() as f32 / 2.0, r[2].as_f64().unwrap() as f32);
+        let at = |f: f32| egui::pos2(x + w * f, y);
+        d.harness.input_mut().events.push(egui::Event::PointerMoved(at(0.2)));
+        d.harness.input_mut().events.push(egui::Event::PointerButton {
+            pos: at(0.2),
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            modifiers: Default::default(),
+        });
+        d.frames(2);
+        d.harness.input_mut().events.push(egui::Event::PointerMoved(at(0.3)));
+        d.frames(2);
+        assert!(!d.harness.state().session.voiceover.recording(), "{id}: the scrub ended the take: {}", d.harness.state().ui.status);
+        d.harness.input_mut().events.push(egui::Event::PointerButton {
+            pos: at(0.3),
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers: Default::default(),
+        });
+        d.frames(1);
+    }
+}
