@@ -976,3 +976,13 @@ pub fn search_bin_rows(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_command_with_a_menu_dialog_can_be_bound() {
+        crate::panels::clip_dialogs::tests::assert_dialog_commands_bindable("menu_dialogs::meta", |id| meta(id).is_some(), &[]);
+    }
+}

@@ -295,6 +295,11 @@ fn list_searches_labels_and_keys() {
 /// dialog instead of running (ui-egui routes them through clip_dialogs / menu_dialogs /
 /// media_dialogs), so it belongs in the shortcut editor. A parameter left marked required takes it
 /// out of the list even though the engine defaults it (#2024).
+///
+/// The engine cannot see ui-egui's dialog tables, so this list is the dialog commands of today.
+/// ui-egui's `every_command_with_a_clip_dialog_can_be_bound` and
+/// `every_command_with_a_menu_dialog_can_be_bound` walk the registry against `clip_dialogs::meta`
+/// and `menu_dialogs::meta` themselves, so a command added to either table later is checked too.
 #[test]
 fn commands_that_open_dialogs_can_be_bound() {
     let r = Session::default().shortcuts.commands();
