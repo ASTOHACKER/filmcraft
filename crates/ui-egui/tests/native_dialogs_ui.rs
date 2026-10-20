@@ -289,6 +289,24 @@ fn a_late_save_answer_finishes_the_newest_prompt_and_only_for_its_project() {
     assert!(path.exists() && d.app().quit_confirmed, "saved, then quit (not just closed)");
     let _ = std::fs::remove_file(&path);
 
+    // the same, but the save fails: the newer Quit prompt stays, with the reason (#2437 review)
+    let blocker = dir.join("not-a-folder");
+    std::fs::write(&blocker, b"").unwrap();
+    let mut d = Driver::new(true);
+    d.app().session.path = None;
+    d.ok("engine.execute", json!({"command": "file.newBin", "params": {"name": "Unsaved"}}));
+    d.ok("ui.menu.invoke", json!({"id": "file.closeProject"}));
+    d.frames(2);
+    d.click("closeProject.save");
+    let (_, answer) = d.asked();
+    d.harness.input_mut().viewports.entry(egui::ViewportId::ROOT).or_default().events.push(egui::ViewportEvent::Close);
+    d.frames(3);
+    answer.send(vec![blocker.join("late.fcproj").to_string_lossy().into_owned()]).unwrap();
+    d.frames(5);
+    assert_eq!(d.app().ui.clip_dialog.as_ref().map(|c| c.command.clone()).as_deref(), Some("app.quit"), "the Quit prompt stays");
+    assert!(!d.app().quit_confirmed && !d.app().ui.status.is_empty(), "not quitting, with the reason");
+    let _ = std::fs::remove_file(&blocker);
+
     // a project opened while the dialog is open: the late answer saves nothing
     let mut d = Driver::new(true);
     d.app().session.path = None;
