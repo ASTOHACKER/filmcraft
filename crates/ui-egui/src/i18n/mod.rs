@@ -214,10 +214,11 @@ impl Language {
     }
 
     /// Lowercase `text`, using Turkish-aware rules (`İ` → `i`, `I` → `ı`) when the language is
-    /// Turkish.
+    /// Turkish. Decomposed `I` followed by `\u{0307}` is normalized to `i`.
     pub fn to_lowercase(self, text: &str) -> String {
         if self == Self::Tr {
-            let mapped: String = text
+            let normalized = text.replace("I\u{0307}", "i");
+            let mapped: String = normalized
                 .chars()
                 .map(|c| match c {
                     'İ' => 'i',
@@ -271,7 +272,8 @@ fn fold_query(s: &str) -> String {
 }
 
 fn fold_turkish(s: &str) -> String {
-    let mapped: String = s
+    let normalized = s.replace("I\u{0307}", "i");
+    let mapped: String = normalized
         .chars()
         .map(|c| match c {
             'İ' => 'i',
@@ -1434,8 +1436,10 @@ mod tests {
         assert_eq!(Language::Tr.to_uppercase("Altyazılar ve Grafikler"), "ALTYAZILAR VE GRAFİKLER");
         assert_eq!(to_lowercase("IŞIK"), "ışık");
         assert_eq!(to_lowercase("İNCELEME"), "inceleme");
+        assert_eq!(to_lowercase("I\u{0307}NCELEME"), "inceleme");
         assert_eq!(Language::Tr.to_lowercase("IŞIK"), "ışık");
         assert_eq!(Language::Tr.to_lowercase("İNCELEME"), "inceleme");
+        assert_eq!(Language::Tr.to_lowercase("I\u{0307}NCELEME"), "inceleme");
         set_current(Language::En);
         assert_eq!(to_uppercase("Birleştirme"), "BIRLEŞTIRME");
         assert_eq!(to_lowercase("IŞIK"), "i\u{015f}ik");
