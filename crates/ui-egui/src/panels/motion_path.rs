@@ -5,9 +5,16 @@
 //! Interpolation eases every component of a position with the same factor, so each leg is a straight
 //! line between its two keyframe values whatever the interpolation (it changes the speed along the
 //! leg, not the route). The path is therefore just the keyframe values joined up: no sampling.
+//!
+//! The one exception is a Hold leg: the value stays at the first keyframe and jumps at the second,
+//! so nothing travels. It is drawn as a faint thin line with no arrow, to show where the jump goes.
+//!
+//! Display only: the keyframe squares are registered for automation but cannot be dragged. Edit
+//! Position keyframes in Effect Controls.
 
 use crate::FilmcraftApp;
 use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, pos2, vec2};
+use filmcraft_project::Interpolation;
 
 /// Keyframes past this many are ignored, so a hostile project cannot make the overlay allocate.
 const MAX_KEYFRAMES: usize = 512;
@@ -35,19 +42,23 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
         }
         let Some(motion) = it.effect("motion").filter(|m| m.enabled) else { continue };
         let Some(param) = motion.param("position").filter(|p| p.keyframes.len() >= 2) else { continue };
-        let points: Vec<(Pos2, i64)> = param
+        let points: Vec<(Pos2, i64, Interpolation)> = param
             .keyframes
             .iter()
             .take(MAX_KEYFRAMES)
             .filter_map(|k| {
                 let v = k.value.as_vec2()?;
-                Some((to_screen(pic, frame, v.x, v.y)?, k.time.0))
+                Some((to_screen(pic, frame, v.x, v.y)?, k.time.0, k.interp))
             })
             .collect();
-        let line: Vec<Pos2> = points.iter().map(|(p, _)| *p).collect();
-        painter.extend(egui::Shape::dotted_line(&line, t.accent, 5.0, 1.2));
-        for pair in line.windows(2) {
-            let (Some(a), Some(b)) = (pair.first(), pair.get(1)) else { continue };
+        for pair in points.windows(2) {
+            let (Some((a, _, interp)), Some((b, _, _))) = (pair.first(), pair.get(1)) else { continue };
+            if *interp == Interpolation::Hold {
+                // nothing travels on a Hold leg: the value jumps at the next keyframe
+                painter.extend(egui::Shape::dotted_line(&[*a, *b], t.accent.gamma_multiply(0.35), 5.0, 0.8));
+                continue;
+            }
+            painter.extend(egui::Shape::dotted_line(&[*a, *b], t.accent, 5.0, 1.2));
             let d = *b - *a;
             if d.length() < 24.0 {
                 continue;
@@ -58,7 +69,7 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
             painter.line_segment([m - n * 6.0 + side, m + n * 3.0], stroke);
             painter.line_segment([m - n * 6.0 - side, m + n * 3.0], stroke);
         }
-        for (p, time) in &points {
+        for (p, time, _) in &points {
             let r = Rect::from_center_size(*p, vec2(6.0, 6.0));
             painter.rect_filled(r, 0.0, Color32::WHITE);
             painter.rect_stroke(r, 0.0, stroke, StrokeKind::Middle);
