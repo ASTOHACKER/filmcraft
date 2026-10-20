@@ -75,7 +75,7 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
             painter.rect_stroke(r, 0.0, stroke, StrokeKind::Middle);
             keys.push((r, format!("program.motionPath.{}.keyframe.{time}", clip.0)));
         }
-        let now = motion.vec2_at("position", it.source_time_at(ph));
+        let now = motion.vec2_at("position", it.effect_time_at(ph));
         if let Some(p) = to_screen(pic, frame, now.x, now.y) {
             painter.circle_filled(p, 3.5, t.accent);
             painter.circle_stroke(p, 3.5, Stroke::new(1.0, Color32::WHITE));
