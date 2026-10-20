@@ -212,6 +212,24 @@ impl Language {
             text.to_uppercase()
         }
     }
+
+    /// Lowercase `text`, using Turkish-aware rules (`İ` → `i`, `I` → `ı`) when the language is
+    /// Turkish.
+    pub fn to_lowercase(self, text: &str) -> String {
+        if self == Self::Tr {
+            let mapped: String = text
+                .chars()
+                .map(|c| match c {
+                    'İ' => 'i',
+                    'I' => 'ı',
+                    other => other,
+                })
+                .collect();
+            mapped.to_lowercase()
+        } else {
+            text.to_lowercase()
+        }
+    }
 }
 
 thread_local! {
@@ -242,6 +260,12 @@ pub fn to_uppercase(text: &str) -> String {
     current().to_uppercase(text)
 }
 
+/// Lowercase `text` in the current interface language (with Turkish-aware casing when the
+/// language is Turkish).
+pub fn to_lowercase(text: &str) -> String {
+    current().to_lowercase(text)
+}
+
 fn fold_query(s: &str) -> String {
     s.replace('İ', "i").replace('\u{0307}', "").to_lowercase()
 }
@@ -258,7 +282,7 @@ fn fold_turkish(s: &str) -> String {
     mapped.replace('\u{0307}', "").to_lowercase()
 }
 
-/// Match a lowercased search query against both the source and the displayed label.
+/// Match a search query against both the source and the displayed label.
 pub fn matches_query(text: &str, query: &str) -> bool {
     let q = fold_query(query);
     if fold_query(text).contains(&q) || fold_query(t(text)).contains(&q) {
@@ -1408,8 +1432,13 @@ mod tests {
         assert_eq!(to_uppercase("Altyazılar ve Grafikler"), "ALTYAZILAR VE GRAFİKLER");
         assert_eq!(Language::Tr.to_uppercase("Birleştirme"), "BİRLEŞTİRME");
         assert_eq!(Language::Tr.to_uppercase("Altyazılar ve Grafikler"), "ALTYAZILAR VE GRAFİKLER");
+        assert_eq!(to_lowercase("IŞIK"), "ışık");
+        assert_eq!(to_lowercase("İNCELEME"), "inceleme");
+        assert_eq!(Language::Tr.to_lowercase("IŞIK"), "ışık");
+        assert_eq!(Language::Tr.to_lowercase("İNCELEME"), "inceleme");
         set_current(Language::En);
         assert_eq!(to_uppercase("Birleştirme"), "BIRLEŞTIRME");
+        assert_eq!(to_lowercase("IŞIK"), "i\u{015f}ik");
         assert!(matches_query("Işık", "ışık"));
         assert!(matches_query("Import", "import"));
     }

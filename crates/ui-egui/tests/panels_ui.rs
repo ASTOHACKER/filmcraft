@@ -781,3 +781,16 @@ fn effects_are_indented_under_their_folders() {
         assert!(b >= a + 12.0, "`{inner}` ({b}) is not indented under `{outer}` ({a})");
     }
 }
+
+#[test]
+fn effects_search_matches_turkish_casing() {
+    let mut d = Driver::demo();
+    d.exec("prefs.set", json!({"key": "general.interfaceLanguage", "value": "tr"}));
+    d.ok("ui.panel.show", json!({"panel": "Effects"}));
+    d.frames(3);
+    for query in ["IŞIK", "ışık", "Işık"] {
+        d.ok("ui.set", json!({"effectsSearch": query}));
+        d.frames(2);
+        assert!(d.has("effects.item.light_leaks"), "query `{query}` through Effects search caller must find `light_leaks`");
+    }
+}
