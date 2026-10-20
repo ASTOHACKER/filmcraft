@@ -119,6 +119,8 @@ impl Driver {
     }
 }
 
+/// Sideways, a middle-button drag that starts on a clip scrolls the Timeline and leaves the clip
+/// and the selection as they were.
 #[test]
 fn a_middle_button_drag_on_a_clip_pans_and_leaves_the_clip_alone() {
     let mut d = Driver::demo();
@@ -131,6 +133,7 @@ fn a_middle_button_drag_on_a_clip_pans_and_leaves_the_clip_alone() {
     assert_eq!(d.start_of(clip), start, "the clip stays where it was");
 }
 
+/// The middle button pans with any tool: with the Razor it scrolls and cuts nothing.
 #[test]
 fn a_middle_button_drag_pans_whatever_the_tool() {
     let mut d = Driver::demo();
