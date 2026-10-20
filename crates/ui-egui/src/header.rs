@@ -10,6 +10,9 @@ use crate::icons::{self, Icon};
 use crate::state::Mode;
 use crate::theme::Tokens;
 
+/// Draws the header bar in `rect` and handles its clicks: Home, the mode tabs, the workspace name
+/// and its menu (the workspaces, then Reset to Saved Layout, Save Changes to this Workspace, Save as
+/// New Workspace… and Edit Workspaces…), Discord and the quick actions.
 pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let t = app.tokens;
     let p = ui.painter().clone();

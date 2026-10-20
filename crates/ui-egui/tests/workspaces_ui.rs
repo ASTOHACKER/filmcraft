@@ -145,6 +145,8 @@ fn saved_file(data: &Path) -> Value {
     serde_json::from_slice(&std::fs::read(data.join("workspaces.json")).expect("workspaces.json written")).unwrap()
 }
 
+/// Window ▸ Workspaces end to end: save a new workspace, switch away and back, reset, save changes
+/// to a built-in and restore it, rename and delete, and the saved ones surviving a restart.
 #[test]
 fn save_switch_reset_rename_delete_and_restart() {
     let data = data_dir("cycle");
@@ -234,6 +236,7 @@ fn save_switch_reset_rename_delete_and_restart() {
     let _ = std::fs::remove_dir_all(&data);
 }
 
+/// The Save as New Workspace… and Edit Workspaces… dialogs driven by their own fields and buttons.
 #[test]
 fn save_rename_and_delete_through_the_dialogs() {
     let data = data_dir("dialogs");
