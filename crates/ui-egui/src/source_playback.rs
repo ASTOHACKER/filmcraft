@@ -139,6 +139,10 @@ impl FilmcraftApp {
         let Some(pi) = self.session.project.item(view.media) else { return };
         let fill = match &pi.kind {
             ItemKind::Media(media) => {
+                if !media.info.has_audio() {
+                    audio.stop();
+                    return;
+                }
                 let project = self.session.project.clone();
                 let provider = self.session.media.provider(project, self.session.services.clone());
                 let Some(source) = provider.source(view.media) else {
@@ -194,7 +198,11 @@ impl FilmcraftApp {
                 };
                 fill
             }
-            ItemKind::Sequence(_seq) => {
+            ItemKind::Sequence(seq) => {
+                if seq.audio_tracks.is_empty() {
+                    audio.stop();
+                    return;
+                }
                 let Some((mix_rate, mix)) = shuttle::mix(&self.session, item, sr, self.source_playback.clock.speed) else {
                     audio.stop();
                     return;
