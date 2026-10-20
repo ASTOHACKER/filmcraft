@@ -68,7 +68,7 @@ impl FilmcraftApp {
     fn start_source_playback(&mut self, start: Option<Tick>, stop: Option<Tick>, speed: f64) -> Result<(), String> {
         let item = self.session.state.source_item.ok_or("Open a media file in the Source monitor first")?;
         let view = source_view(&self.session, item).ok_or("Source item is unavailable")?;
-        let pi = self.session.project.item(view.media).ok_or("Source playback currently supports media files and subclips and sequences")?;
+        let pi = self.session.project.item(view.media).ok_or("Source playback currently supports media files, subclips and sequences")?;
         match &pi.kind {
             ItemKind::Media(media) => {
                 if media.offline {
