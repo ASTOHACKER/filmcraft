@@ -670,16 +670,17 @@ pub(crate) mod tests {
     /// editor by design, so they are not checked.
     pub(crate) fn assert_dialog_commands_bindable(table: &str, opens: impl Fn(&str) -> bool, except: &[&str]) {
         let bindable = filmcraft_engine::Session::default().shortcuts.commands();
-        let mut checked = 0;
-        for c in filmcraft_engine::command_specs().iter().filter(|c| c.journal && opens(c.id) && !except.contains(&c.id)) {
-            assert!(
-                bindable.iter().any(|b| b.id == c.id),
-                "{table}: {} opens its dialog when run without parameters, so it must be bindable (mark the parameters the engine defaults as optional)",
-                c.id
-            );
-            checked += 1;
+        let checked: Vec<&str> =
+            filmcraft_engine::command_specs().iter().filter(|c| c.journal && opens(c.id) && !except.contains(&c.id)).map(|c| c.id).collect();
+        assert!(!checked.is_empty(), "{table}: no command was checked");
+        let missing: Vec<&str> = checked.into_iter().filter(|id| !bindable.iter().any(|b| b.id == *id)).collect();
+        assert!(
+            missing.is_empty(),
+            "{table}: {missing:?} open their dialog when run without parameters, so they must be bindable (mark the parameters the engine defaults as optional)"
+        );
+        for id in except {
+            assert!(opens(id), "{table}: {id} is excepted but no longer opens a dialog here");
         }
-        assert!(checked > 0, "{table}: no command was checked");
     }
 
     #[test]

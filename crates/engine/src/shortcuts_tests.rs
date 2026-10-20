@@ -331,6 +331,7 @@ fn commands_that_open_dialogs_can_be_bound() {
         "sequence.transcribe",
         "file.saveAsTemplate",
         "markers.addFlashCue",
+        "file.newColorMatte",
         // media_dialogs::route, minus the ones that relink a file picked in a native dialog
         // (media.attachProxies, media.reconnectFullRes) and media.linkMedia (a dialog the app
         // opens but does not edit the project, so it is not a bindable action)
