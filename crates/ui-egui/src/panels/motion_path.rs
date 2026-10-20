@@ -13,7 +13,7 @@
 //! Position keyframes in Effect Controls.
 
 use crate::FilmcraftApp;
-use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, pos2, vec2};
+use egui::{Color32, Pos2, Rect, Stroke, StrokeKind, Vec2, pos2, vec2};
 use filmcraft_project::Interpolation;
 
 /// Keyframes past this many are ignored, so a hostile project cannot make the overlay allocate.
@@ -26,6 +26,14 @@ fn to_screen(pic: Rect, frame: (u32, u32), x: f64, y: f64) -> Option<Pos2> {
         return None;
     }
     Some(pos2(pic.min.x + (x / w) as f32 * pic.width(), pic.min.y + (y / h) as f32 * pic.height()))
+}
+
+/// Unit direction of travel along the leg `a`→`b`, or `None` when the leg is too short for an arrow.
+/// A reversed clip evaluates its effects backwards in media time, so it travels `b`→`a`.
+fn travel_dir(a: Pos2, b: Pos2, reverse: bool) -> Option<Vec2> {
+    let d = if reverse { a - b } else { b - a };
+    let len = d.length();
+    (len.is_finite() && len >= 24.0).then(|| d / len)
 }
 
 pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, frame: (u32, u32)) {
@@ -59,12 +67,9 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
                 continue;
             }
             painter.extend(egui::Shape::dotted_line(&[*a, *b], t.accent, 5.0, 1.2));
-            let d = *b - *a;
-            if d.length() < 24.0 {
-                continue;
-            }
+            let Some(n) = travel_dir(*a, *b, it.reverse) else { continue };
             // direction arrow at the middle of the leg
-            let (m, n) = (a.lerp(*b, 0.5), d.normalized());
+            let m = a.lerp(*b, 0.5);
             let side = vec2(-n.y, n.x) * 4.0;
             painter.line_segment([m - n * 6.0 + side, m + n * 3.0], stroke);
             painter.line_segment([m - n * 6.0 - side, m + n * 3.0], stroke);
@@ -94,6 +99,14 @@ mod tests {
     fn maps_sequence_pixels_onto_the_picture() {
         let pic = Rect::from_min_max(pos2(10.0, 20.0), pos2(110.0, 70.0));
         assert_eq!(to_screen(pic, (1920, 1080), 960.0, 540.0), Some(pos2(60.0, 45.0)));
+    }
+
+    #[test]
+    fn arrows_follow_playback_direction_and_flip_for_reversed_clips() {
+        let (a, b) = (pos2(0.0, 0.0), pos2(100.0, 0.0));
+        assert_eq!(travel_dir(a, b, false), Some(vec2(1.0, 0.0)));
+        assert_eq!(travel_dir(a, b, true), Some(vec2(-1.0, 0.0)));
+        assert_eq!(travel_dir(a, pos2(10.0, 0.0), true), None);
     }
 
     #[test]
