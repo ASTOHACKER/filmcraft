@@ -1244,7 +1244,8 @@ impl Ctx<'_> {
     /// What a control shows for `id`: with a Type-tool selection, a character property reads the
     /// selected characters' own style (what [`Ctx::set`] writes there), so the Fill colour and the
     /// other character controls follow an edit made with text selected (#1996); otherwise, and for
-    /// characters without an override, the layer's value.
+    /// characters without an override, the layer's value. The style is read at the start of the
+    /// selection, so a selection with mixed styles shows its first character's.
     fn value(&self, id: &str) -> ParamValue {
         let layer = pv(self.e, id, self.mt);
         let Some((a, _)) = self.range else { return layer };
@@ -1264,6 +1265,17 @@ impl Ctx<'_> {
             _ => None,
         };
         own.unwrap_or(layer)
+    }
+    /// Whether the Style row's button for the boolean property `id` (bold, italic, underline) is on.
+    fn flag(&self, id: &str) -> bool {
+        self.value(id).as_bool().unwrap_or(false)
+    }
+    /// The caps the All Caps / Small Caps buttons show: 0 none, 1 all caps, 2 small caps.
+    fn caps(&self) -> u32 {
+        match self.value("caps") {
+            ParamValue::Choice(c) => c,
+            _ => 0,
+        }
     }
     fn set(&mut self, id: &str, v: Value) {
         if let (Some((a, b)), Some(k)) = (self.range, char_style_key(id)) {
@@ -1775,11 +1787,8 @@ pub fn properties(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             cx.number(ui, tl!("Text Box Width"), "box_width", 2.0, (0.0, 100_000.0), 0, "");
             cx.number(ui, tl!("Text Box Height"), "box_height", 2.0, (0.0, 100_000.0), 0, "");
             let (_, mut vui) = cx.row(ui, tl!("Style"));
-            let flag = |id: &str| pv(e, id, mt).as_bool().unwrap_or(false);
-            let caps = match pv(e, "caps", mt) {
-                ParamValue::Choice(c) => c,
-                _ => 0,
-            };
+            let flag = |id: &str| cx.flag(id);
+            let caps = cx.caps();
             for (id, label, tip, on, font) in [
                 ("faux_bold", "T", tl!("Faux Bold"), flag("faux_bold"), Tokens::semibold(14.0)),
                 ("faux_italic", "T", tl!("Faux Italic"), flag("faux_italic"), egui::FontId::new(14.0, egui::FontFamily::Proportional)),
@@ -1966,11 +1975,19 @@ mod tests {
         let mut e = graphic::new_text_layer("Night Drive", Vec2::new(100.0, 100.0), 72.0);
         let (layer_fill, layer_size) = (pv(&e, "fill_color", Tick(0)).as_color(), pv(&e, "size", Tick(0)).as_f64());
         assert!(layer_fill.is_some_and(|c| c != [1.0, 0.0, 0.0, 1.0]) && layer_size == Some(72.0), "{layer_fill:?} {layer_size:?}");
-        let red = CharStyle { fill: Some([1.0, 0.0, 0.0, 1.0]), size: Some(120.0), faux_bold: Some(true), ..Default::default() };
+        let red = CharStyle {
+            fill: Some([1.0, 0.0, 0.0, 1.0]),
+            size: Some(120.0),
+            faux_bold: Some(true),
+            underline: Some(true),
+            caps: Some(1),
+            ..Default::default()
+        };
         e.layer = Some(Box::new(LayerExtra { runs: apply_char_style(&[], 11, 6, 11, &red), ..Default::default() }));
         let cx = |range| Ctx {
             clip: ClipId(1),
             layer: 0,
+            eidx: 0,
             e: &e,
             mt: Tick(0),
             t: Tokens::for_kind(crate::theme::ThemeKind::Dark),
@@ -1983,6 +2000,9 @@ mod tests {
         assert_eq!(sel.value("fill_color").as_color(), Some([1.0, 0.0, 0.0, 1.0]));
         assert_eq!(sel.value("size").as_f64(), Some(120.0));
         assert_eq!(sel.value("faux_bold").as_bool(), Some(true));
+        // the Style row's buttons: T (bold), U and TT on, T (italic) and Tt off
+        assert!(sel.flag("faux_bold") && sel.flag("underline") && !sel.flag("faux_italic"));
+        assert_eq!(sel.caps(), 1);
         // a property the selection doesn't override, and the layer's position: the layer's values
         assert_eq!(sel.value("tracking").as_f64(), Some(0.0));
         assert_eq!(sel.value("position").as_vec2(), Some(Vec2::new(100.0, 100.0)));
@@ -1990,6 +2010,8 @@ mod tests {
         for c in [cx(Some((0, 5))), cx(None)] {
             assert_eq!(c.value("fill_color").as_color(), layer_fill);
             assert_eq!(c.value("size").as_f64(), layer_size);
+            assert!(!c.flag("faux_bold") && !c.flag("underline"));
+            assert_eq!(c.caps(), 0);
         }
     }
 }
