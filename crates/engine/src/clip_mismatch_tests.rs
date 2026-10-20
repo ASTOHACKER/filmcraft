@@ -138,3 +138,9 @@ fn match_sequence_on_items_insert_and_overwrite() {
         assert_eq!((settings(&s).2, clips(&s)), (FrameRate::FPS_23_976, 0), "{command}");
     }
 }
+
+#[test]
+fn the_setting_is_wired() {
+    // the UI's Clip Mismatch Warning reads it, so Settings no longer lists it as kept only for parity
+    assert!(crate::settings::field("timeline.clipMismatchWarning").is_some_and(|f| f.wired));
+}
