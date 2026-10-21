@@ -1475,6 +1475,7 @@ pub fn quick_export(app: &mut FilmcraftApp, ctx: &egui::Context, anchor: egui::P
         .ok()
         .and_then(|v| v["summary"]["estimated_size"].as_str().map(str::to_string));
     let presets = quick_presets(app);
+    let busy = is_export_busy(app);
     let mut reg = Reg::default();
     let mut go = false;
     let mut close = false;
@@ -1492,30 +1493,35 @@ pub fn quick_export(app: &mut FilmcraftApp, ctx: &egui::Context, anchor: egui::P
                     close = r.clicked();
                 });
             });
-            ui.label(egui::RichText::new(tl!("File Name & Location")).color(t.text_dim).size(11.5));
-            typed = draft_text(ui, &mut reg, "quickExport.path", &file_name, tl!("File Name"));
-            let r = location_link(ui, &t, &folder);
-            reg.add("quickExport.location", r.rect, folder.clone());
-            browse = r.clicked();
-            ui.add_space(4.0);
-            ui.label(egui::RichText::new(tl!("Preset")).color(t.text_dim).size(11.5));
-            egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
-                for name in &presets {
-                    let r = list_row(ui, &t, preset_key(name) == preset_key(&q.quick_preset), crate::i18n::t(name), 320.0);
-                    reg.add(format!("quickExport.preset.{name}"), r.rect, name.clone());
-                    if r.clicked() {
-                        q.quick_preset = name.clone();
+            ui.add_enabled_ui(!busy, |ui| {
+                ui.label(egui::RichText::new(tl!("File Name & Location")).color(t.text_dim).size(11.5));
+                typed = draft_text(ui, &mut reg, "quickExport.path", &file_name, tl!("File Name"));
+                let r = location_link(ui, &t, &folder);
+                reg.add("quickExport.location", r.rect, folder.clone());
+                browse = r.clicked();
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(tl!("Preset")).color(t.text_dim).size(11.5));
+                egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
+                    for name in &presets {
+                        let r = list_row(ui, &t, preset_key(name) == preset_key(&q.quick_preset), crate::i18n::t(name), 320.0);
+                        reg.add(format!("quickExport.preset.{name}"), r.rect, name.clone());
+                        if r.clicked() {
+                            q.quick_preset = name.clone();
+                        }
                     }
-                }
-            });
-            ui.add_space(4.0);
-            ui.label(egui::RichText::new(tlf!("Estimated file size: {size}", size = est.as_deref().unwrap_or("–"))).color(t.text_dim).size(11.5));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let r = ui.add(
-                    egui::Button::new(egui::RichText::new(tl!("Export")).color(Color32::WHITE)).fill(t.accent).corner_radius(12.0).min_size(vec2(90.0, 26.0)),
-                );
-                reg.add("quickExport.go", r.rect, "Export");
-                go = r.clicked();
+                });
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(tlf!("Estimated file size: {size}", size = est.as_deref().unwrap_or("–"))).color(t.text_dim).size(11.5));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let r = ui.add(
+                        egui::Button::new(egui::RichText::new(tl!("Export")).color(Color32::WHITE))
+                            .fill(t.accent)
+                            .corner_radius(12.0)
+                            .min_size(vec2(90.0, 26.0)),
+                    );
+                    reg.add("quickExport.go", r.rect, "Export");
+                    go = r.clicked();
+                });
             });
         });
     });
@@ -1527,10 +1533,13 @@ pub fn quick_export(app: &mut FilmcraftApp, ctx: &egui::Context, anchor: egui::P
         // a file name goes in the shown folder; a typed or pasted path replaces both
         app.ui.export.quick_path = if v.contains(['/', '\\']) { v } else { std::path::Path::new(&folder).join(v.trim()).to_string_lossy().to_string() };
     }
-    if browse && let Some(p) = app.hooks.pick_save_as.as_mut().and_then(|f| f(format, &[ext], &app.ui.export.quick_path)) {
+    if browse
+        && !busy
+        && let Some(p) = app.hooks.pick_save_as.as_mut().and_then(|f| f(format, &[ext], &app.ui.export.quick_path))
+    {
         app.ui.export.quick_path = p;
     }
-    if go {
+    if go && !busy {
         let p = json!({"preset": app.ui.export.quick_preset, "path": app.ui.export.quick_path});
         match app.session.execute("export.quick", p) {
             Ok(v) => app.ui.status = tlf!("Quick Export: {path}", path = v["path"].as_str().unwrap_or("")),
