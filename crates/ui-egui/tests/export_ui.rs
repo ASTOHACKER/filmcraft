@@ -524,8 +524,11 @@ fn export_button_locks_and_cancels_during_active_export() {
     d.app().session.jobs.push(job);
     d.frames(2);
 
+    // Record jobs count before clicking cancel
+    let jobs_before = d.app().session.jobs.len();
     // Clicking export.button while an export job is running cancels the active job
     d.click("export.button");
     d.frames(2);
     assert!(prog.cancel.load(std::sync::atomic::Ordering::Relaxed), "the running export was cancelled");
+    assert_eq!(d.app().session.jobs.len(), jobs_before, "cancelling the active export does not dispatch another job");
 }

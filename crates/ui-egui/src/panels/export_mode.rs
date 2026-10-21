@@ -446,7 +446,11 @@ pub(crate) const PARS: [(&str, Option<(u32, u32)>); 6] = [
 ];
 
 fn active_export_job(app: &FilmcraftApp) -> Option<filmcraft_engine::Job> {
-    app.session.jobs.iter().find(|j| !j.progress.finished.load(std::sync::atomic::Ordering::Relaxed) && j.label.starts_with("Export")).cloned()
+    app.session
+        .jobs
+        .iter()
+        .find(|j| !j.progress.finished.load(std::sync::atomic::Ordering::Relaxed) && (j.label.starts_with("Export") || j.label.starts_with("Quick Export")))
+        .cloned()
 }
 
 fn is_export_busy(app: &FilmcraftApp) -> bool {
