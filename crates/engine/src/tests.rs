@@ -255,6 +255,25 @@ fn sequence_settings_timecode_render_quality_and_colour() {
     assert!(empty.execute("sequence.settings", json!({"width":1280})).is_err());
 }
 
+/// With no parameters `sequence.settings` reports the current settings, as `sequence.inspect` does,
+/// and changes nothing: no edit, no undo step (#1540).
+#[test]
+fn sequence_settings_without_params_reports_the_settings() {
+    let mut s = demo();
+    s.execute(
+        "sequence.settings",
+        json!({"fps":29.97,"dropFrame":true,"width":1280,"height":720,"mix":"Mono","sampleRate":44100,"workingSpace":"rec2100-hlg"}),
+    )
+    .unwrap();
+    let before = (*s.project).clone();
+    let history = s.history.undo.len();
+    let r = s.execute("sequence.settings", json!({})).unwrap();
+    assert_eq!(*s.project, before);
+    assert_eq!(s.history.undo.len(), history, "no undo step");
+    assert_eq!(r, json!({"settings": s.execute("sequence.inspect", json!({})).unwrap()["settings"]}), "{r}");
+    assert_eq!((r["settings"]["width"].clone(), r["settings"]["height"].clone()), (json!(1280), json!(720)), "{r}");
+}
+
 #[test]
 fn zero_fps_is_refused() {
     let mut s = demo();

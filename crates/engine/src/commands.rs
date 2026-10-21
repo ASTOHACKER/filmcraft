@@ -2089,6 +2089,12 @@ fn build() -> Vec<CommandSpec> {
             |s, p| {
                 const CMD: &str = "sequence.settings";
                 let id = s.state.active_sequence.ok_or(EngineError::NoSequence)?;
+                // nothing to change: report the settings as `sequence.inspect` does, without an empty
+                // undo step (#1540)
+                if p.as_object().is_none_or(|m| m.is_empty()) {
+                    let q = s.project.sequence(id).ok_or(EngineError::NoSequence)?;
+                    return Ok(json!({"settings": q.settings}));
+                }
                 let fps = fps_p(p, CMD)?;
                 let mix = match str_p(p, "mix") {
                     Some(m) => Some(crate::mixer::channels_from(m).ok_or_else(|| bad(CMD, format!("unknown mix `{m}` (Stereo, Mono, 5.1, Adaptive)")))?),
