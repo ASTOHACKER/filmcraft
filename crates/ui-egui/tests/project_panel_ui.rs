@@ -736,7 +736,10 @@ fn media_browser_navigation_import_and_columns() {
 #[test]
 fn media_browser_list_columns_resize_by_their_right_edge() {
     let dir = media_dir("resize");
-    let mut d = Driver::with(Session::default());
+    let prefs_path = dir.join("preferences.json");
+    let mut session = Session::default();
+    session.prefs_path = Some(prefs_path.clone());
+    let mut d = Driver::with(session);
     d.ok("ui.panel.show", json!({"panel": "MediaBrowser"}));
     d.ok("ui.set", json!({"focused": "MediaBrowser"}));
     d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
@@ -755,6 +758,9 @@ fn media_browser_list_columns_resize_by_their_right_edge() {
     assert!(next1[0] > next0[0] + 30.0, "Frame Rate starts at {} → {}", next0[0], next1[0]);
     let saved = d.app().session.prefs.media_browser.column_widths.get("Name").copied().unwrap_or_default();
     assert!((saved - name1[2]).abs() < 1.0, "saved {saved}, drawn {}", name1[2]);
+    // and written to preferences.json, so it survives a restart
+    let on_disk = filmcraft_engine::autosave::Preferences::load(&prefs_path).media_browser.column_widths.get("Name").copied();
+    assert_eq!(on_disk, Some(saved), "preferences.json");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
