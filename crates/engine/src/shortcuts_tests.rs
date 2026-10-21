@@ -277,6 +277,15 @@ fn custom_presets_persist_export_and_import() {
     let presets = s.execute("shortcuts.presets", json!({})).unwrap();
     assert_eq!(presets["active"], json!("FilmCraft Default (Imported)"));
     assert!(presets["custom"].as_array().unwrap().contains(&json!("FilmCraft Default (Imported)")), "{presets}");
+    // under another file name it keeps the set's name, not the file's (#2705 review)
+    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    let renamed = dir.join("export.json");
+    s.execute("shortcuts.export", json!({"path": renamed.to_string_lossy()})).unwrap();
+    assert_eq!(s.execute("shortcuts.import", json!({"path": renamed.to_string_lossy()})).unwrap()["name"], json!("FilmCraft Default (Imported)"));
+    // a file past the size limit is refused, not read whole
+    let big = dir.join("big.json");
+    std::fs::write(&big, vec![b' '; (8 << 20) + 16]).unwrap();
+    assert!(s.execute("shortcuts.import", json!({"path": big.to_string_lossy()})).unwrap_err().to_string().contains("too large"));
     // Premiere's own files say why they can't be read
     let kys = dir.join("Mine.kys");
     std::fs::write(&kys, b"<?xml version=\"1.0\"?><shortcuts/>").unwrap();

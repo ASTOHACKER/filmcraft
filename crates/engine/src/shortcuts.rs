@@ -1078,11 +1078,14 @@ fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
             path.display()
         ));
     }
-    let len = std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?.len();
-    if len > MAX_FILE {
+    // at most one byte past the limit is read, whatever the file's size says now
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|f| std::io::Read::read_to_end(&mut std::io::Read::take(f, MAX_FILE + 1), &mut bytes))
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    if bytes.len() as u64 > MAX_FILE {
         return Err(format!("{}: too large for a keyboard shortcuts file", path.display()));
     }
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let f: PresetFile = serde_json::from_slice(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
     if f.format != FILE_FORMAT {
         return Err(format!("{}: not a FilmCraft keyboard shortcuts file", path.display()));
@@ -1090,12 +1093,12 @@ fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
     Ok(f)
 }
 
-/// The custom preset an imported file becomes: its own name, else the file's; never a built-in
-/// preset's, which would hide it from the preset list (an exported "FilmCraft Default.json"
-/// imported again, #2489).
+/// The custom preset an imported file becomes: the set's own name, else the file's; never a
+/// built-in preset's, which would hide it from the preset list (an exported "FilmCraft Default"
+/// imported again, #2489): that one gets " (Imported)".
 fn import_name(name: &str, path: &Path) -> String {
     let stem = path.file_stem().map(|s| s.to_string_lossy().trim().to_string()).filter(|s| !s.is_empty());
-    let name = Some(name.trim().to_string()).filter(|n| !n.is_empty() && !BUILTIN_PRESETS.contains(&n.as_str())).or(stem).unwrap_or_else(|| "Imported".into());
+    let name = Some(name.trim().to_string()).filter(|n| !n.is_empty()).or(stem).unwrap_or_else(|| "Imported".into());
     if BUILTIN_PRESETS.contains(&name.as_str()) { format!("{name} (Imported)") } else { name }
 }
 
