@@ -448,6 +448,7 @@ fn enter_on_focused_cancel_cancels_clip_dialog() {
     d.frames(2);
     d.ok("ui.key", json!({"key": "A", "ctrl": true}));
     d.ok("ui.type", json!({"text": "200"}));
+    assert_eq!(d.app().ui.clip_dialog.as_ref().unwrap().params["speed"], json!(200.0));
     d.ok("ui.focus", json!({"id": "speedDuration.cancel"}));
     d.frames(2);
     d.ok("ui.key", json!({"key": "Enter"}));
