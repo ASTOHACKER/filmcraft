@@ -586,7 +586,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     if crate::widgets::escape_closes(ctx) {
         action = Some("cancel");
     }
-    if ctx.input(|i| i.key_pressed(egui::Key::Enter) && !i.pointer.any_down()) {
+    if ctx.input(|i| i.key_pressed(egui::Key::Enter) && !i.pointer.any_down()) && !matches!(d.command.as_str(), "file.closeProject" | "app.quit") {
         action = Some("ok");
     }
     if action.is_some() {
