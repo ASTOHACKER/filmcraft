@@ -487,7 +487,12 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
     let t = app.tokens;
     let f = font(app);
     let thumbs = app.session.prefs.project_panel.thumbnails;
-    let cols = app.session.prefs.project_panel.view.columns.clone();
+    let mut cols = app.session.prefs.project_panel.view.columns.clone();
+    if let Some((name, w)) = &app.ui.project_panel.column_drag
+        && let Some(c) = cols.iter_mut().find(|c| c.name == *name)
+    {
+        c.width = *w;
+    }
     let width = LEAD + cols.iter().map(|c| c.width).sum::<f32>() + 8.0;
     let lc = ListCtx { row_h: if thumbs { (f * 3.6).max(44.0) } else { (f * 2.0).max(22.0) }, font: f, thumbs, width: width.max(rect.width()), cols };
     let header_h = (f * 1.8).max(20.0);
@@ -515,7 +520,7 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
     hp.line_segment([hr.left_bottom(), hr.right_bottom()], Stroke::new(1.0, t.separator));
     let mut x = rect.min.x + LEAD - out.state.offset.x;
     let sort = app.session.prefs.project_panel.view.sort.clone();
-    for (i, c) in lc.cols.iter().enumerate() {
+    for c in &lc.cols {
         let cr = Rect::from_min_size(pos2(x, hr.min.y), vec2(c.width, header_h));
         let vis = cr.intersect(hr);
         if vis.width() > 1.0 {
@@ -555,14 +560,13 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
             let resp = ui.interact(hr2.intersect(hr), id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
             app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
             hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
+            // the width lives in UI state while dragging: had the drag changed the preferences
+            // already, the command would see nothing new and not write preferences.json
             if resp.dragged() {
-                let w = (c.width + resp.drag_delta().x).clamp(30.0, 800.0);
-                if let Some(col) = app.session.prefs.project_panel.view.columns.get_mut(i) {
-                    col.width = w;
-                }
+                app.ui.project_panel.column_drag = Some((c.name.clone(), (c.width + resp.drag_delta().x).clamp(30.0, 800.0)));
             }
             if resp.drag_stopped() {
-                let w = app.session.prefs.project_panel.view.columns.get(i).map(|c| c.width).unwrap_or(c.width);
+                let w = app.ui.project_panel.column_drag.take().filter(|(d, _)| *d == c.name).map_or(c.width, |(_, w)| w);
                 actions.push(("project.columns.resize".into(), json!({"column": c.name, "width": w})));
             }
         }
