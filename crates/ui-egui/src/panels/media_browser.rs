@@ -508,7 +508,8 @@ fn list(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, entries: &[Entry], c
     let t = app.tokens;
     let ctx = ui.ctx().clone();
     let saved = &app.session.prefs.media_browser.column_widths;
-    let widths: Vec<f32> = columns.iter().map(|c| saved.get(c).copied().unwrap_or(if c == "Name" { 220.0 } else { 110.0 })).collect();
+    // clamped here too: a hand-edited preferences file never went through the command's clamp
+    let widths: Vec<f32> = columns.iter().map(|c| saved.get(c).map_or(if c == "Name" { 220.0 } else { 110.0 }, |w| w.clamp(30.0, 800.0))).collect();
     let total: f32 = widths.iter().sum::<f32>() + 8.0;
     let header = Rect::from_min_size(r.min, vec2(r.width(), 20.0));
     let body = Rect::from_min_max(pos2(r.min.x, header.max.y), r.max);

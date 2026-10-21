@@ -759,6 +759,24 @@ fn media_browser_list_columns_resize_by_their_right_edge() {
 }
 
 #[test]
+fn media_browser_list_clamps_a_hand_edited_column_width() {
+    let dir = media_dir("clamp");
+    let mut session = Session::default();
+    // a preferences file edited by hand never went through the command's clamp
+    session.prefs.media_browser.column_widths.insert("Name".into(), 1e30);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "MediaBrowser"}));
+    d.ok("ui.set", json!({"focused": "MediaBrowser"}));
+    d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
+    d.exec("mediaBrowser.navigate", json!({"path": dir.to_string_lossy()}));
+    d.frames(3);
+    d.wait_for("mediaBrowser.entry.b-roll.wav");
+    let name = d.rect("mediaBrowser.header.Name");
+    assert!((name[2] - 800.0).abs() < 1.0, "Name is {} wide", name[2]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn media_browser_drag_imports_into_the_project_panel() {
     let dir = media_dir("drag");
     let mut session = Session::default();
