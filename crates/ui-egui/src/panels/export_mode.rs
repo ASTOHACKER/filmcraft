@@ -1176,9 +1176,10 @@ fn preview_column(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, seq_id:
     } else {
         (tl!("Export"), t.accent, t.accent_hover, None)
     };
-    let sense = if queue_active { Sense::hover() } else { Sense::click() };
+    let inert = cancel_job.is_none() && queue_active;
+    let sense = if inert { Sense::hover() } else { Sense::click() };
     let resp = ui.interact(go, egui::Id::new("export-go"), sense);
-    ui.painter().rect_filled(go, 15.0, if resp.hovered() && !queue_active { bg_hover } else { bg });
+    ui.painter().rect_filled(go, 15.0, if resp.hovered() && !inert { bg_hover } else { bg });
     ui.painter().text(go.center(), Align2::CENTER_CENTER, label, Tokens::semibold(13.0), Color32::WHITE);
     reg.add("export.button", go, label);
     reg.flush(app);
