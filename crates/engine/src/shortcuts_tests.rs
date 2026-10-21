@@ -268,6 +268,20 @@ fn custom_presets_persist_export_and_import() {
     s.execute("shortcuts.deletePreset", json!({"name": "My Keys"})).unwrap();
     assert!(s.execute("shortcuts.deletePreset", json!({"name": "FilmCraft Default"})).is_err());
     assert_eq!(s.execute("shortcuts.presets", json!({})).unwrap()["custom"], json!(["From Windows"]));
+    // #2489: a built-in set exported and imported again is listed, under a name of its own
+    s.execute("shortcuts.loadPreset", json!({"name": "FilmCraft Default"})).unwrap();
+    let again = dir.join("FilmCraft Default.json");
+    s.execute("shortcuts.export", json!({"path": again.to_string_lossy()})).unwrap();
+    let r = s.execute("shortcuts.import", json!({"path": again.to_string_lossy()})).unwrap();
+    assert_eq!(r["name"], json!("FilmCraft Default (Imported)"));
+    let presets = s.execute("shortcuts.presets", json!({})).unwrap();
+    assert_eq!(presets["active"], json!("FilmCraft Default (Imported)"));
+    assert!(presets["custom"].as_array().unwrap().contains(&json!("FilmCraft Default (Imported)")), "{presets}");
+    // Premiere's own files say why they can't be read
+    let kys = dir.join("Mine.kys");
+    std::fs::write(&kys, b"<?xml version=\"1.0\"?><shortcuts/>").unwrap();
+    let e = s.execute("shortcuts.import", json!({"path": kys.to_string_lossy()})).unwrap_err().to_string();
+    assert!(e.contains(".kys") && e.contains("Premiere Pro Compatible"), "{e}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

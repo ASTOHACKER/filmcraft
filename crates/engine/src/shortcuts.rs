@@ -898,11 +898,7 @@ impl Shortcuts {
     /// when `activate`, made the active set.
     pub fn import(&mut self, path: &Path, activate: bool) -> std::result::Result<String, String> {
         let f = read_file(path)?;
-        let name = if f.name.trim().is_empty() || BUILTIN_PRESETS.contains(&f.name.as_str()) {
-            path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Imported".into())
-        } else {
-            f.name.clone()
-        };
+        let name = import_name(&f.name, path);
         let bindings: Vec<Binding> = convert(f.bindings, f.platform).into_iter().filter(|b| self.known(&b.command)).collect();
         if let Some(p) = self.preset_path(&name) {
             let file = PresetFile { format: FILE_FORMAT.into(), version: 1, name: name.clone(), platform: None, modified: false, bindings: bindings.clone() };
@@ -1071,13 +1067,36 @@ fn convert(bindings: Vec<Binding>, platform: Option<Platform>) -> Vec<Binding> {
         .collect()
 }
 
+/// Largest keyboard shortcuts file read: a full set is a few hundred kilobytes.
+const MAX_FILE: u64 = 8 << 20;
+
 fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
+    // Premiere Pro's own shortcut files (#2489): say so, instead of a JSON parse error
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("kys")) {
+        return Err(format!(
+            "{}: Premiere Pro .kys files can't be imported yet; choose the \"Premiere Pro Compatible\" preset for Premiere's default keys",
+            path.display()
+        ));
+    }
+    let len = std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?.len();
+    if len > MAX_FILE {
+        return Err(format!("{}: too large for a keyboard shortcuts file", path.display()));
+    }
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let f: PresetFile = serde_json::from_slice(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
     if f.format != FILE_FORMAT {
         return Err(format!("{}: not a FilmCraft keyboard shortcuts file", path.display()));
     }
     Ok(f)
+}
+
+/// The custom preset an imported file becomes: its own name, else the file's; never a built-in
+/// preset's, which would hide it from the preset list (an exported "FilmCraft Default.json"
+/// imported again, #2489).
+fn import_name(name: &str, path: &Path) -> String {
+    let stem = path.file_stem().map(|s| s.to_string_lossy().trim().to_string()).filter(|s| !s.is_empty());
+    let name = Some(name.trim().to_string()).filter(|n| !n.is_empty() && !BUILTIN_PRESETS.contains(&n.as_str())).or(stem).unwrap_or_else(|| "Imported".into());
+    if BUILTIN_PRESETS.contains(&name.as_str()) { format!("{name} (Imported)") } else { name }
 }
 
 fn write_file(path: &Path, f: &PresetFile) -> std::result::Result<(), String> {
