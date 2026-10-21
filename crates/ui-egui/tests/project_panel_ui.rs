@@ -765,6 +765,30 @@ fn media_browser_list_columns_resize_by_their_right_edge() {
 }
 
 #[test]
+fn media_browser_column_dragged_past_the_header_is_still_saved() {
+    let dir = media_dir("resize-out");
+    let prefs_path = dir.join("preferences.json");
+    let mut session = Session::default();
+    session.prefs_path = Some(prefs_path.clone());
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "MediaBrowser"}));
+    d.ok("ui.set", json!({"focused": "MediaBrowser"}));
+    d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
+    d.exec("mediaBrowser.navigate", json!({"path": dir.to_string_lossy()}));
+    d.frames(3);
+    d.wait_for("mediaBrowser.entry.b-roll.wav");
+    // the last column's edge, dragged until it (and its handle) is past the header's right end
+    let size = d.rect("mediaBrowser.header.Size");
+    let (ex, ey) = (size[0] + size[2] - 1.0, size[1] + size[3] / 2.0);
+    d.ok("ui.drag", json!({"from": {"x": ex, "y": ey}, "to": {"x": ex + 800.0, "y": ey}}));
+    d.frames(3);
+    assert_eq!(d.app().ui.media_browser.column_drag, None, "the drag ended");
+    let on_disk = filmcraft_engine::autosave::Preferences::load(&prefs_path).media_browser.column_widths.get("Size").copied();
+    assert_eq!(on_disk, Some(800.0), "preferences.json");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn media_browser_list_clamps_a_hand_edited_column_width() {
     let dir = media_dir("clamp");
     let mut session = Session::default();
