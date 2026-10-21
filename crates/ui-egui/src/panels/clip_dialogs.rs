@@ -586,6 +586,9 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     if crate::widgets::escape_closes(ctx) {
         action = Some("cancel");
     }
+    if ctx.input(|i| i.key_pressed(egui::Key::Enter) && !i.pointer.any_down()) {
+        action = Some("ok");
+    }
     if action.is_some() {
         ctx.data_mut(|d| d.remove::<bool>(egui::Id::new("nest-name-focused")));
     }
