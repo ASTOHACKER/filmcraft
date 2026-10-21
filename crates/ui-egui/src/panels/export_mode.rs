@@ -1081,32 +1081,38 @@ fn preview_column(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, seq_id:
             .max_rect(Rect::from_min_max(pos2(rect.min.x + 14.0, pv_area.max.y + 8.0), pos2(rect.max.x - 14.0, rect.max.y - 50.0)))
             .id_salt("export-right"),
     );
+    let busy = is_export_busy(app);
     let ex = &mut app.ui.export;
     let has_work_area = q.work_area.is_some();
-    child.horizontal(|ui| {
-        ui.label(egui::RichText::new(tl!("Range")).color(t.text_dim));
-        let cur = RANGES.iter().find(|(k, _)| *k == ex.range).map(|x| x.1).unwrap_or("Entire Source");
-        let labels: Vec<(String, bool)> = RANGES.iter().map(|(k, l)| (l.to_string(), *k != "workArea" || has_work_area)).collect();
-        if let Some(i) = combo(ui, &mut reg, "export.range", cur, &labels, 140.0) {
-            ex.range = RANGES[i].0.into();
-        }
-        if ex.range == "custom" {
-            drag(ui, &mut reg, "export.range.start", &mut ex.custom_start, 0.0..=86_400.0, 0.04, " s", 2);
-            drag(ui, &mut reg, "export.range.end", &mut ex.custom_end, 0.0..=86_400.0, 0.04, " s", 2);
-        }
-    });
-    if ex.settings.has_video() {
-        child.horizontal(|ui| {
-            ui.label(egui::RichText::new(tl!("Scaling")).color(t.text_dim));
-            let o =
-                [(Scaling::ScaleToFit, tl!("Scale To Fit")), (Scaling::ScaleToFill, tl!("Scale To Fill")), (Scaling::StretchToFill, tl!("Stretch To Fill"))];
-            let cur = o.iter().find(|(x, _)| *x == ex.settings.scaling).map_or(o[0].1, |x| x.1);
-            let labels: Vec<(String, bool)> = o.iter().map(|(_, l)| (l.to_string(), true)).collect();
-            if let Some(i) = combo(ui, &mut reg, "export.scaling", cur, &labels, 140.0) {
-                ex.settings.scaling = o[i].0;
+    child.add_enabled_ui(!busy, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(tl!("Range")).color(t.text_dim));
+            let cur = RANGES.iter().find(|(k, _)| *k == ex.range).map(|x| x.1).unwrap_or("Entire Source");
+            let labels: Vec<(String, bool)> = RANGES.iter().map(|(k, l)| (l.to_string(), *k != "workArea" || has_work_area)).collect();
+            if let Some(i) = combo(ui, &mut reg, "export.range", cur, &labels, 140.0) {
+                ex.range = RANGES[i].0.into();
+            }
+            if ex.range == "custom" {
+                drag(ui, &mut reg, "export.range.start", &mut ex.custom_start, 0.0..=86_400.0, 0.04, " s", 2);
+                drag(ui, &mut reg, "export.range.end", &mut ex.custom_end, 0.0..=86_400.0, 0.04, " s", 2);
             }
         });
-    }
+        if ex.settings.has_video() {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(tl!("Scaling")).color(t.text_dim));
+                let o = [
+                    (Scaling::ScaleToFit, tl!("Scale To Fit")),
+                    (Scaling::ScaleToFill, tl!("Scale To Fill")),
+                    (Scaling::StretchToFill, tl!("Stretch To Fill")),
+                ];
+                let cur = o.iter().find(|(x, _)| *x == ex.settings.scaling).map_or(o[0].1, |x| x.1);
+                let labels: Vec<(String, bool)> = o.iter().map(|(_, l)| (l.to_string(), true)).collect();
+                if let Some(i) = combo(ui, &mut reg, "export.scaling", cur, &labels, 140.0) {
+                    ex.settings.scaling = o[i].0;
+                }
+            });
+        }
+    });
     // summary
     let range = range_ticks(ex, &q);
     let sum = ex.settings.summary(q.settings.width, q.settings.height, rate, q.settings.sample_rate, range.1 - range.0);
@@ -1329,7 +1335,8 @@ fn preset_manager(app: &mut FilmcraftApp, ctx: &egui::Context) {
                     cmd = Some(("export.presets.delete", json!({"name": m.selected})));
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let r = ui.add_enabled(sel.is_some(), egui::Button::new(tl!("OK")));
+                    let busy = is_export_busy(app);
+                    let r = ui.add_enabled(sel.is_some() && !busy, egui::Button::new(tl!("OK")));
                     reg.add("presetManager.ok", r.rect, "OK");
                     if r.clicked() {
                         apply = Some(m.selected.clone());
@@ -1368,7 +1375,9 @@ fn preset_manager(app: &mut FilmcraftApp, ctx: &egui::Context) {
         }
         None => {}
     }
-    if let Some(name) = apply
+    let busy = is_export_busy(app);
+    if !busy
+        && let Some(name) = apply
         && apply_preset(app, &name)
     {
         close = true;
