@@ -7,17 +7,19 @@
 //! channel are decoded (16-bit kept at 8, as for DPX); the first extra channel is the composite's
 //! transparency only when the layer count is negative, which is how the format says so (otherwise
 //! extra channels are saved selections). Photoshop stores a transparent composite blended over
-//! white, so its colour is unblended back to straight alpha. Documents saved without "Maximize
-//! Compatibility" (version info resource 1057 says the image data is not the real composite), PSB,
-//! bitmap, indexed, CMYK, multichannel, duotone, Lab, 32-bit and ZIP-compressed documents are
-//! refused.
+//! white, so its colour is unblended back to straight alpha; the specification doesn't say so, it is
+//! what psd-tools and ImageMagick do, and Photoshop-written files bear it out (their transparent
+//! pixels are white, and a semi-transparent one is its layer's colour blended over white). Documents
+//! saved without "Maximize Compatibility" (version info resource 1057 says the image data is not the
+//! real composite), PSB, bitmap, indexed, CMYK, multichannel, duotone, Lab, 32-bit and ZIP-compressed
+//! documents are refused.
 
 use super::Raster;
 use crate::{MediaError, Result};
 
 /// Largest side the format allows.
 const MAX_SIDE: u32 = 30_000;
-/// Largest picture we decode (each pixel takes 4 bytes as RGBA8).
+/// Largest picture we decode (each pixel takes 4 bytes as RGBA8, plus 2 for the transparency).
 const MAX_PIXELS: usize = 1 << 28;
 /// Most channels the format allows.
 const MAX_CHANNELS: usize = 56;
@@ -97,7 +99,8 @@ fn merged_alpha(s: &[u8]) -> bool {
         if key.starts_with(b"Lr16") || key.starts_with(b"Lr32") {
             return negative(p + 12);
         }
-        // global tagged blocks pad their data to a multiple of 4 bytes
+        // global tagged blocks pad their data to a multiple of 4 bytes (the specification says even;
+        // 4 is how psd-tools reads them)
         let Some(next) = be32(head, 8).and_then(|len| (p + 12).checked_add((len as usize).checked_add(3)? & !3)) else { return false };
         p = next;
     }
@@ -207,8 +210,8 @@ pub fn decode(name: &str, b: &[u8]) -> Result<Raster> {
 
     let max: u32 = if bytes_per_sample == 1 { 255 } else { 65_535 };
     let sample = |s: &[u8]| match *s {
-        [v] => u32::from(v),
-        [hi, lo] => u32::from(u16::from_be_bytes([hi, lo])),
+        [v] => u16::from(v),
+        [hi, lo] => u16::from_be_bytes([hi, lo]),
         _ => 0,
     };
     let to8 = |v: u32| ((u64::from(v) * 255 + u64::from(max / 2)) / u64::from(max)) as u8;
@@ -224,7 +227,8 @@ pub fn decode(name: &str, b: &[u8]) -> Result<Raster> {
         }
     };
 
-    // the transparency first, at full depth: the colour channels are unblended from white with it
+    // the transparency first, at the file's depth (16 bits at most): the colour channels are unblended
+    // from white with it
     let mut opacity = Vec::new();
     if alpha {
         opacity.reserve(pixels);
@@ -239,8 +243,9 @@ pub fn decode(name: &str, b: &[u8]) -> Result<Raster> {
             read(c * ht + y, &mut row)?;
             let out = rgba.get_mut(y * w * 4..(y + 1) * w * 4).ok_or_else(|| err(name, "picture too large"))?;
             for (x, (px, s)) in out.as_chunks_mut::<4>().0.iter_mut().zip(row.chunks_exact(bytes_per_sample)).enumerate() {
-                let mut v = sample(s);
+                let mut v = u32::from(sample(s));
                 if let Some(&a) = opacity.get(y * w + x) {
+                    let a = u32::from(a);
                     // stored = colour * a + white * (1 - a), rounded
                     if a > 0 && a < max {
                         let (v64, a64, m64) = (u64::from(v), u64::from(a), u64::from(max));
