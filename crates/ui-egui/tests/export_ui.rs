@@ -510,3 +510,22 @@ fn sample_size_lists_every_size_and_greys_out_what_the_format_cannot_store() {
     assert_eq!(d.app().ui.export.settings.audio.sample_format(), SampleFormat::Float32);
     d.snapshot("export-sample-size-prores");
 }
+
+#[test]
+fn export_button_locks_and_cancels_during_active_export() {
+    let mut d = Driver::new("lock_test");
+    d.ok("ui.set", json!({"mode": "export"}));
+    let loc = d.dir.to_string_lossy().to_string();
+    d.ok("ui.set", json!({"export": {"preset": "Waveform Audio 48 kHz 24-bit", "location": loc, "fileName": "lock_test", "range": "custom", "customStart": 0.0, "customEnd": 20.0}}));
+    d.frames(2);
+    let prog = std::sync::Arc::new(filmcraft_export::Progress::default());
+    let res = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let job = filmcraft_engine::Job { id: 999, label: "Export lock_test.wav".into(), progress: prog.clone(), result: res.clone() };
+    d.app().session.jobs.push(job);
+    d.frames(2);
+
+    // Clicking export.button while an export job is running cancels the active job
+    d.click("export.button");
+    d.frames(2);
+    assert!(prog.cancel.load(std::sync::atomic::Ordering::Relaxed), "the running export was cancelled");
+}

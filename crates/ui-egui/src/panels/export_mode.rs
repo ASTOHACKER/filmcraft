@@ -445,11 +445,20 @@ pub(crate) const PARS: [(&str, Option<(u32, u32)>); 6] = [
     ("Anamorphic 2:1 (2.0)", Some((2, 1))),
 ];
 
+fn active_export_job(app: &FilmcraftApp) -> Option<filmcraft_engine::Job> {
+    app.session.jobs.iter().find(|j| !j.progress.finished.load(std::sync::atomic::Ordering::Relaxed) && j.label.starts_with("Export")).cloned()
+}
+
+fn is_export_busy(app: &FilmcraftApp) -> bool {
+    active_export_job(app).is_some() || app.session.export_queue.is_active()
+}
+
 fn settings_column(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let t = app.tokens;
     let mut reg = Reg::default();
     let mut open_manager = false;
     let mut chosen_preset: Option<String> = None;
+    let busy = is_export_busy(app);
     let (seq_w, seq_h, seq_rate, seq_sr) = app
         .session
         .active_sequence()
@@ -465,168 +474,174 @@ fn settings_column(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect.shrink2(vec2(14.0, 10.0))).id_salt("export-settings"));
     let ex = &mut app.ui.export;
     egui::ScrollArea::vertical().id_salt("export-settings-scroll").auto_shrink([false, false]).show(&mut child, |ui| {
-        ui.label(egui::RichText::new(tl!("Media File")).strong().size(14.0));
-        ui.add_space(6.0);
-        row(ui, &t, tl!("File Name"), |ui| {
-            if let Some(v) = draft_text(ui, &mut reg, "export.fileName", &ex.file_name, tl!("Sequence name")) {
-                ex.file_name = v;
-            }
-        });
-        row(ui, &t, tl!("Location"), |ui| {
-            let r = ui.small_button("…");
-            reg.add("export.location.browse", r.rect, "Choose folder");
-            pick_folder = r.clicked();
-            if let Some(v) = draft_text(ui, &mut reg, "export.location", &ex.location, tl!("Folder")) {
-                ex.location = v;
-            }
-        });
-        // Preset: favourites, then every preset by category, then More presets…
-        row(ui, &t, tl!("Preset"), |ui| {
-            let r =
-                egui::ComboBox::from_id_salt("export.preset").selected_text(crate::i18n::t(&ex.preset)).width(ui.available_width() - 4.0).show_ui(ui, |ui| {
-                    if !favs.is_empty() {
-                        ui.label(egui::RichText::new(tl!("Favorites")).color(t.text_dim).size(11.0));
-                        for f in &favs {
-                            if ui.selectable_label(*f == ex.preset, crate::i18n::t(f)).clicked() {
-                                chosen_preset = Some(f.clone());
+        ui.add_enabled_ui(!busy, |ui| {
+            ui.label(egui::RichText::new(tl!("Media File")).strong().size(14.0));
+            ui.add_space(6.0);
+            row(ui, &t, tl!("File Name"), |ui| {
+                if let Some(v) = draft_text(ui, &mut reg, "export.fileName", &ex.file_name, tl!("Sequence name")) {
+                    ex.file_name = v;
+                }
+            });
+            row(ui, &t, tl!("Location"), |ui| {
+                let r = ui.small_button("…");
+                reg.add("export.location.browse", r.rect, "Choose folder");
+                pick_folder = r.clicked();
+                if let Some(v) = draft_text(ui, &mut reg, "export.location", &ex.location, tl!("Folder")) {
+                    ex.location = v;
+                }
+            });
+            // Preset: favourites, then every preset by category, then More presets…
+            row(ui, &t, tl!("Preset"), |ui| {
+                let r = egui::ComboBox::from_id_salt("export.preset").selected_text(crate::i18n::t(&ex.preset)).width(ui.available_width() - 4.0).show_ui(
+                    ui,
+                    |ui| {
+                        if !favs.is_empty() {
+                            ui.label(egui::RichText::new(tl!("Favorites")).color(t.text_dim).size(11.0));
+                            for f in &favs {
+                                if ui.selectable_label(*f == ex.preset, crate::i18n::t(f)).clicked() {
+                                    chosen_preset = Some(f.clone());
+                                }
+                            }
+                            ui.separator();
+                        }
+                        let mut cat = String::new();
+                        for p in &all_presets {
+                            if p.category != cat {
+                                cat = p.category.clone();
+                                ui.label(egui::RichText::new(crate::i18n::t(&cat)).color(t.text_dim).size(11.0));
+                            }
+                            if ui.selectable_label(p.name == ex.preset, crate::i18n::t(&p.name)).clicked() {
+                                chosen_preset = Some(p.name.clone());
                             }
                         }
                         ui.separator();
-                    }
-                    let mut cat = String::new();
-                    for p in &all_presets {
-                        if p.category != cat {
-                            cat = p.category.clone();
-                            ui.label(egui::RichText::new(crate::i18n::t(&cat)).color(t.text_dim).size(11.0));
+                        if ui.button(tl!("More presets…")).clicked() {
+                            open_manager = true;
                         }
-                        if ui.selectable_label(p.name == ex.preset, crate::i18n::t(&p.name)).clicked() {
-                            chosen_preset = Some(p.name.clone());
-                        }
+                    },
+                );
+                reg.add("export.preset", r.response.rect, ex.preset.clone());
+            });
+            ui.horizontal(|ui| {
+                ui.add_space(LABEL_W + 8.0);
+                let r = ui.link(tl!("More presets…"));
+                reg.add("export.preset.more", r.rect, "More presets…");
+                if r.clicked() {
+                    open_manager = true;
+                }
+            });
+            row(ui, &t, tl!("Format"), |ui| {
+                let labels: Vec<(String, bool)> = Format::ALL.iter().map(|f| (f.label().to_string(), filmcraft_engine::export::available(*f))).collect();
+                if let Some(i) = combo(ui, &mut reg, "export.format", ex.settings.format.label(), &labels, ui.available_width() - 4.0) {
+                    let f = Format::ALL[i];
+                    if f != ex.settings.format {
+                        // a format switch starts from that format's defaults (keeping size / rate / range)
+                        let keep = ex.settings.clone();
+                        ex.settings = ExportSettings {
+                            format: f,
+                            frame_size: keep.frame_size,
+                            frame_rate: keep.frame_rate,
+                            effects: keep.effects,
+                            metadata: keep.metadata,
+                            ..Default::default()
+                        };
                     }
-                    ui.separator();
-                    if ui.button(tl!("More presets…")).clicked() {
-                        open_manager = true;
+                }
+            });
+            ui.add_space(8.0);
+            let s = &mut ex.settings;
+            if s.has_video() && section(ui, &mut reg, &mut ex.open_sections, "video", tl!("Video"), &t) {
+                video_section(ui, &mut reg, s, &t, seq_w, seq_h, seq_hdr);
+            }
+            if (s.has_audio()
+                || !s.has_video()
+                || s.format.is_mp4_video()
+                || matches!(s.format, Format::ProRes | Format::DnxHr | Format::Apv | Format::Mjpeg)
+                || s.format.is_mxf())
+                && !s.is_image_sequence()
+                && s.format != Format::Gif
+                && section(ui, &mut reg, &mut ex.open_sections, "audio", tl!("Audio"), &t)
+            {
+                audio_section(ui, &mut reg, s, &t, seq_sr);
+            }
+            if s.format.is_h26x() && section(ui, &mut reg, &mut ex.open_sections, "multiplexer", tl!("Multiplexer"), &t) {
+                row(ui, &t, tl!("Multiplexer"), |ui| {
+                    let cur = if s.multiplexer == Multiplexer::Mp4 { "MP4" } else { "QuickTime" };
+                    if let Some(i) = combo(ui, &mut reg, "export.multiplexer", cur, &opts(&["MP4", "QuickTime"]), 160.0) {
+                        s.multiplexer = if i == 0 { Multiplexer::Mp4 } else { Multiplexer::Mov };
                     }
                 });
-            reg.add("export.preset", r.response.rect, ex.preset.clone());
-        });
-        ui.horizontal(|ui| {
-            ui.add_space(LABEL_W + 8.0);
-            let r = ui.link(tl!("More presets…"));
-            reg.add("export.preset.more", r.rect, "More presets…");
-            if r.clicked() {
-                open_manager = true;
             }
-        });
-        row(ui, &t, tl!("Format"), |ui| {
-            let labels: Vec<(String, bool)> = Format::ALL.iter().map(|f| (f.label().to_string(), filmcraft_engine::export::available(*f))).collect();
-            if let Some(i) = combo(ui, &mut reg, "export.format", ex.settings.format.label(), &labels, ui.available_width() - 4.0) {
-                let f = Format::ALL[i];
-                if f != ex.settings.format {
-                    // a format switch starts from that format's defaults (keeping size / rate / range)
-                    let keep = ex.settings.clone();
-                    ex.settings = ExportSettings {
-                        format: f,
-                        frame_size: keep.frame_size,
-                        frame_rate: keep.frame_rate,
-                        effects: keep.effects,
-                        metadata: keep.metadata,
-                        ..Default::default()
+            if s.has_video() && section(ui, &mut reg, &mut ex.open_sections, "captions", tl!("Captions"), &t) {
+                if !has_captions {
+                    ui.label(egui::RichText::new(tl!("The sequence has no caption track.")).color(t.text_dim).size(11.5));
+                }
+                row(ui, &t, tl!("Export Options"), |ui| {
+                    let modes = [tl!("None"), tl!("Burn Captions Into Video"), tl!("Create Sidecar File")];
+                    let cur = if s.burn_captions {
+                        modes[1]
+                    } else if s.caption_sidecar.is_some() {
+                        modes[2]
+                    } else {
+                        modes[0]
                     };
-                }
-            }
-        });
-        ui.add_space(8.0);
-        let s = &mut ex.settings;
-        if s.has_video() && section(ui, &mut reg, &mut ex.open_sections, "video", tl!("Video"), &t) {
-            video_section(ui, &mut reg, s, &t, seq_w, seq_h, seq_hdr);
-        }
-        if (s.has_audio()
-            || !s.has_video()
-            || s.format.is_mp4_video()
-            || matches!(s.format, Format::ProRes | Format::DnxHr | Format::Apv | Format::Mjpeg)
-            || s.format.is_mxf())
-            && !s.is_image_sequence()
-            && s.format != Format::Gif
-            && section(ui, &mut reg, &mut ex.open_sections, "audio", tl!("Audio"), &t)
-        {
-            audio_section(ui, &mut reg, s, &t, seq_sr);
-        }
-        if s.format.is_h26x() && section(ui, &mut reg, &mut ex.open_sections, "multiplexer", tl!("Multiplexer"), &t) {
-            row(ui, &t, tl!("Multiplexer"), |ui| {
-                let cur = if s.multiplexer == Multiplexer::Mp4 { "MP4" } else { "QuickTime" };
-                if let Some(i) = combo(ui, &mut reg, "export.multiplexer", cur, &opts(&["MP4", "QuickTime"]), 160.0) {
-                    s.multiplexer = if i == 0 { Multiplexer::Mp4 } else { Multiplexer::Mov };
-                }
-            });
-        }
-        if s.has_video() && section(ui, &mut reg, &mut ex.open_sections, "captions", tl!("Captions"), &t) {
-            if !has_captions {
-                ui.label(egui::RichText::new(tl!("The sequence has no caption track.")).color(t.text_dim).size(11.5));
-            }
-            row(ui, &t, tl!("Export Options"), |ui| {
-                let modes = [tl!("None"), tl!("Burn Captions Into Video"), tl!("Create Sidecar File")];
-                let cur = if s.burn_captions {
-                    modes[1]
-                } else if s.caption_sidecar.is_some() {
-                    modes[2]
-                } else {
-                    modes[0]
-                };
-                if let Some(i) = combo(ui, &mut reg, "export.captions.mode", cur, &opts(&modes), 220.0) {
-                    s.burn_captions = i == 1;
-                    s.caption_sidecar = (i == 2).then(|| s.caption_sidecar.clone().unwrap_or_else(|| "srt".into()));
-                }
-            });
-            if let Some(kind) = s.caption_sidecar.clone() {
-                row(ui, &t, tl!("File Format"), |ui| {
-                    let formats = [tl!("SubRip Subtitle (.srt)"), tl!("WebVTT (.vtt)")];
-                    let cur = if kind == "vtt" { formats[1] } else { formats[0] };
-                    if let Some(i) = combo(ui, &mut reg, "export.captions.format", cur, &opts(&formats), 220.0) {
-                        s.caption_sidecar = Some(if i == 0 { "srt" } else { "vtt" }.into());
+                    if let Some(i) = combo(ui, &mut reg, "export.captions.mode", cur, &opts(&modes), 220.0) {
+                        s.burn_captions = i == 1;
+                        s.caption_sidecar = (i == 2).then(|| s.caption_sidecar.clone().unwrap_or_else(|| "srt".into()));
                     }
                 });
+                if let Some(kind) = s.caption_sidecar.clone() {
+                    row(ui, &t, tl!("File Format"), |ui| {
+                        let formats = [tl!("SubRip Subtitle (.srt)"), tl!("WebVTT (.vtt)")];
+                        let cur = if kind == "vtt" { formats[1] } else { formats[0] };
+                        if let Some(i) = combo(ui, &mut reg, "export.captions.format", cur, &opts(&formats), 220.0) {
+                            s.caption_sidecar = Some(if i == 0 { "srt" } else { "vtt" }.into());
+                        }
+                    });
+                }
             }
-        }
-        if section(ui, &mut reg, &mut ex.open_sections, "effects", tl!("Effects"), &t) {
-            pick_overlay = effects_section(ui, &mut reg, s, &t);
-        }
-        if matches!(s.format, Format::H264 | Format::Hevc | Format::Av1 | Format::ProRes | Format::DnxHr | Format::Apv | Format::Mjpeg)
-            && section(ui, &mut reg, &mut ex.open_sections, "metadata", tl!("Metadata"), &t)
-        {
-            let m = &mut s.metadata;
-            for (key, label, v) in [
-                ("title", tl!("Title"), &mut m.title),
-                ("creator", tl!("Creator"), &mut m.creator),
-                ("copyright", tl!("Copyright"), &mut m.copyright),
-                ("description", tl!("Description"), &mut m.description),
-                ("comment", tl!("Comment"), &mut m.comment),
-            ] {
-                row(ui, &t, label, |ui| text(ui, &mut reg, &format!("export.metadata.{key}"), v, ""));
+            if section(ui, &mut reg, &mut ex.open_sections, "effects", tl!("Effects"), &t) {
+                pick_overlay = effects_section(ui, &mut reg, s, &t);
             }
-        }
-        let _ = seq_rate;
+            if matches!(s.format, Format::H264 | Format::Hevc | Format::Av1 | Format::ProRes | Format::DnxHr | Format::Apv | Format::Mjpeg)
+                && section(ui, &mut reg, &mut ex.open_sections, "metadata", tl!("Metadata"), &t)
+            {
+                let m = &mut s.metadata;
+                for (key, label, v) in [
+                    ("title", tl!("Title"), &mut m.title),
+                    ("creator", tl!("Creator"), &mut m.creator),
+                    ("copyright", tl!("Copyright"), &mut m.copyright),
+                    ("description", tl!("Description"), &mut m.description),
+                    ("comment", tl!("Comment"), &mut m.comment),
+                ] {
+                    row(ui, &t, label, |ui| text(ui, &mut reg, &format!("export.metadata.{key}"), v, ""));
+                }
+            }
+            let _ = seq_rate;
+        });
     });
-    if let Some(name) = chosen_preset {
-        apply_preset(app, &name);
-    }
-    if open_manager {
-        app.ui.export.manager = Some(PresetManager { selected: app.ui.export.preset.clone(), ..Default::default() });
-    }
-    if pick_folder {
-        app.pick_ui(FileDialog::Folder { at: None }, |app, paths| {
-            if let Some(d) = paths.into_iter().next() {
-                app.ui.export.location = d;
-            }
-        });
-    }
-    if pick_overlay {
-        app.pick_ui(FileDialog::open_file(tl!("Image"), &["png", "jpg", "jpeg"]), |app, paths| {
-            if let Some(f) = paths.into_iter().next() {
-                app.ui.export.settings.effects.image_overlay.path = f;
-                app.ui.export.settings.effects.image_overlay.enabled = true;
-            }
-        });
+    if !busy {
+        if let Some(name) = chosen_preset {
+            apply_preset(app, &name);
+        }
+        if open_manager {
+            app.ui.export.manager = Some(PresetManager { selected: app.ui.export.preset.clone(), ..Default::default() });
+        }
+        if pick_folder {
+            app.pick_ui(FileDialog::Folder { at: None }, |app, paths| {
+                if let Some(d) = paths.into_iter().next() {
+                    app.ui.export.location = d;
+                }
+            });
+        }
+        if pick_overlay {
+            app.pick_ui(FileDialog::open_file(tl!("Image"), &["png", "jpg", "jpeg"]), |app, paths| {
+                if let Some(f) = paths.into_iter().next() {
+                    app.ui.export.settings.effects.image_overlay.path = f;
+                    app.ui.export.settings.effects.image_overlay.enabled = true;
+                }
+            });
+        }
     }
     reg.flush(app);
 }
@@ -1137,25 +1152,49 @@ fn preview_column(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, seq_id:
     let est = child.label(egui::RichText::new(tlf!("Estimated file size: {size}", size = format_bytes(sum.estimated_bytes))).color(t.text_dim));
     reg.add("export.estimate", est.rect, sum.estimated_size.clone());
     // buttons
+    let active_export = active_export_job(app);
+    let queue_active = app.session.export_queue.is_active();
+    let busy = active_export.is_some() || queue_active;
     let go = Rect::from_min_size(pos2(rect.max.x - 120.0, rect.max.y - 44.0), vec2(104.0, 30.0));
     let queue = Rect::from_min_size(pos2(go.min.x - 132.0, go.min.y), vec2(122.0, 30.0));
-    let qresp = ui.interact(queue, egui::Id::new("export-queue-send"), Sense::click());
-    ui.painter().rect_stroke(queue, 15.0, egui::Stroke::new(1.0, if qresp.hovered() { t.text } else { t.text_dim }), egui::StrokeKind::Inside);
-    ui.painter().text(queue.center(), Align2::CENTER_CENTER, tl!("Send to Queue"), Tokens::semibold(12.5), t.text);
+    let qresp = ui.interact(queue, egui::Id::new("export-queue-send"), if busy { Sense::hover() } else { Sense::click() });
+    let qstroke = if busy {
+        t.separator
+    } else if qresp.hovered() {
+        t.text
+    } else {
+        t.text_dim
+    };
+    let qtext = if busy { t.text_faint } else { t.text };
+    ui.painter().rect_stroke(queue, 15.0, egui::Stroke::new(1.0, qstroke), egui::StrokeKind::Inside);
+    ui.painter().text(queue.center(), Align2::CENTER_CENTER, tl!("Send to Queue"), Tokens::semibold(12.5), qtext);
     reg.add("export.sendToQueue", queue, "Send to Queue");
-    let resp = ui.interact(go, egui::Id::new("export-go"), Sense::click());
-    ui.painter().rect_filled(go, 15.0, if resp.hovered() { t.accent_hover } else { t.accent });
-    ui.painter().text(go.center(), Align2::CENTER_CENTER, tl!("Export"), Tokens::semibold(13.0), Color32::WHITE);
-    reg.add("export.button", go, "Export");
+    let (label, bg, bg_hover, cancel_job) = if let Some(j) = &active_export {
+        (tl!("Cancel"), Color32::from_rgb(180, 50, 50), Color32::from_rgb(210, 60, 60), Some(j.id))
+    } else if queue_active {
+        (tl!("Exporting"), t.separator, t.separator, None)
+    } else {
+        (tl!("Export"), t.accent, t.accent_hover, None)
+    };
+    let sense = if queue_active { Sense::hover() } else { Sense::click() };
+    let resp = ui.interact(go, egui::Id::new("export-go"), sense);
+    ui.painter().rect_filled(go, 15.0, if resp.hovered() && !queue_active { bg_hover } else { bg });
+    ui.painter().text(go.center(), Align2::CENTER_CENTER, label, Tokens::semibold(13.0), Color32::WHITE);
+    reg.add("export.button", go, label);
     reg.flush(app);
     if resp.clicked() {
-        let r = app.session.execute("file.exportMedia", export_params(app));
-        match r {
-            Ok(v) => app.ui.status = tlf!("Exporting {path}", path = v["path"].as_str().unwrap_or("")),
-            Err(e) => app.ui.status = e.to_string(),
+        if let Some(id) = cancel_job {
+            let _ = app.session.execute("jobs.cancel", json!({"job": id}));
+            app.ui.status = tl!("Export cancelled").into();
+        } else if !busy {
+            let r = app.session.execute("file.exportMedia", export_params(app));
+            match r {
+                Ok(v) => app.ui.status = tlf!("Exporting {path}", path = v["path"].as_str().unwrap_or("")),
+                Err(e) => app.ui.status = e.to_string(),
+            }
         }
     }
-    if qresp.clicked() {
+    if qresp.clicked() && !busy {
         let mut p = export_params(app);
         if app.ui.export.preset != CUSTOM {
             // the queue shows which preset an item came from
