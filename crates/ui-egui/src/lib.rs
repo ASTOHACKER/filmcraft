@@ -1529,7 +1529,7 @@ impl FilmcraftApp {
         // A pane divider or floating-panel grip keeps focus after a pointer drag so arrows can
         // nudge it, but it takes no other key: Space and the other shortcuts keep working (#1482).
         let divider_focused = self.divider_focused(ctx);
-        if (ctx.egui_wants_keyboard_input() && !divider_focused) || self.dialog == Some(Dialog::Shortcuts) || self.ui.clip_dialog.is_some() {
+        if (ctx.egui_wants_keyboard_input() && !divider_focused) || self.dialog == Some(Dialog::Shortcuts) {
             return;
         }
         // A focused text field takes every unmodified key, including the ones our shortest
@@ -1543,6 +1543,9 @@ impl FilmcraftApp {
             let _ = self.session.execute("trim.cancelDynamic", json!({}));
         }
         panels::masks::pen_take_back(self, ctx, text_focused);
+        if self.ui.clip_dialog.is_some() {
+            return;
+        }
         // Panel shortcuts of the focused panel override application shortcuts on the same chord.
         // egui ignores extra Shift and Alt when matching, so the most specific chords go first
         // across both scopes (the sort is stable, so the panel still wins a tie): otherwise the
