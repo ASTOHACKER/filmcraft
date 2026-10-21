@@ -1168,6 +1168,24 @@ fn a_dragged_list_column_width_is_written_to_preferences() {
 }
 
 #[test]
+fn a_list_column_dragged_past_the_header_is_still_written_to_preferences() {
+    let (session, path) = session_saving_prefs("column-out", true);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.ok("ui.set", json!({"focused": "Project"}));
+    footage_in(&mut d, "list");
+    // in the docked panel, 800 points of drag take the edge (and its handle) past the header's end
+    let r = d.rect("project.list.resize.Frame Rate");
+    let (cx, cy) = centre(r);
+    d.ok("ui.drag", json!({"from": {"x": cx, "y": cy}, "to": {"x": cx + 800.0, "y": cy}}));
+    d.frames(3);
+    assert_eq!(d.app().ui.project_panel.column_drag, None, "the drag ended");
+    let width = saved_prefs(&path).project_panel.view.columns.iter().find(|c| c.name == "Frame Rate").map(|c| c.width);
+    assert_eq!(width, Some(800.0), "preferences.json");
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
 fn a_dragged_icon_size_is_written_to_preferences() {
     let (session, path) = session_saving_prefs("icon-size", true);
     let mut d = Driver::with(session);

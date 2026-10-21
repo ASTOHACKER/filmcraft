@@ -555,11 +555,16 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
         }
         // resize handle on the column's right edge
         let hr2 = Rect::from_center_size(pos2(cr.max.x, hr.center().y), vec2(8.0, header_h));
-        if hr2.intersects(hr) {
+        let visible = hr2.intersects(hr);
+        // a handle dragged past the header's end stays registered, or its release would be missed
+        let dragging = app.ui.project_panel.column_drag.as_ref().is_some_and(|(d, _)| *d == c.name);
+        if visible || dragging {
             let id = egui::Id::new((&v.prefix, "colsize", &c.name));
-            let resp = ui.interact(hr2.intersect(hr), id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
-            app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
-            hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
+            let resp = ui.interact(if visible { hr2.intersect(hr) } else { hr2 }, id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
+            if visible {
+                app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
+                hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
+            }
             // the width lives in UI state while dragging: had the drag changed the preferences
             // already, the command would see nothing new and not write preferences.json
             if resp.dragged() {
