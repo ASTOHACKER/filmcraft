@@ -1071,13 +1071,6 @@ fn convert(bindings: Vec<Binding>, platform: Option<Platform>) -> Vec<Binding> {
 const MAX_FILE: u64 = 8 << 20;
 
 fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
-    // Premiere Pro's own shortcut files (#2489): say so, instead of a JSON parse error
-    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("kys")) {
-        return Err(format!(
-            "{}: Premiere Pro .kys files can't be imported yet; choose the \"Premiere Pro Compatible\" preset for Premiere's default keys",
-            path.display()
-        ));
-    }
     // at most one byte past the limit is read, whatever the file's size says now
     let mut bytes = Vec::new();
     std::fs::File::open(path)
@@ -1086,11 +1079,21 @@ fn read_file(path: &Path) -> std::result::Result<PresetFile, String> {
     if bytes.len() as u64 > MAX_FILE {
         return Err(format!("{}: too large for a keyboard shortcuts file", path.display()));
     }
-    let f: PresetFile = serde_json::from_slice(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
-    if f.format != FILE_FORMAT {
-        return Err(format!("{}: not a FilmCraft keyboard shortcuts file", path.display()));
-    }
-    Ok(f)
+    // FilmCraft's own format, whatever the file is called (an export may be named anything)
+    let parsed = serde_json::from_slice::<PresetFile>(&bytes)
+        .map_err(|e| e.to_string())
+        .and_then(|f| if f.format == FILE_FORMAT { Ok(f) } else { Err("not a FilmCraft keyboard shortcuts file".into()) });
+    parsed.map_err(|why| {
+        // Premiere Pro's own shortcut files (#2489): say so, instead of a JSON parse error
+        if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("kys")) {
+            format!(
+                "{}: Premiere Pro .kys files can't be imported yet; choose the \"Premiere Pro Compatible\" preset for Premiere's default keys",
+                path.display()
+            )
+        } else {
+            format!("{}: {why}", path.display())
+        }
+    })
 }
 
 /// The custom preset an imported file becomes: the set's own name, else the file's; never a

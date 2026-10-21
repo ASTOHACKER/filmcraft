@@ -291,6 +291,10 @@ fn custom_presets_persist_export_and_import() {
     std::fs::write(&kys, b"<?xml version=\"1.0\"?><shortcuts/>").unwrap();
     let e = s.execute("shortcuts.import", json!({"path": kys.to_string_lossy()})).unwrap_err().to_string();
     assert!(e.contains(".kys") && e.contains("Premiere Pro Compatible"), "{e}");
+    // a FilmCraft export named .kys still imports: the contents decide, not the name (#2705 review)
+    let named_kys = dir.join("Exported.kys");
+    s.execute("shortcuts.export", json!({"path": named_kys.to_string_lossy()})).unwrap();
+    assert!(s.execute("shortcuts.import", json!({"path": named_kys.to_string_lossy()})).is_ok());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
