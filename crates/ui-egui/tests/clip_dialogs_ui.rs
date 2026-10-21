@@ -427,7 +427,10 @@ fn enter_confirms_and_submits_clip_dialog() {
     d.exec("timeline.select", json!({"clips": [c.id.0]}));
     d.menu("clip.speedDuration");
     assert!(d.app().ui.clip_dialog.is_some(), "speedDuration dialog is open");
-    d.app().ui.clip_dialog.as_mut().unwrap().params["speed"] = json!(200.0);
+    d.click("speedDuration.speed");
+    d.frames(2);
+    d.ok("ui.key", json!({"key": "A", "ctrl": true}));
+    d.ok("ui.type", json!({"text": "200"}));
     d.ok("ui.key", json!({"key": "Enter"}));
     d.frames(2);
     assert!(d.app().ui.clip_dialog.is_none(), "Enter closes the dialog and commits OK");
