@@ -108,30 +108,39 @@ fn cyclic_subclips_do_not_stack_overflow_on_any_interchange_export() {
     assert_eq!(ale_doc.get(1, "Name"), Some("Sub 1"));
     assert_eq!(ale_doc.get(2, "Name"), Some("Sub 2"));
 
-    // Verify FCP7 XML export terminates safely
-    let fcp7_res = export(&p, seq, Format::Fcp7Xml, &ExportOptions::default());
-    assert!(fcp7_res.is_ok(), "FCP7 XML export should succeed without stack overflow");
+    // Verify FCP7 XML export terminates safely and includes the valid chained subclip
+    let (fcp7_bytes, _) = export(&p, seq, Format::Fcp7Xml, &ExportOptions::default()).expect("FCP7 XML export should succeed without stack overflow");
+    let fcp7_text = String::from_utf8_lossy(&fcp7_bytes);
+    assert!(fcp7_text.contains("<name>Sub 2</name>"), "FCP7 XML should carry valid chained subclip 'Sub 2'");
 
-    // Verify FCPXML export terminates safely
-    let fcpxml_res = export(&p, seq, Format::Fcpxml, &ExportOptions::default());
-    assert!(fcpxml_res.is_ok(), "FCPXML export should succeed without stack overflow");
+    // Verify FCPXML export terminates safely and includes the valid chained subclip
+    let (fcpxml_bytes, _) = export(&p, seq, Format::Fcpxml, &ExportOptions::default()).expect("FCPXML export should succeed without stack overflow");
+    let fcpxml_text = String::from_utf8_lossy(&fcpxml_bytes);
+    assert!(fcpxml_text.contains("name=\"Sub 2\""), "FCPXML should carry valid chained subclip 'Sub 2'");
 
-    // Verify EDL export terminates safely
-    let edl_res = export(&p, seq, Format::Edl, &ExportOptions::default());
-    assert!(edl_res.is_ok(), "EDL export should succeed without stack overflow");
+    // Verify EDL export terminates safely and includes the valid chained subclip
+    let (edl_bytes, _) = export(&p, seq, Format::Edl, &ExportOptions::default()).expect("EDL export should succeed without stack overflow");
+    let edl_text = String::from_utf8_lossy(&edl_bytes);
+    assert!(edl_text.contains("Sub 2"), "EDL should carry valid chained subclip 'Sub 2'");
 
-    let edl_per_track_res = export_edl_per_track(&p, seq, &ExportOptions::default());
-    assert!(edl_per_track_res.is_ok(), "EDL per track export should succeed without stack overflow");
+    let (edl_per_track, _) = export_edl_per_track(&p, seq, &ExportOptions::default()).expect("EDL per track export should succeed without stack overflow");
+    assert!(!edl_per_track.is_empty());
+    assert!(edl_per_track.iter().any(|(_, b)| String::from_utf8_lossy(b).contains("Sub 2")), "EDL per track should carry 'Sub 2'");
 
-    // Verify OTIO export terminates safely
-    let otio_res = export(&p, seq, Format::Otio, &ExportOptions::default());
-    assert!(otio_res.is_ok(), "OTIO export should succeed without stack overflow");
+    // Verify OTIO export terminates safely and includes the valid chained subclip
+    let (otio_bytes, _) = export(&p, seq, Format::Otio, &ExportOptions::default()).expect("OTIO export should succeed without stack overflow");
+    let otio_text = String::from_utf8_lossy(&otio_bytes);
+    assert!(otio_text.contains("\"name\": \"Sub 2\""), "OTIO should carry valid chained subclip 'Sub 2'");
 
-    // Verify AAF export terminates safely
-    let aaf_res = aaf::export(&p, seq, &AafOptions::default());
-    assert!(aaf_res.is_ok(), "AAF export should succeed without stack overflow");
+    // Verify AAF export terminates safely and produces non-empty output containing the subclip
+    let (aaf_bytes, _) = aaf::export(&p, seq, &AafOptions::default()).expect("AAF export should succeed without stack overflow");
+    assert!(!aaf_bytes.is_empty(), "AAF export should produce output");
+    let aaf_has_sub2 = aaf_bytes.windows(5).any(|w| w == b"Sub 2")
+        || aaf_bytes.windows(10).any(|w| w == b"S\0u\0b\0 \02\0");
+    assert!(aaf_has_sub2, "AAF export should carry valid chained subclip 'Sub 2'");
 
-    // Verify OMF export terminates safely
-    let omf_res = omf::export(&p, seq, &OmfOptions::default());
-    assert!(omf_res.is_ok(), "OMF export should succeed without stack overflow");
+    // Verify OMF export terminates safely and produces non-empty output containing the subclip
+    let (omf_bytes, _) = omf::export(&p, seq, &OmfOptions::default()).expect("OMF export should succeed without stack overflow");
+    assert!(!omf_bytes.is_empty(), "OMF export should produce output");
+    assert!(omf_bytes.windows(5).any(|w| w == b"Sub 2"), "OMF export should carry valid chained subclip 'Sub 2'");
 }
