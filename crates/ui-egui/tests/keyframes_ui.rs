@@ -743,19 +743,20 @@ fn three_keyframes_first_easing_in(d: &mut Driver, clip: &Clip) -> (String, i64)
     (format!("effectControls.motion.scale.keyframe.{time}"), time)
 }
 
-/// The rows of the keyframe menu, as accessibility reports them: each interpolation's label and
-/// whether it is checked.
-fn interpolation_checks(d: &mut Driver) -> Vec<(&'static str, Option<egui::accesskit::Toggled>)> {
+/// The rows of the keyframe menu, as accessibility reports them: each row's label and whether it
+/// is checked (`None` for a command, which is never checked).
+fn row_checks(d: &mut Driver) -> Vec<(&'static str, Option<egui::accesskit::Toggled>)> {
     d.frames(2);
-    ["Linear", "Bezier", "Auto Bezier", "Continuous Bezier", "Hold", "Ease In", "Ease Out"]
+    ["Clear", "Linear", "Bezier", "Auto Bezier", "Continuous Bezier", "Hold", "Ease In", "Ease Out"]
         .into_iter()
         .map(|label| (label, d.harness.get_by_label(label).accesskit_node().toggled()))
         .collect()
 }
 
-/// #265: right-clicking a keyframe shows Premiere's rows in Premiere's order (Clear, Select All,
-/// the five temporal interpolations, then Ease In and Ease Out), with no heading, and the
-/// keyframe's own interpolation checked, on the lane's diamonds and on the graph's points alike.
+/// #265: right-clicking a keyframe shows Premiere's rows in Premiere's order (Clear, the five
+/// temporal interpolations, then Ease In and Ease Out), with no heading, and the keyframe's own
+/// interpolation checked, on the lane's diamonds and on the graph's points alike. Clear is a
+/// plain command: accessibility does not report it as an unchecked toggle.
 #[test]
 fn keyframe_menu_has_premieres_rows_and_checks_the_current_interpolation() {
     use egui::accesskit::Toggled;
@@ -763,35 +764,25 @@ fn keyframe_menu_has_premieres_rows_and_checks_the_current_interpolation() {
     let (diamond, time) = three_keyframes_first_easing_in(&mut d, &clip);
     d.right_click(&diamond);
     d.shot("keyframe-menu");
-    let expected = ["clear", "selectAll", "linear", "bezier", "autoBezier", "continuousBezier", "hold", "easeIn", "easeOut"];
+    let expected = ["clear", "linear", "bezier", "autoBezier", "continuousBezier", "hold", "easeIn", "easeOut"];
     let mut shown: Vec<(f64, &str)> = expected.iter().filter_map(|k| Some((d.find(&format!("effectControls.keyframeMenu.{k}"))?[1], *k))).collect();
     shown.sort_by(|a, b| a.0.total_cmp(&b.0));
     assert_eq!(shown.iter().map(|r| r.1).collect::<Vec<_>>(), expected, "the rows top to bottom");
     assert!(d.harness.query_by_label_contains("Temporal Interpolation").is_none(), "Premiere's menu has no heading");
 
-    let eased = |label: &str| Some(if label == "Ease In" { Toggled::True } else { Toggled::False });
-    for (label, toggled) in interpolation_checks(&mut d) {
+    let eased = |label: &str| match label {
+        "Clear" => None,
+        "Ease In" => Some(Toggled::True),
+        _ => Some(Toggled::False),
+    };
+    for (label, toggled) in row_checks(&mut d) {
         assert_eq!(toggled, eased(label), "lane menu: {label}");
     }
 
     d.click("effectControls.motion.scale.graphs");
     assert!(d.find("effectControls.keyframeMenu.clear").is_none(), "the click closed the lane's menu");
     d.right_click(&format!("effectControls.scale.graph.keyframe.{time}"));
-    for (label, toggled) in interpolation_checks(&mut d) {
+    for (label, toggled) in row_checks(&mut d) {
         assert_eq!(toggled, eased(label), "graph menu: {label}");
     }
-}
-
-/// #265: Select All in the keyframe menu selects every keyframe Effect Controls shows, as ⌘A does
-/// with the panel focused, and closes the menu.
-#[test]
-fn keyframe_menu_select_all_selects_every_keyframe() {
-    let (mut d, clip) = Driver::demo();
-    let (diamond, _) = three_keyframes_first_easing_in(&mut d, &clip);
-    let selected = |d: &mut Driver| d.ok("ui.inspect", json!({}))["ui"]["keyframe_selection"].as_array().map_or(0, Vec::len);
-    d.right_click(&diamond);
-    assert!(selected(&mut d) < 3, "opening the menu does not select everything");
-    d.click("effectControls.keyframeMenu.selectAll");
-    assert_eq!(selected(&mut d), 3, "both Scale keyframes and the Position one");
-    assert!(d.find("effectControls.keyframeMenu.clear").is_none(), "Select All closes the menu");
 }

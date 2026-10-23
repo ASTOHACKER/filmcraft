@@ -730,8 +730,9 @@ pub(crate) fn param_row(
 }
 
 /// Shared by the lane diamonds and graph points: commands use media time and preserve the mask.
-/// The rows and their order are Premiere's (Cut, Copy and Paste have no keyframe command yet);
-/// `current` is the keyframe's interpolation, the checked row.
+/// The rows and their order are Premiere's (Cut, Copy and Paste have no keyframe command yet, and
+/// Select All waits for Clear to act on the whole selection); `current` is the keyframe's
+/// interpolation, the checked row.
 fn keyframe_menu(
     app: &mut FilmcraftApp,
     ui: &mut egui::Ui,
@@ -744,17 +745,10 @@ fn keyframe_menu(
     if let Some(mask) = target.mask {
         params["mask"] = json!(mask);
     }
-    let response = crate::menus::checked_entry(ui, tl!("Clear"), true, false);
+    let response = crate::menus::checked_entry(ui, tl!("Clear"), true, None);
     app.auto.add("effectControls.keyframeMenu.clear", response.rect, "Clear");
     if response.clicked() {
         actions.push(("effects.deleteKeyframe".into(), params.clone()));
-        ui.close();
-    }
-    ui.separator();
-    let response = crate::menus::checked_entry(ui, tl!("Select All"), true, false);
-    app.auto.add("effectControls.keyframeMenu.selectAll", response.rect, "Select All");
-    if response.clicked() {
-        select_all_keyframes(app);
         ui.close();
     }
     for group in [
@@ -769,7 +763,7 @@ fn keyframe_menu(
     ] {
         ui.separator();
         for &(label, key, interpolation) in group {
-            let response = crate::menus::checked_entry(ui, label, true, current == interpolation);
+            let response = crate::menus::checked_entry(ui, label, true, Some(current == interpolation));
             app.auto.add(&format!("effectControls.keyframeMenu.{key}"), response.rect, label);
             if response.clicked() {
                 let mut params = params.clone();
