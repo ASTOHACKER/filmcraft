@@ -70,7 +70,7 @@ const fs = require('node:fs');
   const wasi = new WASI({ version: 'preview1', args, env: process.env });
   const module = await WebAssembly.compile(fs.readFileSync(args[0]));
   const instance = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi.wasiImport });
-  wasi.start(instance);
+  process.exitCode = wasi.start(instance);
 })().catch(error => { console.error(error); process.exitCode = 1; });
 EOF
 export CARGO_TARGET_WASM32_WASIP1_RUNNER="node /tmp/filmcraft-wasi-runner.cjs"
@@ -79,6 +79,7 @@ cargo test -p filmcraft-bitstream -p filmcraft-vp9 -p filmcraft-av1 --lib \
 # Repeat with --release: wrapping arithmetic is also dangerous without overflow checks.
 ```
 
+The runner forwards the WASI exit code to Node.js so Cargo also fails when a test fails.
 The WASI build disables proptest's subprocess-based fork/timeout features; native builds retain
 them. The tests wrap parser calls in `catch_unwind`; on WASI an aborting panic still fails the
 test process, so a trapped regression cannot count as a pass.
