@@ -382,6 +382,14 @@ pub const PREROLL_TIMEOUT_S: f64 = 0.5;
 /// mouse rested; frames of the last few changes are what the monitor shows meanwhile.
 pub const PLAYING_REVISION_LAG: u64 = 64;
 
+/// The frames [`FrameServer::recent`] looks for, in order: nearest frame first (`key.frame`, then
+/// the ones already played: lower frames, or higher ones when `dir` < 0), newest revision first.
+fn recent_keys(key: FrameKey, dir: i64, max_back: i64, lag: u64) -> impl Iterator<Item = FrameKey> {
+    let back = if dir < 0 { -1 } else { 1 };
+    (0..=max_back.max(0))
+        .flat_map(move |d| (0..=lag.min(key.revision)).map(move |r| FrameKey { frame: key.frame - d * back, revision: key.revision - r, ..key }))
+}
+
 /// Which frames playback asks for, given the per-frame render cost (s), the displayed frame rate
 /// and the worker count: `(lead, stride)`. While the workers keep up, every frame from the
 /// playhead on (`(1, 1)`). When they cannot (CPU effects slower than real time), `lead` is the
@@ -517,12 +525,12 @@ impl FrameServer {
         })
     }
 
-    /// While playing: the cached frame closest at or before `key.frame` (within `max_back`) at the
-    /// newest revision from `key.revision` back to `lag` revisions before it, image or plan as
+    /// While playing: the cached frame closest to `key.frame` on the side already played (within
+    /// `max_back` frames; `dir` -1 plays in reverse, so higher frames lie behind) at the newest
+    /// revision from `key.revision` back to `lag` revisions before it, image or plan as
     /// `key.target` renders (#1673). `None` when there is none.
-    pub fn recent(&self, key: FrameKey, max_back: i64, lag: u64) -> Option<FrameKey> {
-        let keys =
-            (0..=max_back.max(0)).flat_map(|d| (0..=lag.min(key.revision)).map(move |r| FrameKey { frame: key.frame - d, revision: key.revision - r, ..key }));
+    pub fn recent(&self, key: FrameKey, dir: i64, max_back: i64, lag: u64) -> Option<FrameKey> {
+        let keys = recent_keys(key, dir, max_back, lag);
         match key.target {
             Target::SequencePlan(_) => {
                 let g = self.shared.plans.lock().unwrap_or_else(|e| e.into_inner());
@@ -1011,7 +1019,7 @@ fn render_job(job: &Job, pool: &Arc<MediaPool>, services: &Arc<dyn Services>, pr
 
 #[cfg(test)]
 mod tests {
-    use super::{PlaybackMeter, Target, background_work, playback_plan};
+    use super::{FrameKey, PlaybackMeter, Target, background_work, playback_plan, recent_keys};
     use filmcraft_project::ItemId;
 
     #[test]
@@ -1035,6 +1043,18 @@ mod tests {
         assert!(!draft_playback(false, 0.5, true), "a paused frame is never draft");
         assert!(!draft_playback(true, 0.5, false), "off unless enabled");
         assert!(!filmcraft_engine::autosave::Preferences::default().playback.draft_decode, "off by default");
+    }
+
+    /// #1673: the recent-frame fallback looks at frames already played, newest revision first.
+    #[test]
+    fn recent_frames_lie_on_the_played_side() {
+        let key = FrameKey { target: Target::Sequence(ItemId(1)), frame: 10, size: 1000, revision: 5, draft: false };
+        let fwd: Vec<(i64, u64)> = recent_keys(key, 1, 2, 1).map(|k| (k.frame, k.revision)).collect();
+        assert_eq!(fwd, [(10, 5), (10, 4), (9, 5), (9, 4), (8, 5), (8, 4)]);
+        let rev: Vec<(i64, u64)> = recent_keys(key, -1, 2, 1).map(|k| (k.frame, k.revision)).collect();
+        assert_eq!(rev, [(10, 5), (10, 4), (11, 5), (11, 4), (12, 5), (12, 4)]);
+        // no revision before the first
+        assert_eq!(recent_keys(FrameKey { revision: 0, ..key }, 1, 0, 64).count(), 1);
     }
 
     #[test]

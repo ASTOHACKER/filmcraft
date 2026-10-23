@@ -197,9 +197,11 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
         let draft = crate::frames::draft_playback(playing, scale, app.session.prefs.playback.draft_decode);
         let key = FrameKey { target, frame, size: size_key, revision: rev, draft };
         let project = app.session.project.clone();
+        let speed = if which == Which::Program { app.playback.speed } else { app.source_playback.clock.speed };
+        // while playing, which way: frames on the other side of the playhead are not due yet
+        let dir = playing.then_some(if speed < 0.0 { -1 } else { 1 });
         if playing {
             let preroll = which == Which::Program && app.playback.preroll.is_some();
-            let speed = if which == Which::Program { app.playback.speed } else { app.source_playback.clock.speed };
             app.frames.schedule_playback(key, rate, scale, &project, speed, preroll);
             if preroll {
                 app.playback.preroll_ready = app.frames.preroll_ready(key, app.playback.speed, rate.frame_at(duration) - 1);
@@ -216,13 +218,13 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
                 .map(|p| (key, p))
                 .or_else(|| app.frames.nearest_plan(key, 6))
                 .or_else(|| asked.iter().find_map(|k| app.frames.get_plan(k).map(|p| (*k, p))))
-                .or_else(|| playing_recent(app, key, playing).and_then(|k| app.frames.get_plan(&k).map(|p| (k, p))));
+                .or_else(|| playing_recent(app, key, dir).and_then(|k| app.frames.get_plan(&k).map(|p| (k, p))));
             match found {
                 Some((k, plan)) => (app.gpu_present(k, &plan).map(|(id, _)| id), Some(k)),
                 None => (app.gpu.as_ref().and_then(|g| g.texture), app.gpu.as_ref().and_then(|g| g.last_key)),
             }
         } else {
-            let recent = playing_recent(app, key, playing);
+            let recent = playing_recent(app, key, dir);
             cpu_texture(app, &ctx, &tex_name, key, &asked, recent, display)
         };
         let exact = on_screen == Some(key);
@@ -479,9 +481,9 @@ fn asked_before(app: &mut FilmcraftApp, prefix: &str, key: FrameKey, playing: bo
 }
 
 /// While playing, a frame to show when the one due is not ready at the project's revision: the
-/// same frame (or one just before it) rendered for one of the last few revisions (#1673).
-fn playing_recent(app: &FilmcraftApp, key: FrameKey, playing: bool) -> Option<FrameKey> {
-    playing.then(|| app.frames.recent(key, 6, crate::frames::PLAYING_REVISION_LAG)).flatten()
+/// same frame (or one just played) rendered for one of the last few revisions (#1673).
+fn playing_recent(app: &FilmcraftApp, key: FrameKey, dir: Option<i64>) -> Option<FrameKey> {
+    dir.and_then(|dir| app.frames.recent(key, dir, 6, crate::frames::PLAYING_REVISION_LAG))
 }
 
 /// A monitor texture from the CPU frame path: the exact frame, else the nearest cached one before
