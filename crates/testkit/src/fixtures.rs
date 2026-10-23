@@ -54,6 +54,11 @@ fn complete_file(path: &Path) -> bool {
 /// winner. On failure, attempt to remove only the caller's temporary file.
 /// This is for files, not directories; callers must use a unique [`temp_path`].
 pub fn publish(tmp: &Path, out: &Path) -> std::io::Result<()> {
+    if !complete_file(tmp) {
+        let winner = complete_file(out);
+        let _ = std::fs::remove_file(tmp);
+        return if winner { Ok(()) } else { Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "temporary fixture is not a non-empty file")) };
+    }
     match std::fs::rename(tmp, out) {
         Ok(()) => Ok(()),
         Err(error) => {
@@ -137,6 +142,136 @@ mod tests {
         assert!(!tmp.exists());
         drop(reader);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn direct_publication_rejects_invalid_temporary_without_output() {
+        for kind in ["empty", "missing", "directory"] {
+            let dir = temp_path(&std::env::temp_dir().join("filmcraft-testkit-invalid-publish"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let out = dir.join("fixture.bin");
+            let tmp = temp_path(&out);
+            match kind {
+                "empty" => std::fs::write(&tmp, b"").unwrap(),
+                "directory" => {
+                    std::fs::create_dir(&tmp).unwrap();
+                    std::fs::write(tmp.join("child"), b"caller owned").unwrap();
+                }
+                _ => {}
+            }
+            assert!(publish(&tmp, &out).is_err(), "accepted {kind} temporary");
+            assert!(!out.exists(), "published {kind} temporary");
+            if kind == "directory" {
+                assert_eq!(std::fs::read(tmp.join("child")).unwrap(), b"caller owned");
+                std::fs::remove_file(tmp.join("child")).unwrap();
+                std::fs::remove_dir(&tmp).unwrap();
+            } else {
+                assert!(!tmp.exists(), "left {kind} temporary file");
+            }
+            std::fs::remove_dir(&dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn direct_publication_rejects_invalid_temporary_with_empty_output() {
+        for kind in ["empty", "missing", "directory"] {
+            let dir = temp_path(&std::env::temp_dir().join("filmcraft-testkit-invalid-empty-out"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let out = dir.join("fixture.bin");
+            let tmp = temp_path(&out);
+            std::fs::write(&out, b"").unwrap();
+            match kind {
+                "empty" => std::fs::write(&tmp, b"").unwrap(),
+                "directory" => {
+                    std::fs::create_dir(&tmp).unwrap();
+                    std::fs::write(tmp.join("child"), b"caller owned").unwrap();
+                }
+                _ => {}
+            }
+            assert!(publish(&tmp, &out).is_err(), "accepted {kind} temporary");
+            assert!(out.is_file());
+            assert_eq!(std::fs::read(&out).unwrap(), b"");
+            if kind == "directory" {
+                assert_eq!(std::fs::read(tmp.join("child")).unwrap(), b"caller owned");
+                std::fs::remove_file(tmp.join("child")).unwrap();
+                std::fs::remove_dir(&tmp).unwrap();
+            } else {
+                assert!(!tmp.exists(), "left {kind} temporary file");
+            }
+            std::fs::remove_file(&out).unwrap();
+            std::fs::remove_dir(&dir).unwrap();
+        }
+    }
+
+    #[test]
+    fn direct_publication_preserves_complete_winner_with_invalid_temporary() {
+        for kind in ["empty", "missing", "directory"] {
+            let dir = temp_path(&std::env::temp_dir().join("filmcraft-testkit-invalid-winner"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let out = dir.join("fixture.bin");
+            let tmp = temp_path(&out);
+            std::fs::write(&out, b"complete winner").unwrap();
+            match kind {
+                "empty" => std::fs::write(&tmp, b"").unwrap(),
+                "directory" => {
+                    std::fs::create_dir(&tmp).unwrap();
+                    std::fs::write(tmp.join("child"), b"caller owned").unwrap();
+                }
+                _ => {}
+            }
+            assert!(publish(&tmp, &out).is_ok(), "did not reuse winner for {kind} temporary");
+            assert_eq!(std::fs::read(&out).unwrap(), b"complete winner", "changed winner for {kind} temporary");
+            if kind == "directory" {
+                assert_eq!(std::fs::read(tmp.join("child")).unwrap(), b"caller owned");
+                std::fs::remove_file(tmp.join("child")).unwrap();
+                std::fs::remove_dir(&tmp).unwrap();
+            } else {
+                assert!(!tmp.exists(), "left {kind} temporary file");
+            }
+            std::fs::remove_file(&out).unwrap();
+            std::fs::remove_dir(&dir).unwrap();
+        }
+    }
+
+    // These callbacks expose an inherited generate validation gap: success alone
+    // does not establish that the generated path is a complete fixture file.
+    #[test]
+    fn generate_rejects_successful_callback_producing_empty_file() {
+        let dir = temp_path(&std::env::temp_dir().join("filmcraft-testkit-generate-empty"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let out = dir.join("fixture.bin");
+        let mut temporary = None;
+        let result = generate(&out, |tmp| {
+            temporary = Some(tmp.to_path_buf());
+            std::fs::write(tmp, b"").unwrap();
+            true
+        });
+        assert!(result.is_none());
+        assert!(!out.exists());
+        assert!(!temporary.unwrap().exists());
+        std::fs::remove_dir(&dir).unwrap();
+    }
+
+    #[test]
+    fn generate_rejects_successful_callback_producing_directory() {
+        let dir = temp_path(&std::env::temp_dir().join("filmcraft-testkit-generate-directory"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let out = dir.join("fixture.bin");
+        let mut temporary = None;
+        let result = generate(&out, |tmp| {
+            temporary = Some(tmp.to_path_buf());
+            std::fs::create_dir(tmp).unwrap();
+            std::fs::write(tmp.join("child"), b"caller owned").unwrap();
+            true
+        });
+        assert!(result.is_none());
+        assert!(!out.exists());
+        let tmp = temporary.unwrap();
+        assert!(tmp.is_dir());
+        assert_eq!(std::fs::read(tmp.join("child")).unwrap(), b"caller owned");
+        std::fs::remove_file(tmp.join("child")).unwrap();
+        std::fs::remove_dir(&tmp).unwrap();
+        std::fs::remove_dir(&dir).unwrap();
     }
 
     #[test]
