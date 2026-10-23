@@ -1079,18 +1079,30 @@ impl GpuCompositor {
 
     /// Wait for the staging buffer filled by [`copy_accumulator`](Self::copy_accumulator) and
     /// convert its half floats to f32.
-    fn map_accumulator(&self, (w, h, row): (u32, u32, u32)) -> Option<(u32, u32, Vec<f32>)> {
+    fn map_accumulator(&mut self, dimensions: (u32, u32, u32)) -> Option<(u32, u32, Vec<f32>)> {
+        self.map_accumulator_with_wait(dimensions, wait_mapped)
+    }
+
+    /// Keep the wait injectable so failure cleanup can be checked without stalling a driver.
+    fn map_accumulator_with_wait(
+        &mut self,
+        (w, h, row): (u32, u32, u32),
+        wait: impl FnOnce(&wgpu::Device, &std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>) -> Option<()>,
+    ) -> Option<(u32, u32, Vec<f32>)> {
         if w == 0 || h == 0 {
             return None;
         }
         let t = std::time::Instant::now();
-        let (buf, _) = self.accum_readback_buf.as_ref()?;
+        // A failed map may already be unmapped; public unmap would report another error.
+        // Own the staging buffer for this attempt and cache it again only after success.
+        // Otherwise drop it so the next copy creates fresh storage instead of reusing it.
+        let (buf, capacity) = self.accum_readback_buf.take()?;
         let slice = buf.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |r| {
             let _ = tx.send(r);
         });
-        wait_mapped(&self.device, &rx)?;
+        wait(&self.device, &rx)?;
         export_renderer::timing::add_map_wait(t.elapsed());
         let t = std::time::Instant::now();
         let (width, row) = (w as usize, row as usize);
@@ -1105,9 +1117,13 @@ impl GpuCompositor {
             true
         });
         drop(data);
+        if !converted {
+            return None;
+        }
         buf.unmap();
+        self.accum_readback_buf = Some((buf, capacity));
         export_renderer::timing::add_convert(t.elapsed());
-        converted.then_some((w, h, out))
+        Some((w, h, out))
     }
 
     /// Read the output back as RGBA8 (tests / screenshots / thumbnails).
