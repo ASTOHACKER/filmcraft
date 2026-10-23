@@ -1010,6 +1010,16 @@ mod tests {
     }
 
     #[test]
+    fn hostile_lengths_obu_size_requires_termination() {
+        let mut data = [0x80; 9];
+        data[0] = 0x7a; // Padding OBU with eight unterminated size bytes.
+        let result = std::panic::catch_unwind(|| Decoder::with_threads(1).decode(&data));
+        assert!(matches!(result.expect("OBU size parsing must not panic"), Err(Error::Truncated)));
+        data[8] = 0; // A terminated eight-byte encoding of zero remains valid.
+        assert!(Decoder::with_threads(1).decode(&data).unwrap().is_empty());
+    }
+
+    #[test]
     fn hostile_lengths_tile_mutations_and_truncations() {
         for width in 1..=4 {
             let mut data = vec![0x88]; // tiles 0..1 of three
