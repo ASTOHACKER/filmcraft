@@ -985,6 +985,7 @@ mod tests {
             refs: Default::default(),
             ref_info: Default::default(),
             tiles: Vec::new(),
+            tile_covered: vec![false; 3],
             slot: Slot::new(),
             picture: None,
             pts: 0,
