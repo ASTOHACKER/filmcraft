@@ -27,44 +27,23 @@ fn cyclic_subclips_do_not_stack_overflow_on_any_interchange_export() {
         ItemKind::Subclip { parent: media_id, range: TimeRange::new(r.tick_of(0), r.tick_of(100)), restrict_trims: false },
         None,
     );
-    let sub2 = p.add_item(
-        "Sub 2",
-        Label::Iris,
-        ItemKind::Subclip { parent: sub1, range: TimeRange::new(r.tick_of(10), r.tick_of(50)), restrict_trims: false },
-        None,
-    );
+    let sub2 =
+        p.add_item("Sub 2", Label::Iris, ItemKind::Subclip { parent: sub1, range: TimeRange::new(r.tick_of(10), r.tick_of(50)), restrict_trims: false }, None);
 
     // 2. Self-referencing subclip (direct cycle)
-    let self_cycle = p.add_item(
-        "Self Cycle",
-        Label::Iris,
-        ItemKind::Subclip { parent: ItemId(99999), range: TimeRange::default(), restrict_trims: false },
-        None,
-    );
-    p.item_mut(self_cycle).unwrap().kind = ItemKind::Subclip {
-        parent: self_cycle,
-        range: TimeRange::new(Tick::ZERO, r.tick_of(50)),
-        restrict_trims: false,
-    };
+    let self_cycle =
+        p.add_item("Self Cycle", Label::Iris, ItemKind::Subclip { parent: ItemId(99999), range: TimeRange::default(), restrict_trims: false }, None);
+    p.item_mut(self_cycle).unwrap().kind = ItemKind::Subclip { parent: self_cycle, range: TimeRange::new(Tick::ZERO, r.tick_of(50)), restrict_trims: false };
 
     // 3. Mutual cycle (A -> B -> A)
-    let cycle_a = p.add_item(
-        "Cycle A",
-        Label::Iris,
-        ItemKind::Subclip { parent: ItemId(99999), range: TimeRange::default(), restrict_trims: false },
-        None,
-    );
+    let cycle_a = p.add_item("Cycle A", Label::Iris, ItemKind::Subclip { parent: ItemId(99999), range: TimeRange::default(), restrict_trims: false }, None);
     let cycle_b = p.add_item(
         "Cycle B",
         Label::Iris,
         ItemKind::Subclip { parent: cycle_a, range: TimeRange::new(Tick::ZERO, r.tick_of(50)), restrict_trims: false },
         None,
     );
-    p.item_mut(cycle_a).unwrap().kind = ItemKind::Subclip {
-        parent: cycle_b,
-        range: TimeRange::new(Tick::ZERO, r.tick_of(50)),
-        restrict_trims: false,
-    };
+    p.item_mut(cycle_a).unwrap().kind = ItemKind::Subclip { parent: cycle_b, range: TimeRange::new(Tick::ZERO, r.tick_of(50)), restrict_trims: false };
 
     // 4. Overly deep subclip chain (> 16 levels)
     let mut deep_parent = media_id;
@@ -135,8 +114,7 @@ fn cyclic_subclips_do_not_stack_overflow_on_any_interchange_export() {
     // Verify AAF export terminates safely and produces non-empty output containing the subclip
     let (aaf_bytes, _) = aaf::export(&p, seq, &AafOptions::default()).expect("AAF export should succeed without stack overflow");
     assert!(!aaf_bytes.is_empty(), "AAF export should produce output");
-    let aaf_has_sub2 = aaf_bytes.windows(5).any(|w| w == b"Sub 2")
-        || aaf_bytes.windows(10).any(|w| w == b"S\0u\0b\0 \02\0");
+    let aaf_has_sub2 = aaf_bytes.windows(5).any(|w| w == b"Sub 2") || aaf_bytes.windows(10).any(|w| w == b"S\0u\0b\0 \x002\0");
     assert!(aaf_has_sub2, "AAF export should carry valid chained subclip 'Sub 2'");
 
     // Verify OMF export terminates safely and produces non-empty output containing the subclip

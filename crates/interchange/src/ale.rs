@@ -298,12 +298,8 @@ mod tests {
         let mut p = Project::new("ALE");
         let r = FrameRate::FPS_23_976;
         let a = media(&mut p, "Clip.mp4", r, 10, Some(86_400), 2);
-        let sub1 = p.add_item(
-            "Sub 1",
-            Label::Iris,
-            ItemKind::Subclip { parent: a, range: TimeRange::new(r.tick_of(24), r.tick_of(48)), restrict_trims: false },
-            None,
-        );
+        let sub1 =
+            p.add_item("Sub 1", Label::Iris, ItemKind::Subclip { parent: a, range: TimeRange::new(r.tick_of(24), r.tick_of(48)), restrict_trims: false }, None);
         let sub2 = p.add_item(
             "Sub 2",
             Label::Iris,
@@ -311,12 +307,7 @@ mod tests {
             None,
         );
         // Cyclic subclip
-        let cycle = p.add_item(
-            "Cycle",
-            Label::Iris,
-            ItemKind::Subclip { parent: ItemId(999), range: TimeRange::default(), restrict_trims: false },
-            None,
-        );
+        let cycle = p.add_item("Cycle", Label::Iris, ItemKind::Subclip { parent: ItemId(999), range: TimeRange::default(), restrict_trims: false }, None);
         p.item_mut(cycle).unwrap().kind = ItemKind::Subclip { parent: cycle, range: TimeRange::default(), restrict_trims: false };
 
         let doc = export_items(&p, &[sub2, cycle]);

@@ -748,12 +748,8 @@ mod tests {
             ItemKind::Subclip { parent: media_id, range: TimeRange::new(Tick::ZERO, Tick(10_000)), restrict_trims: false },
             None,
         );
-        let sub2 = p.add_item(
-            "Sub 2",
-            Label::Iris,
-            ItemKind::Subclip { parent: sub1, range: TimeRange::new(Tick(1_000), Tick(5_000)), restrict_trims: false },
-            None,
-        );
+        let sub2 =
+            p.add_item("Sub 2", Label::Iris, ItemKind::Subclip { parent: sub1, range: TimeRange::new(Tick(1_000), Tick(5_000)), restrict_trims: false }, None);
 
         assert_eq!(base_item(&p, media_id), media_id);
         assert_eq!(base_item(&p, sub1), media_id);
@@ -762,27 +758,13 @@ mod tests {
         assert!(item_media(&p, sub2).is_some());
 
         // Self-referencing subclip (direct cycle)
-        let self_cycle = p.add_item(
-            "Self Cycle",
-            Label::Iris,
-            ItemKind::Subclip { parent: ItemId(9999), range: TimeRange::default(), restrict_trims: false },
-            None,
-        );
+        let self_cycle =
+            p.add_item("Self Cycle", Label::Iris, ItemKind::Subclip { parent: ItemId(9999), range: TimeRange::default(), restrict_trims: false }, None);
         p.item_mut(self_cycle).unwrap().kind = ItemKind::Subclip { parent: self_cycle, range: TimeRange::default(), restrict_trims: false };
 
         // Mutual cycle (A -> B -> A)
-        let cycle_a = p.add_item(
-            "Cycle A",
-            Label::Iris,
-            ItemKind::Subclip { parent: ItemId(9999), range: TimeRange::default(), restrict_trims: false },
-            None,
-        );
-        let cycle_b = p.add_item(
-            "Cycle B",
-            Label::Iris,
-            ItemKind::Subclip { parent: cycle_a, range: TimeRange::default(), restrict_trims: false },
-            None,
-        );
+        let cycle_a = p.add_item("Cycle A", Label::Iris, ItemKind::Subclip { parent: ItemId(9999), range: TimeRange::default(), restrict_trims: false }, None);
+        let cycle_b = p.add_item("Cycle B", Label::Iris, ItemKind::Subclip { parent: cycle_a, range: TimeRange::default(), restrict_trims: false }, None);
         p.item_mut(cycle_a).unwrap().kind = ItemKind::Subclip { parent: cycle_b, range: TimeRange::default(), restrict_trims: false };
 
         // Verify calls that previously caused infinite recursion now safely terminate
