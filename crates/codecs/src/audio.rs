@@ -1370,14 +1370,7 @@ mod decode_pcm_tests {
     fn zero_bits_decode_to_empty_channels_without_panicking() {
         // A hostile `ipcm`/`fpcm` sample entry with `sample_size == 0` used to divide by zero
         // (`bps * ch == 0`) and panic the audio worker on import/playback.
-        let cfg = filmcraft_isobmff::PcmConfig {
-            bits: 0,
-            float: false,
-            big_endian: true,
-            signed: true,
-            channels: 2,
-            sample_rate: 48_000.0,
-        };
+        let cfg = filmcraft_isobmff::PcmConfig { bits: 0, float: false, big_endian: true, signed: true, channels: 2, sample_rate: 48_000.0 };
         let out = decode_pcm(&[0u8; 64], &cfg);
         assert_eq!(out.len(), 2);
         assert!(out.iter().all(Vec::is_empty));
