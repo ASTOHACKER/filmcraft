@@ -987,7 +987,6 @@
 	Eyedropper (pick a color from the Program monitor)	Contagocce (preleva un colore dal monitor programma)
 	Eyedropper: no picture to sample	Contagocce: nessuna immagine da campionare
 	Add/Remove Keyframe	Aggiungi/rimuovi fotogramma chiave
-	Temporal Interpolation	Interpolazione temporale
 	Linear	Lineare
 	Bezier	Bezier
 	Auto Bezier	Bezier automatica
