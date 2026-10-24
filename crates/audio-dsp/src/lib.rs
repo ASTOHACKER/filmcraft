@@ -215,7 +215,8 @@ pub(crate) use param_plumbing;
 /// Decibels → linear amplitude.
 #[inline]
 pub fn db_to_gain(db: f32) -> f32 {
-    10f32.powf(db / 20.0)
+    // Settled gain envelopes sit at exactly 0 dB, and 10^±0 is exactly 1.
+    if db != 0.0 { 10f32.powf(db / 20.0) } else { 1.0 }
 }
 
 /// Linear amplitude → decibels (−inf for 0).
