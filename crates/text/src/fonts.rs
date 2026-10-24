@@ -121,11 +121,16 @@ fn walk(dir: &std::path::Path, depth: u32, out: &mut Vec<PathBuf>) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     for e in rd.flatten() {
         let p = e.path();
-        if p.is_dir() {
+        let Ok(file_type) = e.file_type() else { continue };
+        // Font discovery is bounded to the configured folders: never follow a symlinked folder
+        // into a loop or an unrelated tree. Symlinked font files (NixOS, home-manager, Debian
+        // alternatives) still count.
+        let is_file = if file_type.is_symlink() { std::fs::metadata(&p).is_ok_and(|m| m.is_file()) } else { file_type.is_file() };
+        if file_type.is_dir() {
             if depth < 4 {
                 walk(&p, depth + 1, out);
             }
-        } else if is_font_file(&p) {
+        } else if is_file && is_font_file(&p) {
             out.push(p);
         }
     }
@@ -141,6 +146,31 @@ fn is_font_file(p: &std::path::Path) -> bool {
             std::fs::File::open(p).and_then(|mut f| std::io::Read::read_exact(&mut f, &mut tag)).is_ok()
                 && matches!(&tag, [0, 1, 0, 0] | b"OTTO" | b"ttcf" | b"true")
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod directory_tests {
+    use super::walk;
+
+    #[test]
+    fn directory_source_does_not_follow_symlinked_font_trees() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir().unwrap();
+        let configured = root.path().join("configured");
+        let foreign = root.path().join("foreign");
+        std::fs::create_dir_all(&configured).unwrap();
+        std::fs::create_dir_all(&foreign).unwrap();
+        std::fs::write(configured.join("inside.ttf"), b"").unwrap();
+        std::fs::write(foreign.join("outside.ttf"), b"").unwrap();
+        symlink(&foreign, configured.join("loop")).unwrap();
+        symlink(foreign.join("outside.ttf"), configured.join("linked.ttf")).unwrap();
+
+        let mut found = Vec::new();
+        walk(&configured, 0, &mut found);
+        found.sort();
+        assert_eq!(found, vec![configured.join("inside.ttf"), configured.join("linked.ttf")]);
     }
 }
 
