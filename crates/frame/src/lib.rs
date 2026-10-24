@@ -415,27 +415,17 @@ impl VideoFrame {
                     // Samples the planes do not hold come out transparent instead of panicking.
                     let ytab: [f32; 256] = std::array::from_fn(|v| ytab.get(v).copied().unwrap_or(0.0));
                     let ctab: [f32; 256] = std::array::from_fn(|v| ctab.get(v).copied().unwrap_or(0.0));
-                    /// Row `at` of a plane of rows `len` samples long.
-                    fn line(p: &[u8], at: usize, len: usize) -> Option<&[u8]> {
-                        p.get(at.saturating_mul(len)..at.saturating_add(1).saturating_mul(len))
+                    /// The samples a plane of rows `len` samples long holds of row `at`: the whole
+                    /// row, the part of it before the plane ends, or none.
+                    fn line(p: &[u8], at: usize, len: usize) -> &[u8] {
+                        let start = at.saturating_mul(len);
+                        p.get(start..start.saturating_add(len).min(p.len())).unwrap_or(&[])
                     }
                     out.par_chunks_mut(r.w * 4).enumerate().for_each(|(ry, row)| {
                         let y = (r.y + ry).min(h - 1);
                         let cy = y >> sy;
-                        let (Some(yrow), Some(urow), Some(vrow)) = (line(&planes[0], y, w), line(&planes[1], cy, cw), line(&planes[2], cy, cw)) else {
-                            row.fill(0.0);
-                            return;
-                        };
-                        let arow = match alpha {
-                            Some(al) => match line(al, y, w) {
-                                Some(a) => Some(a),
-                                None => {
-                                    row.fill(0.0);
-                                    return;
-                                }
-                            },
-                            None => None,
-                        };
+                        let (yrow, urow, vrow) = (line(&planes[0], y, w), line(&planes[1], cy, cw), line(&planes[2], cy, cw));
+                        let arow = alpha.as_ref().map(|al| line(al, y, w));
                         for (rx, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                             let x = (r.x + rx).min(w - 1);
                             let cx = x >> sx;
@@ -1131,6 +1121,8 @@ mod tests {
         out
     }
 
+    /// The one-to-one path gives every value of the pixel-by-pixel definition, bit for bit, for
+    /// every chroma format, with and without alpha, in both ranges and with a decode table.
     #[test]
     fn a_full_size_yuv8_picture_converts_exactly_pixel_by_pixel() {
         let mut s = 0x2545_f491_4f6c_dd1du64;
@@ -1167,13 +1159,15 @@ mod tests {
         }
     }
 
+    /// Planes shorter than the picture never make the conversion panic: the pixels whose samples
+    /// are there come out as usual (also in a row the plane ends in), the others transparent.
     #[test]
     fn a_yuv8_picture_with_short_planes_converts_without_panicking() {
-        // 8x8 4:2:0 whose planes hold three rows of luma, one of chroma and five of alpha: the rows
-        // without data come out transparent
+        // 8x8 4:2:0 whose planes hold three and a half rows of luma, two of chroma and five of
+        // alpha: rows 0-2 are whole, row 3 has its first four pixels, the rest is transparent
         let f = VideoFrame {
             data: PixelData::Yuv8 {
-                planes: [Arc::new(vec![235; 24]), Arc::new(vec![128; 4]), Arc::new(vec![128; 4])],
+                planes: [Arc::new(vec![235; 28]), Arc::new(vec![128; 8]), Arc::new(vec![128; 8])],
                 chroma: Chroma::C420,
                 alpha: Some(Arc::new(vec![255; 40])),
             },
@@ -1182,8 +1176,11 @@ mod tests {
         };
         let (_, _, px) = f.to_linear_f32_decimated(1);
         assert_eq!(px.len(), 8 * 8 * 4);
+        let white = |p: &[f32]| p[3] == 1.0 && p[0] > 0.99;
         let row = |y: usize| &px[y * 32..(y + 1) * 32];
-        assert!(row(0).chunks(4).all(|p| p[3] == 1.0 && p[0] > 0.99), "a white row with its samples: {:?}", row(0));
-        assert!((2..8).all(|y| row(y).iter().all(|v| *v == 0.0)), "rows without chroma or luma are transparent");
+        assert!((0..3).all(|y| row(y).chunks(4).all(white)), "whole rows of samples: {:?}", row(0));
+        assert!(row(3)[..16].chunks(4).all(white), "the samples the last luma row holds: {:?}", row(3));
+        assert!(row(3)[16..].iter().all(|v| *v == 0.0), "the rest of that row is transparent: {:?}", row(3));
+        assert!((4..8).all(|y| row(y).iter().all(|v| *v == 0.0)), "rows without luma are transparent");
     }
 }
