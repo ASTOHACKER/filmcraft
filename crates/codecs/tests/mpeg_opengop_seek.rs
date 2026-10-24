@@ -2,6 +2,7 @@
 //! picture of the wanted GOP, not at the IDR at the start of the file. This file has its own
 //! process so that the global GOP counters are not shared with other tests.
 
+#[path = "it/common/mod.rs"]
 mod common;
 
 use common::*;
