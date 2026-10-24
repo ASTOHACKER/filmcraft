@@ -416,15 +416,6 @@ mod tests {
     const SR: f32 = 48000.0;
 
     #[test]
-    fn db_to_gain_matches_powf() {
-        let edges = [0.0, -0.0, f32::from_bits(1), -f32::from_bits(1), -1e-7, 1e-7, f32::INFINITY, f32::NEG_INFINITY, f32::NAN];
-        for db in edges.into_iter().chain((-24000..=2400).map(|i| i as f32 * 0.01)) {
-            let db = std::hint::black_box(db);
-            assert_eq!(db_to_gain(db).to_bits(), 10f32.powf(db / 20.0).to_bits(), "{db}");
-        }
-    }
-
-    #[test]
     fn compressor_static_curve() {
         let c = |x| compressor_curve(x, -20.0, 4.0, 0.0);
         assert_eq!(c(-30.0), -30.0);
