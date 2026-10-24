@@ -298,6 +298,12 @@ file ──► codecs (MP4/MOV, MKV, audio)        demux + decode, GOP-aware see
   `filmcraft_export::register_format_probe`, so the H.265 format exists where an HEVC encoder does,
   and choosing it is the opt-in (the Hardware encoding toggle governs H.264 only). With no software
   H.265 encoder, what NVENC declines is counted and ends the export with an error that says why.
+  On macOS, `platform::hardware_encode` (VideoToolbox H.264, opt-in the same way, and H.265) is
+  registered likewise. It too takes the RGBA pictures as they are (`32BGRA` buffers tagged BT.709)
+  and VideoToolbox converts them to 4:2:0, so the encode thread only copies: converting on the CPU
+  there competed with the render of the next frames for the thread pool and cost more than the
+  hardware encode (20 ms a 1080p frame). A VideoToolbox that refuses RGB input on the first picture
+  gets the CPU's conversion into NV12 instead, and the export goes on.
 - **Compositor.** `render` is the reference for monitors, thumbnails and export. `render::plan`
   turns a frame into GPU layers, each with its opacity and blend mode. All 27 blend modes run on the
   GPU (`filmcraft-gpu`): Normal and Dissolve with fixed-function "over" blending, the others by
