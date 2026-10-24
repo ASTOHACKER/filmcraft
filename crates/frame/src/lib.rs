@@ -408,6 +408,53 @@ impl VideoFrame {
                 let kg = 1.0 - kr - kb;
                 let (cr_r, cb_b) = (2.0 * (1.0 - kr), 2.0 * (1.0 - kb));
                 let (cr_g, cb_g) = (cr_r * kr / kg, cb_b * kb / kg);
+                if n == 1 {
+                    // One source pixel per output pixel (export, full-size playback): each row's
+                    // samples are found once, not per pixel, and the arithmetic is the general
+                    // loop's (`0 + q(..) * a`, then `* inv`), so every value is the same, bit for bit.
+                    // Samples the planes do not hold come out transparent instead of panicking.
+                    let ytab: [f32; 256] = std::array::from_fn(|v| ytab.get(v).copied().unwrap_or(0.0));
+                    let ctab: [f32; 256] = std::array::from_fn(|v| ctab.get(v).copied().unwrap_or(0.0));
+                    /// Row `at` of a plane of rows `len` samples long.
+                    fn line(p: &[u8], at: usize, len: usize) -> Option<&[u8]> {
+                        p.get(at.saturating_mul(len)..at.saturating_add(1).saturating_mul(len))
+                    }
+                    out.par_chunks_mut(r.w * 4).enumerate().for_each(|(ry, row)| {
+                        let y = (r.y + ry).min(h - 1);
+                        let cy = y >> sy;
+                        let (Some(yrow), Some(urow), Some(vrow)) = (line(&planes[0], y, w), line(&planes[1], cy, cw), line(&planes[2], cy, cw)) else {
+                            row.fill(0.0);
+                            return;
+                        };
+                        let arow = match alpha {
+                            Some(al) => match line(al, y, w) {
+                                Some(a) => Some(a),
+                                None => {
+                                    row.fill(0.0);
+                                    return;
+                                }
+                            },
+                            None => None,
+                        };
+                        for (rx, px) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                            let x = (r.x + rx).min(w - 1);
+                            let cx = x >> sx;
+                            let (Some(&ys), Some(&us), Some(&vs)) = (yrow.get(x), urow.get(cx), vrow.get(cx)) else {
+                                *px = [0.0; 4];
+                                continue;
+                            };
+                            let (yy, u, v) = (ytab[usize::from(ys)], ctab[usize::from(us)], ctab[usize::from(vs)]);
+                            let a = arow.map_or(1.0, |al| al.get(x).map_or(0.0, |&s| f32::from(s) / 255.0));
+                            *px = [
+                                (0.0 + q(yy + cr_r * v) * a) * inv,
+                                (0.0 + q(yy - cr_g * v - cb_g * u) * a) * inv,
+                                (0.0 + q(yy + cb_b * u) * a) * inv,
+                                (0.0 + a) * inv,
+                            ];
+                        }
+                    });
+                    return;
+                }
                 out.par_chunks_mut(r.w * 4).enumerate().for_each(|(ry, row)| {
                     let oy = r.y + ry;
                     for rx in 0..r.w {
@@ -1053,5 +1100,90 @@ mod tests {
             ..VideoFrame::rgba8(8, 8, vec![0; 256])
         };
         assert_eq!(short.alpha_region(1), None);
+    }
+
+    /// The conversion of an 8-bit Y'CbCr picture written out one pixel at a time, in the general
+    /// loop's arithmetic: what [`VideoFrame::to_linear_f32_decimated_with`] gives at full size.
+    fn yuv8_reference(f: &VideoFrame, decode: Option<&DecodeTable>) -> Vec<f32> {
+        let PixelData::Yuv8 { planes, chroma, alpha } = &f.data else { panic!("8-bit Y'CbCr only") };
+        let (w, h) = (f.width as usize, f.height as usize);
+        let (sx, sy) = chroma.shifts();
+        let cw = w.div_ceil(1 << sx);
+        let info = f.color;
+        let q = |v: f32| match decode {
+            Some(t) => t.lookup(v),
+            None => to_linear(((v.clamp(0.0, 1.0) * 4095.0 + 0.5) as usize) as f32 / 4095.0, info.transfer),
+        };
+        let (kr, kb) = info.matrix.kr_kb();
+        let kg = 1.0 - kr - kb;
+        let (cr_r, cb_b) = (2.0 * (1.0 - kr), 2.0 * (1.0 - kb));
+        let (cr_g, cb_g) = (cr_r * kr / kg, cb_b * kb / kg);
+        let mut out = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for x in 0..w {
+                let c = (y >> sy) * cw + (x >> sx);
+                let yy = normalize_y(u32::from(planes[0][y * w + x]), 8, info.range);
+                let (u, v) = (normalize_c(u32::from(planes[1][c]), 8, info.range), normalize_c(u32::from(planes[2][c]), 8, info.range));
+                let a = alpha.as_ref().map_or(1.0, |al| f32::from(al[y * w + x]) / 255.0);
+                out.extend([(0.0 + q(yy + cr_r * v) * a), (0.0 + q(yy - cr_g * v - cb_g * u) * a), (0.0 + q(yy + cb_b * u) * a), (0.0 + a)]);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn a_full_size_yuv8_picture_converts_exactly_pixel_by_pixel() {
+        let mut s = 0x2545_f491_4f6c_dd1du64;
+        let mut byte = || {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            s as u8
+        };
+        let pq = DecodeTable::new(0.0, 1.0, 4096, |v| f64::from(filmcraft_color::pq_eotf(v as f32)) * 100.0);
+        for (w, h) in [(1usize, 1usize), (2, 2), (3, 5), (37, 23), (64, 2)] {
+            for chroma in [Chroma::C420, Chroma::C422, Chroma::C444] {
+                let (sx, sy) = chroma.shifts();
+                let (cw, ch) = (w.div_ceil(1 << sx), h.div_ceil(1 << sy));
+                for (alpha, color) in [(false, ColorInfo::REC709), (true, ColorInfo { range: Range::Full, matrix: Matrix::Bt601, ..ColorInfo::SRGB_FULL })] {
+                    let mut plane = |n: usize| Arc::new((0..n).map(|_| byte()).collect::<Vec<u8>>());
+                    let planes = [plane(w * h), plane(cw * ch), plane(cw * ch)];
+                    let f = VideoFrame {
+                        width: w as u32,
+                        height: h as u32,
+                        data: PixelData::Yuv8 { planes, chroma, alpha: alpha.then(|| plane(w * h)) },
+                        color,
+                        par: (1, 1),
+                        pts: Tick::ZERO,
+                    };
+                    for decode in [None, Some(&pq)] {
+                        let (_, _, got) = f.to_linear_f32_decimated_with(1, decode);
+                        let want = yuv8_reference(&f, decode);
+                        let bits = |v: &[f32]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+                        assert_eq!(bits(&got), bits(&want), "{w}x{h} {chroma:?} alpha {alpha} {color:?} decode {}", decode.is_some());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_yuv8_picture_with_short_planes_converts_without_panicking() {
+        // 8x8 4:2:0 whose planes hold three rows of luma, one of chroma and five of alpha: the rows
+        // without data come out transparent
+        let f = VideoFrame {
+            data: PixelData::Yuv8 {
+                planes: [Arc::new(vec![235; 24]), Arc::new(vec![128; 4]), Arc::new(vec![128; 4])],
+                chroma: Chroma::C420,
+                alpha: Some(Arc::new(vec![255; 40])),
+            },
+            color: ColorInfo::REC709,
+            ..VideoFrame::rgba8(8, 8, vec![0; 256])
+        };
+        let (_, _, px) = f.to_linear_f32_decimated(1);
+        assert_eq!(px.len(), 8 * 8 * 4);
+        let row = |y: usize| &px[y * 32..(y + 1) * 32];
+        assert!(row(0).chunks(4).all(|p| p[3] == 1.0 && p[0] > 0.99), "a white row with its samples: {:?}", row(0));
+        assert!((2..8).all(|y| row(y).iter().all(|v| *v == 0.0)), "rows without chroma or luma are transparent");
     }
 }
