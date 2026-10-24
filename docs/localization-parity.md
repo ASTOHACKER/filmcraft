@@ -1,6 +1,6 @@
 # Localization parity
 
-> **Last reviewed:** 2026-10-20 · **Last updated:** 2026-10-20 · **Change:** minor (Russian row added, #610; all rows re-measured on one date) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
+> **Last reviewed:** 2026-10-20 · **Last updated:** 2026-10-24 · **Change:** minor (Russian row added, #610; all rows re-measured on one date; merged upstream i18n policy: missing translations never fail tests) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
 
 Per-language status of FilmCraft's interface. Premiere 26.5.2 ships 10 interface languages (the
 installed bundle's `.lproj` folders): German, English, Spanish, French, Italian, Japanese, Korean,
@@ -17,9 +17,8 @@ are reachable over the control channel. One catalog per language,
 commands, panels, workspaces, presets) are translated where they are drawn. Searches match the
 displayed labels as well as English sources. Tests fail when a `tl!` literal, a menu label or a
 registry name has no Spanish entry; `zh-cn.tsv` must also cover every `tl!` literal and menu
-label; `ja.tsv`, `fr.tsv`, `pt-br.tsv` and `de.tsv` have the same entries but are not yet required by tests
-(French and German must cover the core menus, Brazilian Portuguese every menu label, and neither may keep an
-entry without a Spanish one). Engine error messages, the
+label; the other catalogs are not required by tests (a missing translation shows in English and never
+fails a test or build; `cargo xtask i18n-report` lists them). Engine error messages, the
 control channel, the CLI and MCP stay English.
 
 Fonts come from [craft-fonts](https://github.com/storytold/craft-fonts) (`CRAFT_FONTS_DIR`, all
@@ -48,19 +47,19 @@ whole interface, one PR) at ~4–8 h per language for the catalog plus tests.
 | Arabic | ar | 0 (0%) | — | **no RTL interface layout**; fallback fonts and shaping in the interface, captions in reading order, other text in egui's left-to-right run order; titles broken (#395) | — | none | 40–70 h |
 | French | fr | 3,564 (99.1%; Spanish entries, 32 not yet translated) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial (#498) | review |
 | Portuguese (Brazil) | pt-br | 3,559 (98.9%; Spanish entries, 37 not yet translated) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial (#859) | review |
-| Indonesian | id | 3,559 (98.9%; Spanish entries, 37 not yet translated); must cover the core menus, no entry without a Spanish one | as Spanish | Latin (bundled fonts); System Language also maps the legacy `in` code | not recorded; welcome | partial (#867) | review |
+| Indonesian | id | 3,559 (98.9%; Spanish entries, 37 not yet translated) | as Spanish | Latin (bundled fonts); System Language also maps the legacy `in` code | not recorded; welcome | partial (#867) | review |
 | Japanese | ja | 3,593 (99.9%) | as zh-cn; system-font kanji may pick the Chinese fallback (#547) | CJK fonts, vertical title text | not recorded | partial | 4–8 h + review |
-| German | de | 3,590 (99.8%; Spanish entries, 6 not yet translated); must cover the core menus and the macOS app menu, no entry without a Spanish one | as Spanish | Latin (bundled fonts) | menus yes (#630); the rest not recorded, welcome | partial | review |
+| German | de | 3,590 (99.8%; Spanish entries, 6 not yet translated) | as Spanish | Latin (bundled fonts) | menus yes (#630); the rest not recorded, welcome | partial | review |
 | Korean | ko | 3,594 (99.9%; Spanish entries, 2 not yet translated) | as Spanish | installed system Hangul font (Malgun Gothic, Apple SD Gothic Neo, Noto Sans CJK KR…); refused without one | not recorded; welcome | partial (#508) | review; Hangul in craft-fonts for the web |
 | Vietnamese | vi | 0 (0%) | — | Latin with stacked diacritics (font coverage to check) | — | none | 6–12 h + review |
-| *Other shipped:* Italian | it | 3,593 (99.9%; Spanish entries, 3 not yet translated); must cover the core menus, no entry without a Spanish one | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial | review |
+| *Other shipped:* Italian | it | 3,593 (99.9%; Spanish entries, 3 not yet translated) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial | review |
 | *Other shipped:* Russian | ru | 355 (9.9%) | menus only | Cyrillic (bundled) | not recorded | menus only (#610) | 5–9 h + review |
 | *Other shipped:* Ukrainian | uk | 355 (9.9%) | menus only | Cyrillic (bundled) | not recorded | menus only | 5–9 h |
 
 All rows were measured on the same date from the same tree (see Status), so the counts compare
 directly: Spanish has 3,596 entries and German 3,590, German every Spanish one but six that were
-added since. Strings added later may stay English in German until translated; only the core menus
-are required.
+added since. A string a catalog lacks shows in English; no test or build requires a translation.
+`cargo xtask i18n-report` (also printed by `cargo xtask ci`) lists each language's missing strings.
 
 Premiere also ships Italian, which we now cover like Spanish, and Russian, which ships the menus only (above).
 
@@ -74,6 +73,7 @@ Every language needs native-speaker review (human).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-23 | minor | Missing translations never fail a test or build (they show in English); `cargo xtask i18n-report`, also run by `cargo xtask ci`, lists them per language |
 | 2026-10-20 | minor | Russian (ru) row added (#610, menus only, 355 of 3,597 strings); every catalog count re-measured on one tree (distinct context + source pairs; denominator 3,498 -> 3,597); Indonesian and German counted in the near-complete set (9 of 12); the ~35% and 150-230 h figures were not re-measured |
 | 2026-10-13 | minor | German (de) covers the whole interface: every entry of the Spanish catalog (3,590 then); the tests require the core menus and the macOS app menu and reject entries without a Spanish one |
 | 2026-10-11 | minor | German (de) ships the menus (#630): 371 of 3,498 strings (10.6%), native-reviewed; dimension now 2 menus-only, 5 none |
