@@ -55,6 +55,8 @@ offset overflow, tile-size increment overflow and truncating an OBU's LEB128 siz
 They also check valid payloads, truncated inputs and bit mutations. The NAL splitter rejects
 prefix widths outside 1–4 bytes with `BitError::InvalidNalLengthSize`, including zero (which
 would otherwise make no progress). These tests need no external media or ffmpeg.
+The bitstream tests exercise the `craft-media` re-export, so they also guard the shared
+implementation when its pinned revision changes.
 
 A native 64-bit run does not reproduce the original overflows. Run the tests on
 `wasm32-wasip1` with a WASI runner as well as natively; `cargo xtask wasm` only checks compilation
@@ -80,8 +82,8 @@ cargo test -p filmcraft-bitstream -p filmcraft-vp9 -p filmcraft-av1 --lib \
 ```
 
 The runner forwards the WASI exit code to Node.js so Cargo also fails when a test fails.
-The WASI build disables proptest's subprocess-based fork/timeout features; native builds retain
-them. The tests wrap parser calls in `catch_unwind`; on WASI an aborting panic still fails the
+The bitstream regression tests use only the standard library and need no proptest dependency.
+The tests wrap parser calls in `catch_unwind`; on WASI an aborting panic still fails the
 test process, so a trapped regression cannot count as a pass.
 
 ## 2. ffmpeg oracle tests
