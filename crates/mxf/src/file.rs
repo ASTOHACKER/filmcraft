@@ -300,18 +300,40 @@ const MAX_META_VALUE: u64 = 64 << 20;
 /// Samples (frames x channels) of zero padding `read_pcm` will produce past the stored essence.
 const PCM_PAD_FRAMES_LIMIT: usize = 1 << 24;
 
+/// Read size of a `Window` refill while the KLVs are small.
+const WINDOW_LARGE: usize = 64 << 10;
+/// Read size of a refill while big values are around: after a value of `WINDOW_LARGE` bytes or more
+/// (a picture, a clip wrapped sound element) the next header is only a few bytes, and the rest of a
+/// big read would be skipped again by the next jump.
+const WINDOW_SMALL: usize = 4 << 10;
+/// KLVs after a big value that still use `WINDOW_SMALL`. A frame holds several elements (picture,
+/// sound) and only some of them are big, so one small KLV must not switch back to big reads.
+const SMALL_KLVS: u32 = 4;
+
 /// Buffered reads of KLV headers.
 struct Window<'a, S: ByteSource + ?Sized> {
     src: &'a S,
     off: u64,
     buf: Vec<u8>,
+    /// Read size of the next refill (see `WINDOW_LARGE`/`WINDOW_SMALL`).
+    refill: usize,
+    /// KLVs left before `refill` is `WINDOW_LARGE` again.
+    small_left: u32,
+}
+
+impl<S: ByteSource + ?Sized> Window<'_, S> {
+    /// Choose the next refill size after walking a KLV with a value of `vlen` bytes.
+    fn skipped(&mut self, vlen: u64) {
+        self.small_left = if vlen >= WINDOW_LARGE as u64 { SMALL_KLVS } else { self.small_left.saturating_sub(1) };
+        self.refill = if self.small_left > 0 { WINDOW_SMALL } else { WINDOW_LARGE };
+    }
 }
 
 impl<S: ByteSource + ?Sized> Window<'_, S> {
     fn get(&mut self, at: u64, n: usize) -> std::io::Result<&[u8]> {
         let have = at >= self.off && at + n as u64 <= self.off + self.buf.len() as u64;
         if !have {
-            self.buf = read_upto(self.src, at, n.max(64 * 1024))?;
+            self.buf = read_upto(self.src, at, n.max(self.refill))?;
             self.off = at;
         }
         let a = (at - self.off) as usize;
@@ -324,12 +346,16 @@ fn walk(src: &(impl ByteSource + ?Sized)) -> Result<WalkResult> {
     let head = read_upto(src, 0, 65_536 + 32)?;
     let run_in = find_header_partition(&head).ok_or_else(|| Error::NotMxf("no header partition pack".into()))? as u64;
     let mut w = WalkResult { run_in, partitions: Vec::new(), metadata: Vec::new(), index: Vec::new(), elements: Vec::new(), warnings: Vec::new() };
-    let mut win = Window { src, off: 0, buf: Vec::new() };
+    let mut win = Window { src, off: 0, buf: Vec::new(), refill: WINDOW_LARGE, small_left: 0 };
     let mut pos = run_in;
     let mut cur_meta: Option<usize> = None;
     let mut resync_budget = 64 << 20;
     while pos + 17 <= len {
-        let hdr = win.get(pos, 25)?.to_vec();
+        let mut hdr_buf = [0u8; 25];
+        let got = win.get(pos, 25)?;
+        let hdr_len = got.len();
+        hdr_buf[..hdr_len].copy_from_slice(got);
+        let hdr = &hdr_buf[..hdr_len];
         let key = Ul(hdr[..16].try_into().unwrap_or([0; 16]));
         if !key.is_smpte() {
             // Lost sync (corrupt data): look for the next partition pack.
@@ -406,6 +432,7 @@ fn walk(src: &(impl ByteSource + ?Sized)) -> Result<WalkResult> {
             }
             KeyClass::Fill | KeyClass::RandomIndexPack | KeyClass::Other => {}
         }
+        win.skipped(vlen);
         pos = vend;
     }
     if w.partitions.is_empty() {
