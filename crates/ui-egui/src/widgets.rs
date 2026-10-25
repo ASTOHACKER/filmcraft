@@ -332,10 +332,17 @@ pub fn search_field(ui: &mut Ui, text: &mut String, hint: &str, width: f32, t: &
     ui.painter().rect_stroke(rect, h / 2.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
     icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.min.x + 12.0, rect.center().y), vec2(12.0, 12.0)), Icon::Search, t.text_dim);
     let inner = Rect::from_min_max(pos2(rect.min.x + 22.0, rect.min.y + 2.0), pos2(rect.max.x - 8.0, rect.max.y - 2.0));
-    // centred across the field: a Ui lays a widget out from its top, which left the text high
-    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(inner).layout(egui::Layout::left_to_right(egui::Align::Center)));
+    // centred across the field: a text edit aligns its text to the top unless told otherwise
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(inner));
     let resp = accessible_name(
-        child.add(egui::TextEdit::singleline(text).hint_text(hint).frame(egui::Frame::NONE).desired_width(inner.width()).font(Tokens::ui(12.0))),
+        child.add(
+            egui::TextEdit::singleline(text)
+                .hint_text(hint)
+                .frame(egui::Frame::NONE)
+                .desired_width(inner.width())
+                .font(Tokens::ui(12.0))
+                .align(egui::Align2::LEFT_CENTER),
+        ),
         hint,
     );
     // Select Find Box (Shift+F) / Open Search (Cmd+Shift+F)
