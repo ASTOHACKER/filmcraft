@@ -62,10 +62,53 @@ impl Fft {
         }
         let mut len = 4;
         let mut off = 0;
-        while len <= n {
+        // Two radix-2 stages (len, 2 * len) per pass over the data: the same butterflies in the same
+        // order per element, so the result is bit-identical to running the stages one by one.
+        while len * 2 <= n {
+            let h = len / 2;
+            let (t1r, t1i) = (&self.stage_re[off..off + h], &self.stage_im[off..off + h]);
+            let (t2r, t2i) = (&self.stage_re[off + h..off + 3 * h], &self.stage_im[off + h..off + 3 * h]);
+            off += 3 * h;
+            for (rc, ic) in re.chunks_exact_mut(4 * h).zip(im.chunks_exact_mut(4 * h)) {
+                let (ra, rest) = rc.split_at_mut(h);
+                let (rb, rest) = rest.split_at_mut(h);
+                let (rc2, rd) = rest.split_at_mut(h);
+                let (ia, rest) = ic.split_at_mut(h);
+                let (ib, rest) = rest.split_at_mut(h);
+                let (ic2, id) = rest.split_at_mut(h);
+                for k in 0..h {
+                    let (w1r, w1i) = (t1r[k], t1i[k]);
+                    // stage `len`: (a, b) and (c, d)
+                    let xr = rb[k] * w1r - ib[k] * w1i;
+                    let xi = rb[k] * w1i + ib[k] * w1r;
+                    let (br, bi) = (ra[k] - xr, ia[k] - xi);
+                    let (ar, ai) = (ra[k] + xr, ia[k] + xi);
+                    let xr = rd[k] * w1r - id[k] * w1i;
+                    let xi = rd[k] * w1i + id[k] * w1r;
+                    let (dr, di) = (rc2[k] - xr, ic2[k] - xi);
+                    let (cr, ci) = (rc2[k] + xr, ic2[k] + xi);
+                    // stage `2 * len`: (a, c) with w2[k], (b, d) with w2[k + h]
+                    let (w2r, w2i) = (t2r[k], t2i[k]);
+                    let xr = cr * w2r - ci * w2i;
+                    let xi = cr * w2i + ci * w2r;
+                    rc2[k] = ar - xr;
+                    ic2[k] = ai - xi;
+                    ra[k] = ar + xr;
+                    ia[k] = ai + xi;
+                    let (w2r, w2i) = (t2r[k + h], t2i[k + h]);
+                    let xr = dr * w2r - di * w2i;
+                    let xi = dr * w2i + di * w2r;
+                    rd[k] = br - xr;
+                    id[k] = bi - xi;
+                    rb[k] = br + xr;
+                    ib[k] = bi + xi;
+                }
+            }
+            len <<= 2;
+        }
+        if len <= n {
             let half = len / 2;
             let (twr, twi) = (&self.stage_re[off..off + half], &self.stage_im[off..off + half]);
-            off += half;
             for (rc, ic) in re.chunks_exact_mut(len).zip(im.chunks_exact_mut(len)) {
                 let (ra, rb) = rc.split_at_mut(half);
                 let (ia, ib) = ic.split_at_mut(half);
@@ -79,7 +122,6 @@ impl Fft {
                     ia[k] += xi;
                 }
             }
-            len <<= 1;
         }
     }
 }
