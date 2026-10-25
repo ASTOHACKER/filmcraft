@@ -41,6 +41,25 @@ fn clip_of(v: &Value) -> ClipId {
 }
 
 #[test]
+fn template_exports_keep_distinct_non_ascii_names() {
+    let mut s = demo("gt-unicode-export");
+    let c = clip_of(&s.execute("graphics.newText", json!({"text": "Headline"})).unwrap());
+    let first = s.execute("graphics.template.export", json!({"clip": c.0, "name": "片头"})).unwrap();
+    let first_path = first["path"].as_str().unwrap();
+    let first_bytes = std::fs::read(first_path).unwrap();
+    let second = s.execute("graphics.template.export", json!({"clip": c.0, "name": "片尾"})).unwrap();
+    assert_ne!(first["path"], second["path"], "distinct names must not overwrite the first export");
+    assert_ne!(first["id"], second["id"], "distinct templates need distinct library identities");
+    assert_eq!(std::fs::read(first_path).unwrap(), first_bytes);
+    let second_file: Value = serde_json::from_slice(&std::fs::read(second["path"].as_str().unwrap()).unwrap()).unwrap();
+    assert_eq!(second_file["name"], "片尾");
+    let installed = s.execute("graphics.template.list", json!({"source": "user"})).unwrap();
+    for exported in [&first, &second] {
+        assert!(installed.as_array().unwrap().iter().any(|entry| entry["id"] == exported["id"] && entry["name"] == exported["name"]));
+    }
+}
+
+#[test]
 fn template_export_install_apply_round_trip() {
     let mut s = demo("gt-export");
     let c = clip_of(&s.execute("graphics.newText", json!({"text": "Headline", "position": [200, 900]})).unwrap());
