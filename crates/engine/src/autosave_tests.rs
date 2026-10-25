@@ -254,6 +254,7 @@ fn recovery_preserves_original(tag: &str, block: Option<&str>, journal_enabled: 
     assert!(original.is_file(), "failed replacement must preserve the original snapshot");
     assert_eq!(std::fs::read(&original).unwrap(), bytes);
     assert_eq!(s.recovery_candidates().len(), 1, "the original must remain discoverable");
+    assert!(s.persistence.as_ref().unwrap().is_running(), "ordinary journal errors must not mark the worker stopped");
     assert!(result.is_err(), "lack of a confirmed replacement must be reported");
     assert_eq!(*s.project, project, "the recovered project remains open for Save As");
     assert!(s.is_dirty());

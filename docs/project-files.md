@@ -158,6 +158,10 @@ Premiere's auto-save can lose up to one interval of work. FilmCraft also keeps a
   never touched.
 - If discarding a recovery session fails, FilmCraft reports the error and keeps that session and
   the remaining candidates in the recovery list for retry. Sessions already deleted stay removed.
+- If the auto-save worker stops unexpectedly, FilmCraft reports the failure once in the Events
+  panel and an error notification; `file.autoSaveStatus` reports `running: false`. Edits remain in
+  the open project. Use **File ▸ Save** or **Save As** to save them; the worker is not restarted
+  automatically. Ordinary write errors are reported without treating a live worker as stopped.
 - Recovering loads the snapshot as an **unsaved** project with its original path, so Save writes
   over the original file. The recovered state goes into the new session's own journal before the old
   journal is deleted. Both the replacement snapshot and its metadata must be successfully written
