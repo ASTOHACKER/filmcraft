@@ -142,17 +142,34 @@ impl Resampler {
         self.hist.extend(input.iter().map(|&v| v as f32));
         self.n_in += input.len() as i64;
         let total_out = (self.n_in as u64 * self.fout as u64) / self.fin as u64;
+        // phases[ph] repeats every `period` outputs, advancing the input position by `step`
+        // (= fin * period / fout, exact because period = fout / gcd).
+        let step = self.fin as i64 * self.period as i64 / self.fout as i64;
+        let mut cycle = (self.n_out / self.period) as i64;
+        let mut ph = (self.n_out % self.period) as usize;
         while self.n_out < total_out {
-            let j = self.n_out;
-            let cycle = (j / self.period) as i64;
-            let (base0, ref taps) = self.phases[(j % self.period) as usize];
-            let base = base0 + cycle * self.fin as i64 * self.period as i64 / self.fout as i64;
+            let (base0, ref taps) = self.phases[ph];
+            let base = base0 + cycle * step;
+            ph += 1;
+            if ph as u64 == self.period {
+                ph = 0;
+                cycle += 1;
+            }
             let first = base - self.half + 1;
+            let i0 = first - self.hist_start;
             let mut acc = 0f32;
-            for (m, &t) in taps.iter().enumerate() {
-                let idx = first + m as i64 - self.hist_start;
-                if idx >= 0 && (idx as usize) < self.hist.len() {
-                    acc += self.hist[idx as usize] * t;
+            if i0 >= 0 && i0 as usize + taps.len() <= self.hist.len() {
+                // Window fully inside the history (always, after the first call).
+                let win = &self.hist[i0 as usize..i0 as usize + taps.len()];
+                for (&x, &t) in win.iter().zip(taps) {
+                    acc += x * t;
+                }
+            } else {
+                for (m, &t) in taps.iter().enumerate() {
+                    let idx = first + m as i64 - self.hist_start;
+                    if idx >= 0 && (idx as usize) < self.hist.len() {
+                        acc += self.hist[idx as usize] * t;
+                    }
                 }
             }
             out.push(acc);
