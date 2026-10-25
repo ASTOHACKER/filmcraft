@@ -4727,7 +4727,11 @@ fn recover(s: &mut Session, id: Option<&str>) -> Result<Value> {
     if per.flush().map_err(preserve)? != Some(s.revision) {
         return Err(preserve("journal revision does not match the recovered project".into()));
     }
-    crate::autosave::discard_candidate(&c).map_err(|e| EngineError::Other(e.to_string()))?;
+    crate::autosave::discard_candidate(&c).map_err(|e| {
+        EngineError::Other(format!(
+            "Recovered project is open and its new recovery copy is confirmed, but the old recovery folder could not be fully removed: {e}. The recovery candidate remains listed; some old files may already be gone. Save the project or use Save As before retrying; if the original recovery copy remains intact, running recovery again can overwrite unsaved edits."
+        ))
+    })?;
     per.candidates.remove(idx);
     s.toast(format!("Recovered unsaved changes to {} from {saved_at}", c.meta.project_name));
     Ok(json!({"id": c.id, "name": c.meta.project_name, "path": c.meta.project_path, "savedAt": saved_at, "revision": c.meta.revision}))

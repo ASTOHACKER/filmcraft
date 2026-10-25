@@ -305,6 +305,36 @@ fn recovery_can_retry_after_a_failed_journal_write() {
     std::fs::remove_dir_all(&d).unwrap();
 }
 
+#[cfg(windows)]
+#[test]
+fn recovery_cleanup_failure_reports_open_project_and_safe_retry() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let d = temp_dir("recover-cleanup-failure");
+    let old_dir = autosave::recovery_root(&d).join("1-1");
+    std::fs::create_dir_all(&old_dir).unwrap();
+    let project = filmcraft_project::Project::default();
+    let original = old_dir.join("snapshot.fcproj");
+    std::fs::write(&original, filmcraft_format::encode(&project, false)).unwrap();
+    // Permit the loader's read while denying deletion of this old snapshot.
+    let held = std::fs::OpenOptions::new().read(true).share_mode(3).open(&original).unwrap();
+    let mut s = Session::default();
+    start(&mut s, &d);
+    let error = s.execute("file.recover", json!({"id": "1-1"})).unwrap_err().to_string();
+    assert_eq!(*s.project, project, "recovery already installed the project");
+    assert!(s.is_dirty());
+    assert_eq!(recovery_ids(&mut s), ["1-1"], "failed cleanup must keep the candidate listed");
+    let replacement = &s.persistence.as_ref().unwrap().session_dir;
+    assert!(replacement.join("snapshot.fcproj").is_file());
+    assert!(replacement.join("session.json").is_file());
+    assert!(error.contains("Recovered project is open") && error.contains("new recovery copy is confirmed"), "{error}");
+    assert!(error.contains("candidate remains listed") && error.contains("Save As"), "{error}");
+    assert!(error.contains("if the original recovery copy remains intact") && error.contains("unsaved edits"), "{error}");
+    drop(held);
+    s.shutdown();
+    std::fs::remove_dir_all(d).unwrap();
+}
+
 #[test]
 fn auto_save_ring_rotates_and_can_save_the_project() {
     let d = temp_dir("ring");
