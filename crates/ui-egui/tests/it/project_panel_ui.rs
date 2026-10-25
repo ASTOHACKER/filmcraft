@@ -554,6 +554,27 @@ fn select_all_takes_only_the_shown_bin() {
     assert_eq!(sorted(&d.app().session.state.project_selection), footage);
 }
 
+/// Select All while typing in the Project panel's search selects the typed text, not the clips: on
+/// macOS the native menu takes Cmd+A before the field sees the key and sent Edit ▸ Select All,
+/// which selected every clip on the timeline. Typing after it replaces the search.
+#[test]
+fn select_all_in_the_search_box_selects_its_text() {
+    let mut d = project_driver();
+    d.click("project.search");
+    d.ok("ui.type", json!({"text": "comedy manager"}));
+    d.frames(2);
+    let (timeline, items) = (d.app().session.state.selection.clone(), d.app().session.state.project_selection.clone());
+    let (tx, rx) = channel();
+    d.app().command_inbox = Some(rx);
+    tx.send("edit.selectAll".to_string()).unwrap();
+    d.frames(2);
+    assert_eq!(d.app().session.state.selection, timeline, "the timeline selection is left alone");
+    assert_eq!(d.app().session.state.project_selection, items, "and so are the Project panel's items");
+    d.ok("ui.type", json!({"text": "club"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.project_search, "club", "the typed text replaced the selected search");
+}
+
 #[test]
 fn a_dragged_bin_nests_in_another_and_back_out() {
     // #456: a bin stayed wherever it was created; dragging it onto another bin did nothing
