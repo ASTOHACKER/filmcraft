@@ -732,6 +732,9 @@ pub struct TimelinePrefs {
     pub add_tracks_automatically: bool,
     /// Files dropped onto the Timeline are placed directly on it.
     pub drop_import_to_timeline: bool,
+    /// Sequence ▸ Selection Follows Playhead: moving the playhead selects the clips under it on
+    /// targeted tracks (#3089: persisted, so it survives a restart like the sibling toggles).
+    pub selection_follows_playhead: bool,
 }
 
 impl Default for TimelinePrefs {
@@ -759,6 +762,7 @@ impl Default for TimelinePrefs {
             restore_open_sequences: true,
             add_tracks_automatically: true,
             drop_import_to_timeline: true,
+            selection_follows_playhead: false,
         }
     }
 }
@@ -1348,6 +1352,7 @@ static CATEGORIES: &[Category] = &[
             b("timeline.restoreOpenSequences", "Restore open sequences when opening projects", true),
             b("timeline.addTracksAutomatically", "Add tracks automatically when editing source clips onto the Timeline", false),
             b("timeline.dropImportToTimeline", "Place files dropped onto the Timeline directly on the Timeline", true),
+            b("timeline.selectionFollowsPlayhead", "Selection Follows Playhead", true),
         ],
     },
     Category {
