@@ -46,7 +46,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
     // right-click on the empty part of the header column (above the top video track, below the last
     // audio track) offers the dialogs; each track's header, added after it, keeps its own menu
     let column = Rect::from_min_max(pos2(rect.min.x, vclip.min.y), pos2(rect.min.x + hw, aclip.max.y));
-    let column_resp = ui.interact(column, egui::Id::new("hdr-column-menu"), Sense::click());
+    let column_resp = ui.interact(column, egui::Id::unique("hdr-column-menu"), Sense::click());
     column_resp.context_menu(|ui| track_column_menu(app, ui, &mut header_menu));
     for r in rows {
         let Some(tr) = seq.track(r.track) else { continue };
@@ -63,7 +63,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the colour strip and the
         // buttons so they win where they overlap; a right-click on one still opens the menu, since it
         // takes only the click. Automation ids `timeline.track.<V1|A1…>.menu.<item>`.
-        let menu_resp = ui.interact(visible, egui::Id::new(("hdr-menu", r.track.0)), Sense::click());
+        let menu_resp = ui.interact(visible, egui::Id::unique(("hdr-menu", r.track.0)), Sense::click());
         let mut menu = egui::Popup::context_menu(&menu_resp);
         if ui.input(|i| i.pointer.secondary_clicked()) && ui.rect_contains_pointer(visible) {
             menu = menu.open_memory(egui::SetOpenCommand::Bool(true));
