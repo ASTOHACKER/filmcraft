@@ -111,19 +111,22 @@ impl Mdct {
         Mdct { m, fft: Fft::new(q), pre, post }
     }
 
-    /// DCT-IV: `out[k] = Σ u[n] cos(π/M (n+½)(k+½))`.
-    fn dct4(&self, u: &[f32], out: &mut [f32]) {
+    /// Working buffers for this transform size.
+    pub fn scratch(&self) -> MdctScratch {
+        MdctScratch { re: vec![0.0; self.m / 2], im: vec![0.0; self.m / 2], u: vec![0.0; self.m] }
+    }
+
+    /// DCT-IV: `out[k] = Σ u[n] cos(π/M (n+½)(k+½))`; `re` and `im` (length M/2) are overwritten.
+    fn dct4(&self, u: &[f32], out: &mut [f32], re: &mut [f32], im: &mut [f32]) {
         let m = self.m;
         let q = m / 2;
-        let mut re = vec![0f32; q];
-        let mut im = vec![0f32; q];
         for n in 0..q {
             let (a, b) = (u[2 * n], u[m - 1 - 2 * n]);
             let [c, s] = self.pre[n];
             re[n] = a * c - b * s;
             im[n] = a * s + b * c;
         }
-        self.fft.run(&mut re, &mut im);
+        self.fft.run(re, im);
         for k in 0..q {
             let [c, s] = self.post[k];
             let wr = re[k] * c - im[k] * s;
@@ -137,21 +140,28 @@ impl Mdct {
     pub fn forward(&self, x: &[f32], out: &mut [f32]) {
         let m = self.m;
         let h = m / 2;
-        let mut u = vec![0f32; m];
+        let MdctScratch { re, im, mut u } = self.scratch();
         for n in 0..h {
             // quarters a, b, c, d of length M/2
             u[n] = -x[m + h - 1 - n] - x[m + h + n];
             u[h + n] = x[n] - x[m - 1 - n];
         }
-        self.dct4(&u, out);
+        let (mut re, mut im) = (re, im);
+        self.dct4(&u, out, &mut re, &mut im);
     }
 
     /// Inverse MDCT (unscaled): `y[n] = Σ X[k] cos(π/M (n + ½ + M/2)(k + ½))`, `y` has length 2M.
+    #[cfg(test)]
     pub fn inverse(&self, spec: &[f32], y: &mut [f32]) {
+        self.inverse_with(spec, y, &mut self.scratch());
+    }
+
+    /// [`Self::inverse`] with caller-provided working buffers from [`Self::scratch`].
+    pub fn inverse_with(&self, spec: &[f32], y: &mut [f32], sc: &mut MdctScratch) {
         let m = self.m;
         let h = m / 2;
-        let mut u = vec![0f32; m];
-        self.dct4(spec, &mut u);
+        let MdctScratch { re, im, u } = sc;
+        self.dct4(spec, u, re, im);
         for n in 0..h {
             y[n] = u[h + n];
             y[m - 1 - n] = -u[h + n];
@@ -159,6 +169,13 @@ impl Mdct {
             y[m + h + n] = -u[n];
         }
     }
+}
+
+/// Working buffers of one [`Mdct`] size, reusable across transforms.
+pub struct MdctScratch {
+    re: Vec<f32>,
+    im: Vec<f32>,
+    u: Vec<f32>,
 }
 
 /// Cached transforms for 1024 and 128 lines.
