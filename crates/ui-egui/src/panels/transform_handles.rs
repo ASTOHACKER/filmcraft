@@ -264,7 +264,7 @@ struct PinDrag {
 /// Dragging a handle moves its corner; dragging inside the outline moves all four together.
 fn pin_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, sel: Target, pins: &Pins, actions: &mut Vec<(String, Value)>) {
     let accent = app.tokens.accent;
-    let id = egui::Id::new("program-corner-pin");
+    let id = egui::Id::unique("program-corner-pin");
     let grab = vec2(GRAB, GRAB) * 2.0;
     ui.painter().add(egui::Shape::closed_line(pins.at.to_vec(), Stroke::new(1.0, accent)));
     // the outline first, so the handles (on top) take a press on them
@@ -307,7 +307,7 @@ fn pin_drag(
     cursor: CursorIcon,
     actions: &mut Vec<(String, Value)>,
 ) {
-    let drag_id = egui::Id::new("program-corner-pin").with("drag");
+    let drag_id = egui::Id::unique("program-corner-pin").with("drag");
     let left = egui::PointerButton::Primary;
     if resp.drag_started_by(left) && grabbed {
         let start = ui.input(|i| i.pointer.press_origin()).or(resp.interact_pointer_pos()).unwrap_or_default();
