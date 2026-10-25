@@ -434,7 +434,7 @@ impl CeltDecoder {
             let left = &m0[out_off..out_off + n];
             let right = &m1[out_off..out_off + n];
             let [mut s0, mut s1] = self.preemph_mem;
-            for ((o, &v0), &v1) in pcm[..2 * n].chunks_exact_mut(2).zip(left).zip(right) {
+            for ((o, &v0), &v1) in pcm[..2 * n].as_chunks_mut::<2>().0.iter_mut().zip(left).zip(right) {
                 let t0 = v0 + 1e-30 + s0;
                 let t1 = v1 + 1e-30 + s1;
                 s0 = PREEMPH * t0;
