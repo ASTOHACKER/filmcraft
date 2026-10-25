@@ -18,8 +18,12 @@ fn button_pos(rect: Rect, i: usize, n: usize) -> Option<egui::Pos2> {
     let step = SIZE + GAP;
     let horizontal = rect.width() > rect.height();
     let (along, across) = if horizontal { (rect.width(), rect.height()) } else { (rect.height(), rect.width()) };
-    let per_line = ((along / step).floor() as usize).max(1);
-    let room = ((across / step).floor() as usize).max(1);
+    let per_line = (along / step).floor() as usize;
+    // `n` lines take `n * step - GAP`
+    let room = ((across + GAP) / step).floor() as usize;
+    if per_line == 0 || room == 0 {
+        return None;
+    }
     let line = i / per_line;
     if line >= room {
         return None;
@@ -178,8 +182,22 @@ mod tests {
     }
 
     #[test]
+    fn a_narrow_panel_holds_a_second_column_when_the_buttons_fit_across_it() {
+        // 68 wide by 150 tall: two columns of 32 with a 4 gap fit, four buttons to a column
+        let rect = Rect::from_min_size(egui::Pos2::ZERO, vec2(68.0, 150.0));
+        let all: Vec<_> = (0..8).filter_map(|i| button_pos(rect, i, 8)).collect();
+        assert_eq!(all.len(), 8);
+        for p in &all {
+            assert!(rect.contains_rect(Rect::from_min_size(*p, vec2(SIZE, SIZE))), "{p:?} is outside {rect:?}");
+        }
+        let distinct: std::collections::HashSet<_> = all.iter().map(|p| (p.x as i32, p.y as i32)).collect();
+        assert_eq!(distinct.len(), 8, "no two buttons overlap");
+        assert_eq!(all.iter().map(|p| p.x as i32).collect::<std::collections::BTreeSet<_>>().len(), 2);
+    }
+
+    #[test]
     fn a_panel_with_no_room_for_a_button_gives_none_and_never_panics() {
-        assert!(button_pos(Rect::from_min_size(egui::Pos2::ZERO, vec2(0.0, 0.0)), 0, 8).is_some());
+        assert!(button_pos(Rect::from_min_size(egui::Pos2::ZERO, vec2(0.0, 0.0)), 0, 8).is_none());
         assert!(button_pos(Rect::from_min_size(egui::Pos2::ZERO, vec2(30.0, 30.0)), 5, 8).is_none());
         let _ = button_pos(Rect::from_min_size(egui::Pos2::ZERO, vec2(f32::NAN, 50.0)), 1, 8);
     }
