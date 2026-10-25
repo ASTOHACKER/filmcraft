@@ -6,7 +6,7 @@ use crate::config::{AudioSpecificConfig, ElementType, ProgramConfig};
 use crate::huffman::{self, INTENSITY_HCB, INTENSITY_HCB2, NOISE_HCB, ZERO_HCB};
 use crate::ics::{IcsInfo, WindowSequence};
 use crate::mdct::{WindowShape, mdct_long, mdct_short, window};
-use crate::tables::{pow43, sf_gain};
+use crate::tables::{pow43, pow43_table, sf_gain};
 use crate::tns::{self, TnsData};
 use crate::{Error, Result};
 
@@ -421,6 +421,7 @@ impl Decoder {
         }
 
         // dequantise
+        let t43 = pow43_table();
         for g in 0..info.num_groups {
             let w0 = info.group_start(g);
             for sfb in 0..info.max_sfb {
@@ -430,10 +431,11 @@ impl Decoder {
                 }
                 let gain = sf_gain(ics.sf[g][sfb]);
                 for w in w0..w0 + info.group_len[g] as usize {
-                    for k in swb[sfb] as usize..swb[sfb + 1] as usize {
-                        let v = q[w * 128 + k];
-                        let m = pow43(v.unsigned_abs()) * gain;
-                        ics.spec[w * 128 + k] = if v < 0 { -m } else { m };
+                    let r = w * 128 + swb[sfb] as usize..w * 128 + swb[sfb + 1] as usize;
+                    for (o, &v) in ics.spec[r.clone()].iter_mut().zip(&q[r]) {
+                        let a = v.unsigned_abs();
+                        let m = t43.get(a as usize).copied().unwrap_or_else(|| pow43(a)) * gain;
+                        *o = if v < 0 { -m } else { m };
                     }
                 }
             }

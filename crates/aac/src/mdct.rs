@@ -7,7 +7,11 @@ use std::sync::OnceLock;
 /// Radix-2 complex FFT (forward, `e^{-2πi nk/P}`).
 struct Fft {
     n: usize,
-    twiddle: Vec<[f32; 2]>,
+    /// Twiddle of the length-2 stage, `e^{-2πi 0/n}`.
+    w0: [f32; 2],
+    /// Twiddles of the stages of length 4, 8, ..., n, one contiguous run of `len / 2` per stage.
+    stage_re: Vec<f32>,
+    stage_im: Vec<f32>,
     rev: Vec<u32>,
 }
 
@@ -16,13 +20,23 @@ impl Fft {
         assert!(n.is_power_of_two());
         let bits = n.trailing_zeros();
         let rev = (0..n as u32).map(|i| if bits == 0 { 0 } else { i.reverse_bits() >> (32 - bits) }).collect();
-        let twiddle = (0..n / 2)
+        let twiddle: Vec<[f32; 2]> = (0..n / 2)
             .map(|k| {
                 let a = -2.0 * PI * k as f64 / n as f64;
                 [a.cos() as f32, a.sin() as f32]
             })
             .collect();
-        Fft { n, twiddle, rev }
+        let (mut stage_re, mut stage_im) = (Vec::new(), Vec::new());
+        let mut len = 4;
+        while len <= n {
+            let step = n / len;
+            for k in 0..len / 2 {
+                stage_re.push(twiddle[k * step][0]);
+                stage_im.push(twiddle[k * step][1]);
+            }
+            len <<= 1;
+        }
+        Fft { n, w0: twiddle.first().copied().unwrap_or([1.0, 0.0]), stage_re, stage_im, rev }
     }
 
     fn run(&self, re: &mut [f32], im: &mut [f32]) {
@@ -34,21 +48,35 @@ impl Fft {
                 im.swap(i, j);
             }
         }
-        let mut len = 2;
+        if n >= 2 {
+            let [wr, wi] = self.w0;
+            let ((re2, _), (im2, _)) = (re.as_chunks_mut::<2>(), im.as_chunks_mut::<2>());
+            for (r, i) in re2.iter_mut().zip(im2) {
+                let xr = r[1] * wr - i[1] * wi;
+                let xi = r[1] * wi + i[1] * wr;
+                r[1] = r[0] - xr;
+                i[1] = i[0] - xi;
+                r[0] += xr;
+                i[0] += xi;
+            }
+        }
+        let mut len = 4;
+        let mut off = 0;
         while len <= n {
             let half = len / 2;
-            let step = n / len;
-            for start in (0..n).step_by(len) {
+            let (twr, twi) = (&self.stage_re[off..off + half], &self.stage_im[off..off + half]);
+            off += half;
+            for (rc, ic) in re.chunks_exact_mut(len).zip(im.chunks_exact_mut(len)) {
+                let (ra, rb) = rc.split_at_mut(half);
+                let (ia, ib) = ic.split_at_mut(half);
                 for k in 0..half {
-                    let [wr, wi] = self.twiddle[k * step];
-                    let a = start + k;
-                    let b = a + half;
-                    let xr = re[b] * wr - im[b] * wi;
-                    let xi = re[b] * wi + im[b] * wr;
-                    re[b] = re[a] - xr;
-                    im[b] = im[a] - xi;
-                    re[a] += xr;
-                    im[a] += xi;
+                    let (wr, wi) = (twr[k], twi[k]);
+                    let xr = rb[k] * wr - ib[k] * wi;
+                    let xi = rb[k] * wi + ib[k] * wr;
+                    rb[k] = ra[k] - xr;
+                    ib[k] = ia[k] - xi;
+                    ra[k] += xr;
+                    ia[k] += xi;
                 }
             }
             len <<= 1;
