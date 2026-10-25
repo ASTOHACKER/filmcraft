@@ -4,6 +4,26 @@
 //! RFC 6716 Table 54 (and the integer delays used when no rate conversion is needed), so that the
 //! SILK output lines up with the CELT layer in Hybrid mode.
 
+/// Dot product with eight independent partial sums, so the additions pipeline and the loop
+/// vectorises instead of waiting on one 4-cycle add chain. Rounds differently from a
+/// sequential sum (the resampler is not normative).
+#[inline]
+fn dot8(a: &[f32], b: &[f32]) -> f32 {
+    let mut s = [0f32; 8];
+    let (ca, ra) = a.as_chunks::<8>();
+    let (cb, rb) = b.as_chunks::<8>();
+    for (x, y) in ca.iter().zip(cb) {
+        for l in 0..8 {
+            s[l] += x[l] * y[l];
+        }
+    }
+    let mut acc = ((s[0] + s[4]) + (s[1] + s[5])) + ((s[2] + s[6]) + (s[3] + s[7]));
+    for (x, y) in ra.iter().zip(rb) {
+        acc += x * y;
+    }
+    acc
+}
+
 #[derive(Clone)]
 pub struct Resampler {
     fin: u32,
@@ -161,9 +181,7 @@ impl Resampler {
             if i0 >= 0 && i0 as usize + taps.len() <= self.hist.len() {
                 // Window fully inside the history (always, after the first call).
                 let win = &self.hist[i0 as usize..i0 as usize + taps.len()];
-                for (&x, &t) in win.iter().zip(taps) {
-                    acc += x * t;
-                }
+                acc = dot8(win, taps);
             } else {
                 for (m, &t) in taps.iter().enumerate() {
                     let idx = first + m as i64 - self.hist_start;
@@ -217,6 +235,16 @@ mod tests {
             }
             let snr = 10.0 * (sig / err).log10();
             assert!(snr > 35.0, "{fin}->{fout}: {snr} dB");
+        }
+    }
+
+    #[test]
+    fn dot8_matches_sequential_sum() {
+        for len in [1usize, 7, 8, 9, 35, 36, 71] {
+            let a: Vec<f32> = (0..len).map(|i| ((i * 37 % 19) as f32 - 9.0) * 1000.0).collect();
+            let b: Vec<f32> = (0..len).map(|i| ((i * 11 % 7) as f32 - 3.0) / 7.0).collect();
+            let seq: f64 = a.iter().zip(&b).map(|(&x, &y)| x as f64 * y as f64).sum();
+            assert!((dot8(&a, &b) as f64 - seq).abs() < 1e-2, "len {len}");
         }
     }
 }
