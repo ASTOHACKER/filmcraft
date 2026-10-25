@@ -573,6 +573,13 @@ fn select_all_in_the_search_box_selects_its_text() {
     d.ok("ui.type", json!({"text": "club"}));
     d.frames(2);
     assert_eq!(d.app().ui.project_search, "club", "the typed text replaced the selected search");
+    // the same from the control channel, which runs after the field has been laid out
+    d.ok("ui.menu.invoke", json!({"id": "edit.selectAll"}));
+    d.frames(2);
+    assert_eq!(d.app().session.state.selection, timeline);
+    d.ok("ui.type", json!({"text": "stool"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.project_search, "stool");
 }
 
 #[test]
