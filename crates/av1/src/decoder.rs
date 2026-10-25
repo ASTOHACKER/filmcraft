@@ -1025,8 +1025,11 @@ mod tests {
         let n = within_a_minute(|| {
             let mut dec = Decoder::with_threads(3);
             dec.force_panic = true;
-            let _ = dec.decode(KEY_FRAME_16X16);
-            assert!(dec.flush_result().is_err());
+            // The synchronous build reports the error from decode(); the threaded
+            // build may report it from decode() or from flush_result().
+            let first = dec.decode(KEY_FRAME_16X16).map(|_| ());
+            let second = dec.flush_result().map(|_| ());
+            assert!(first.is_err() || second.is_err(), "the panicking job reported no error");
             dec.force_panic = false;
             let mut pics = dec.decode(KEY_FRAME_16X16).expect("decode");
             pics.extend(dec.flush_result().expect("flush"));
