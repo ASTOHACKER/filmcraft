@@ -3613,3 +3613,14 @@
 	Open a sequence to search its graphics	Pro hledání v grafikách otevřete sekvenci
 	Reset Interface Zoom	Obnovit měřítko rozhraní
 	Track Color	Barva stopy
+	AV1 needs a hardware encoder; none was found on this machine, and FilmCraft has no software AV1 encoder yet.	AV1 vyžaduje hardwarový kodér; v tomto počítači žádný nebyl nalezen a FilmCraft zatím nemá softwarový kodér AV1.
+	Clear History	Vymazat historii
+	Delete Redoable Actions	Odstranit akce, které lze provést znovu
+	Delete the dimmed actions after the current state? They cannot be redone.	Odstranit zašedlé akce za aktuálním stavem? Nepůjde je provést znovu.
+	Duration: {tc}	Doba trvání: {tc}
+	End: {tc}	Konec: {tc}
+	H.265 (HEVC) needs a hardware encoder (NVENC on NVIDIA GPUs, VideoToolbox on macOS); none was found on this machine, and FilmCraft has no software H.265 encoder yet. Choose H.264 or ProRes instead.	H.265 (HEVC) vyžaduje hardwarový kodér (NVENC na grafických kartách NVIDIA, VideoToolbox na macOS); v tomto počítači žádný nebyl nalezen a FilmCraft zatím nemá softwarový kodér H.265. Zvolte místo toho H.264 nebo ProRes.
+	Show Duplicate Frame Markers	Zobrazit značky duplicitních snímků
+	Start: {tc}	Začátek: {tc}
+	Transparency Grid	Mřížka průhlednosti
+	Work Area Bar	Pruh pracovní oblasti

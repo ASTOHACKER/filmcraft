@@ -54,7 +54,7 @@ whole interface, one PR) at ~4–8 h per language for the catalog plus tests.
 | Korean | ko | 3,573 (same entries as Spanish, plus the macOS Settings item) | as Spanish | installed system Hangul font (Malgun Gothic, Apple SD Gothic Neo, Noto Sans CJK KR…); refused without one | not recorded; welcome | partial (#508) | review; Hangul in craft-fonts for the web |
 | Vietnamese | vi | 0 (0%) | — | Latin with stacked diacritics (font coverage to check) | — | none | 6–12 h + review |
 | *Other shipped:* Italian | it | 3,573 (same entries as Spanish, plus the macOS Settings item) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial | review |
-| Czech | cs | 3,597 (all Spanish source keys, plus the playback-resolution label `1/2`) | dialogs, Settings, effects, shortcuts, status; engine errors English | Latin (bundled fonts) | not reviewed | partial | native review |
+| Czech | cs | 3,608 (all Spanish source keys, plus the playback-resolution label `1/2`) | dialogs, Settings, effects, shortcuts, status; engine errors English | Latin (bundled fonts) | not reviewed | partial | native review |
 | *Other shipped:* Ukrainian | uk | 351 (10.0%) | menus only | Cyrillic (bundled) | not recorded | menus only | 5–9 h |
 
 UI strings are catalog entries (the non-comment lines of `src/i18n/<code>.tsv`; English counts the
