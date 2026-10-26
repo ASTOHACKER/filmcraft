@@ -3626,3 +3626,10 @@
 	Work Area Bar	Pruh pracovní oblasti
 	Set Work Area Bar In Point	Nastavit vstupní bod pruhu pracovní oblasti
 	Set Work Area Bar Out Point	Nastavit výstupní bod pruhu pracovní oblasti
+	Audio output failed: playing without sound (check Settings > Audio Hardware)	Zvukový výstup selhal: přehrávání bez zvuku (zkontrolujte Nastavení > Zvukový hardware)
+	Audio output is not responding: playing without sound (check Settings > Audio Hardware)	Zvukový výstup neodpovídá: přehrávání bez zvuku (zkontrolujte Nastavení > Zvukový hardware)
+	Check for Updates…	Zkontrolovat aktualizace…
+	Checking for updates…	Kontroluje se aktualizace…
+	Could not check for updates:\n{error}	Aktualizace se nepodařilo zkontrolovat:\n{error}
+	FilmCraft {version} is currently the newest version available.	FilmCraft {version} je nejnovější dostupná verze.
+	Looks for a newer FilmCraft release and offers to update.	Vyhledá novější vydání FilmCraftu a nabídne aktualizaci.
