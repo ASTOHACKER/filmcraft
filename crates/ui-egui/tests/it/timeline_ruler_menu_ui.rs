@@ -78,6 +78,19 @@ fn right_clicking_the_ruler_opens_the_ruler_menu_not_a_stale_clip_menu() {
     assert!(!has(&mut d, "timeline.clipMenu.edit.cut"), "and not the clip menu");
     // its entries act at the playhead
     d.ok("ui.click", json!({"id": "timeline.rulerMenu.markers.markIn"}));
+    let playhead = d.harness.state().session.playhead();
     let q = d.harness.state().session.active_sequence().unwrap();
-    assert!(q.mark_in.is_some(), "Mark In set the In point");
+    assert_eq!(q.mark_in, Some(playhead), "Mark In set the In point at the playhead");
+}
+
+/// The work area bar sits in the ruler, and a right-click on it opens the same menu.
+#[test]
+fn right_clicking_the_work_area_bar_opens_the_ruler_menu() {
+    let mut d = Driver::demo();
+    d.ok("engine.execute", json!({"command": "sequence.setWorkArea", "params": {"start": 0, "end": 60 * 254_016_000_000_i64}}));
+    d.frames(2);
+    let (x, y) = d.centre("timeline.workArea");
+    d.ok("ui.click", json!({"x": x, "y": y, "button": "right"}));
+    assert!(has(&mut d, "timeline.rulerMenu.markers.markIn"), "the ruler's menu opens on the work area bar");
+    assert!(!has(&mut d, "timeline.clipMenu.edit.cut"), "and not the clip menu");
 }

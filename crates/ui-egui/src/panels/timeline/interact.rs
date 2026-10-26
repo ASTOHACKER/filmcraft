@@ -1111,7 +1111,7 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
     if resp.secondary_clicked()
         && let Some(p) = resp.interact_pointer_pos()
     {
-        let on_ruler = matches!(hit(seq, layout, p), Hit::Ruler) && marker_under_pointer(seq, layout, p).is_none();
+        let on_ruler = layout.ruler.contains(p) && marker_under_pointer(seq, layout, p).is_none();
         ctx.data_mut(|d| d.insert_temp(ruler_menu_id, on_ruler));
         if on_ruler {
             ctx.data_mut(|d| d.insert_temp::<Option<EditPointTarget>>(edit_point_menu_id, None));
