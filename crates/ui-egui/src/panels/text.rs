@@ -170,10 +170,12 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     // ---- style strip: its controls wrap onto more rows in a narrow panel, so the strip is as tall
     // as they were on the last frame (one 30 px row at least, half the panel at most)
     let strip_id = egui::Id::unique(("caption-style-height", track.id.0));
-    let style_h = ui.ctx().data(|d| d.get_temp::<f32>(strip_id)).unwrap_or(30.0).clamp(30.0, (rect.height() * 0.5).max(30.0));
+    let max_h = (rect.height() * 0.5).max(30.0);
+    let style_h = ui.ctx().data(|d| d.get_temp::<f32>(strip_id)).unwrap_or(30.0).clamp(30.0, max_h);
     let style_rect = Rect::from_min_max(pos2(rect.min.x + 10.0, rect.max.y - style_h), pos2(rect.max.x - 10.0, rect.max.y - 2.0));
     let used = style_strip(app, ui, style_rect, track_idx, &mut actions);
-    let wanted = (used + 6.0).max(30.0);
+    // capped like style_h, so controls taller than the cap don't request a repaint every frame
+    let wanted = (used + 6.0).clamp(30.0, max_h);
     if (wanted - style_h).abs() > 0.5 {
         ui.ctx().data_mut(|d| d.insert_temp(strip_id, wanted));
         ui.ctx().request_repaint();
