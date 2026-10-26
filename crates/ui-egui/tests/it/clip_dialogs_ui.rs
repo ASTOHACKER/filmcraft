@@ -477,12 +477,13 @@ fn duration_text_edits_speed_and_rejects_invalid_input() {
     d.exec("timeline.select", json!({"clips": [original.id.0]}));
     d.menu("clip.speedDuration");
     assert!(d.has("speedDuration.duration"), "Duration must be an editable automation field");
-    let type_duration = |d: &mut Driver, text: &str| {
+    /// Replace the duration through keyboard input and settle the dialog's draft state.
+    fn type_duration(d: &mut Driver, text: &str) {
         d.click("speedDuration.duration");
         d.ok("ui.key", json!({"key": "Cmd+A"}));
         d.ok("ui.type", json!({"text": text}));
         d.frames(3);
-    };
+    }
     for invalid in ["abc", "00:00:00:00", "-100"] {
         type_duration(&mut d, invalid);
         d.click("speedDuration.ok");
@@ -518,4 +519,27 @@ fn duration_text_edits_speed_and_rejects_invalid_input() {
     d.frames(3);
     d.click("speedDuration.ok");
     assert!((d.v1(0).duration.0 - rate.tick_of(filmcraft_time::parse_timecode("00:00:01:00", rate, false, 0).unwrap()).0).abs() <= 1);
+}
+
+/// Speed edits retain the command's one-frame minimum without changing the requested speed.
+#[test]
+fn speed_edits_preserve_one_frame_minimum() {
+    let mut d = Driver::new();
+    let original = d.v1(0);
+    let rate = d.app().session.active_sequence().unwrap().settings.frame_rate;
+    d.exec("timeline.trim", json!({"clip": original.id.0, "edge": "out", "deltaFrames": 1 - rate.frame_at(original.duration)}));
+    assert_eq!(d.v1(0).duration, rate.tick_of(1));
+    d.exec("timeline.select", json!({"clips": [original.id.0]}));
+    for percent in [200.0, 100_000.0] {
+        d.menu("clip.speedDuration");
+        d.app().ui.clip_dialog.as_mut().unwrap().params["speed"] = json!(percent);
+        d.frames(3);
+        assert_eq!(d.app().ui.clip_dialog.as_ref().unwrap().params["duration"], json!("00:00:00:01"));
+        d.click("speedDuration.ok");
+        assert!(d.app().ui.clip_dialog.is_none(), "a valid speed edit must apply");
+        assert_eq!(d.v1(0).speed, percent / 100.0);
+        assert_eq!(d.v1(0).duration, rate.tick_of(1));
+        d.exec("edit.undo", json!({}));
+        assert_eq!(d.v1(0).speed, 1.0);
+    }
 }

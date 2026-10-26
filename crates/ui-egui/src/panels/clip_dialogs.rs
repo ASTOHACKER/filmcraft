@@ -529,7 +529,8 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 if refresh_duration {
                     let ticks =
                         if now.is_finite() && now > 0.0 { filmcraft_time::Tick((dur as f64 * was / now).round() as i64) } else { filmcraft_time::Tick::ZERO };
-                    p["duration"] = json!(filmcraft_time::format_timecode_frames(rate.frame_at(ticks), rate, false));
+                    // Match the speed command's minimum applied duration of one frame.
+                    p["duration"] = json!(filmcraft_time::format_timecode_frames(rate.frame_at(ticks).max(1), rate, false));
                 }
                 let before = if refresh_duration { p["duration"].clone() } else { d.info["durationText"].clone() };
                 text(ui, &mut elems, pre, p, "duration", tl!("Duration:"), 120.0);
