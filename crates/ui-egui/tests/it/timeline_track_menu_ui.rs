@@ -82,9 +82,16 @@ fn a_track_header_menu_adds_and_deletes_tracks() {
         assert!(has(&mut d, &format!("timeline.track.V1.menu.{item}")), "{item} is offered");
     }
     // Add Track puts one video track after V1
+    let (v1, v2) = {
+        let q = d.harness.state().session.active_sequence().unwrap();
+        (q.video_tracks[0].id, q.video_tracks[1].id)
+    };
     d.ok("ui.click", json!({"id": "timeline.track.V1.menu.addTrack"}));
     d.frames(2);
     assert_eq!(counts(&d), (v0 + 1, a0));
+    let q = d.harness.state().session.active_sequence().unwrap();
+    assert_eq!(q.video_tracks[0].id, v1, "V1 stays first");
+    assert_eq!(q.video_tracks[2].id, v2, "the old V2 is pushed to the third place, the new track sits between");
     // Delete Track on an audio header removes that track
     let a2 = d.harness.state().session.active_sequence().unwrap().audio_tracks[1].id;
     let (x, y) = header_point(&mut d, "A2");
