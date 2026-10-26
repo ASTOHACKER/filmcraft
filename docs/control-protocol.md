@@ -135,7 +135,7 @@ management commands and dialog ids: offline media and relinking (`media.findMiss
 proxies (`media.createProxies`, `media.attachProxies`, `media.toggleProxies`, `proxies.*`), ingest
 (`project.ingestSettings`) and the Project Manager (`file.projectManager`, `pm.*`).
 
-**Moving clips**: `timeline.move {moves: [{clip, track, time}], insert?, linked?}` → `{moved: [clip ids]}`.
+**Moving clips**: `timeline.move {moves: [{clip, track, time}], insert?, linked?, captions?}` → `{moved: [clip ids]}`.
 With Linked Selection on (the default; `linked` overrides the toggle for one call) the linked
 partners of a listed clip that are not listed themselves move by the same time offset and stay on
 their own tracks, so picture and sound stay in sync. Like a listed clip, a partner overwrites
@@ -148,6 +148,10 @@ panel's drag passes `linked: false`, because it already lists exactly the clips 
 `copy: true` (Option-drag in the timeline) the clips stay where they are and copies land at the
 destinations instead (linked partners are copied too, unless `linked: false`); the result lists
 the new clips as `copied`, they are selected, and copies of linked clips are linked to each other.
+`captions: [caption id]` moves those captions by the same offset as the first listed clip, in the same undo
+step (Track Select Forward / Backward drags use it so subtitles stay with the dialogue). If they cannot go
+as far as the clips (they would overlap captions that stay, or one is on a locked track) the call fails and
+nothing moves; it cannot be combined with `copy`, and the result lists them as `captions`.
 
 **Trim mode** (`crates/engine/src/trim.rs`): `trim.selectEditPoint` / `trim.selectNearest` enter trim
 mode (the Program monitor becomes the Trim Monitor, ids `trimMonitor.*`); `trim.monitor` returns what

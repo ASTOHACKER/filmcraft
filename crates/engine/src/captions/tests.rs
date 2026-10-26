@@ -164,6 +164,85 @@ fn caption_spans(s: &Session) -> Vec<(f64, f64, String)> {
     s.active_sequence().unwrap().caption_tracks[0].captions.iter().map(|c| (secs(c.start), secs(c.end()), c.text.clone())).collect()
 }
 
+/// (clip id, start) of the clips on V1, and every caption's start.
+fn v1_and_caption_starts(s: &Session) -> (Vec<(u64, Tick)>, Vec<Tick>) {
+    let q = s.active_sequence().unwrap();
+    (q.video_tracks[0].items.iter().map(|i| (i.id.0, i.start)).collect(), q.caption_tracks[0].captions.iter().map(|c| c.start).collect())
+}
+
+#[test]
+fn timeline_move_takes_the_listed_captions_along_in_one_undo_step() {
+    let mut s = demo();
+    for (sec, text) in [(1.0, "early"), (9.0, "late one"), (12.0, "late two")] {
+        s.execute("playhead.set", json!({"seconds": sec})).unwrap();
+        s.execute("captions.add", json!({"text": text, "durationSeconds": 1.0})).unwrap();
+    }
+    let q = s.active_sequence().unwrap();
+    let ids: Vec<u64> = q.caption_tracks[0].captions.iter().map(|c| c.id.0).collect();
+    let (clip, start) = (q.video_tracks[0].items[2].id, q.video_tracks[0].items[2].start);
+    let (clips_before, caps_before) = v1_and_caption_starts(&s);
+    let undo_before = s.history.undo.len();
+    let shift = 2 * TICKS_PER_SECOND;
+
+    // the captions named move by the clip's own offset; `early` is not named and stays
+    let r = s
+        .execute(
+            "timeline.move",
+            json!({"moves": [{"clip": clip.0, "track": "V1", "time": (start + Tick(shift)).0}], "linked": false, "captions": [ids[1], ids[2], ids[1]]}),
+        )
+        .unwrap();
+    assert_eq!(r["captions"], json!([ids[1], ids[2]]), "each caption once");
+    let (clips_after, caps_after) = v1_and_caption_starts(&s);
+    assert_eq!(clips_after.iter().find(|c| c.0 == clip.0).unwrap().1, start + Tick(shift));
+    assert_eq!(caps_after, vec![caps_before[0], caps_before[1] + Tick(shift), caps_before[2] + Tick(shift)]);
+    assert_eq!(s.history.undo.len(), undo_before + 1, "clips and captions are one undo step");
+    s.active_sequence().unwrap().check().unwrap();
+
+    s.execute("edit.undo", json!({})).unwrap();
+    assert_eq!(v1_and_caption_starts(&s), (clips_before, caps_before), "undo restores both");
+}
+
+#[test]
+fn timeline_move_with_captions_that_cannot_follow_changes_nothing() {
+    let mut s = demo();
+    for (sec, text) in [(2.0, "stays"), (5.0, "moves")] {
+        s.execute("playhead.set", json!({"seconds": sec})).unwrap();
+        s.execute("captions.add", json!({"text": text, "durationSeconds": 1.0})).unwrap();
+    }
+    let q = s.active_sequence().unwrap();
+    let moving = q.caption_tracks[0].captions[1].id.0;
+    let (clip, start) = (q.video_tracks[0].items[1].id, q.video_tracks[0].items[1].start);
+    let before = v1_and_caption_starts(&s);
+    let undo_before = s.history.undo.len();
+
+    // 4 s earlier would put `moves` on top of `stays`: the clip does not move either
+    let back = Tick(start.0 - 4 * TICKS_PER_SECOND).max(Tick::ZERO);
+    let r = s.execute("timeline.move", json!({"moves": [{"clip": clip.0, "track": "V1", "time": back.0}], "linked": false, "captions": [moving]}));
+    assert!(r.is_err(), "the captions cannot follow: {r:?}");
+    assert_eq!(v1_and_caption_starts(&s), before);
+    assert_eq!(s.history.undo.len(), undo_before, "a refused move leaves no undo step");
+
+    // a copy leaves the originals where they are, so there is nothing for captions to follow
+    let r = s.execute("timeline.move", json!({"moves": [{"clip": clip.0, "track": "V2", "time": start.0}], "copy": true, "captions": [moving]}));
+    assert!(r.is_err());
+    assert_eq!(v1_and_caption_starts(&s), before);
+
+    // a caption that does not exist, or sits on a locked track, refuses the move as well
+    let missing = s.execute(
+        "timeline.move",
+        json!({"moves": [{"clip": clip.0, "track": "V1", "time": (start + Tick(TICKS_PER_SECOND)).0}], "captions": [987_654_321u64]}),
+    );
+    assert!(missing.is_err());
+    assert_eq!(v1_and_caption_starts(&s), before, "the clip did not move either");
+    s.execute("captions.setTrack", json!({"track": "C1", "locked": true})).unwrap();
+    let locked =
+        s.execute("timeline.move", json!({"moves": [{"clip": clip.0, "track": "V1", "time": (start + Tick(TICKS_PER_SECOND)).0}], "captions": [moving]}));
+    assert!(locked.is_err());
+    assert_eq!(v1_and_caption_starts(&s), before);
+    assert_eq!(s.history.undo.len(), undo_before + 1, "only the lock itself was recorded");
+    s.active_sequence().unwrap().check().unwrap();
+}
+
 #[test]
 fn captions_duplicate_copies_and_overwrites() {
     let mut s = demo();
