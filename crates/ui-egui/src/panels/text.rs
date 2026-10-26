@@ -688,6 +688,21 @@ fn style_strip(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, track_idx: us
             }
         });
         app.auto.add("text.captions.style.font", r.response.rect, "Caption font");
+        // the styles of the track's family, next to the font
+        let styles = filmcraft_text::families().into_iter().find(|(f, _)| f.eq_ignore_ascii_case(&st.font)).map(|(_, v)| v).unwrap_or_default();
+        let r = egui::ComboBox::from_id_salt(("caption-font-style", tr.id.0)).selected_text(&st.font_style).width(100.0).height(300.0).show_ui(ui, |ui| {
+            for name in &styles {
+                let resp = ui.selectable_label(name.eq_ignore_ascii_case(&st.font_style), name);
+                let visible = resp.rect.intersect(ui.clip_rect());
+                if visible.is_positive() {
+                    app.auto.add(&format!("text.captions.style.fontStyle.option.{name}"), visible, name);
+                }
+                if resp.clicked() {
+                    actions.push(("captions.setStyle".into(), json!({"track": tr.id.0, "fontStyle": name})));
+                }
+            }
+        });
+        app.auto.add("text.captions.style.fontStyle", r.response.rect, "Caption font style");
         let mut size = st.size;
         let resp = ui.add(crate::widgets::number_drag(&mut size).range(8.0..=200.0).speed(0.5).suffix(" px"));
         app.auto.add("text.captions.style.size", resp.rect, "Caption size");
