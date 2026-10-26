@@ -173,7 +173,16 @@ fn captions(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let max_h = (rect.height() * 0.5).max(30.0);
     let style_h = ui.ctx().data(|d| d.get_temp::<f32>(strip_id)).unwrap_or(30.0).clamp(30.0, max_h);
     let style_rect = Rect::from_min_max(pos2(rect.min.x + 10.0, rect.max.y - style_h), pos2(rect.max.x - 10.0, rect.max.y - 2.0));
-    let used = style_strip(app, ui, style_rect, track_idx, &mut actions);
+    // when the wrapped controls are taller than the cap, the strip scrolls so every row stays reachable
+    let mut strip_ui = ui.new_child(egui::UiBuilder::new().max_rect(style_rect).id_salt("caption-style-strip"));
+    let scroll = egui::ScrollArea::vertical().id_salt(("caption-style-scroll", track.id.0)).auto_shrink([false, false]).show(&mut strip_ui, |ui| {
+        let r = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), style_h));
+        let used = style_strip(app, ui, r, track_idx, &mut actions);
+        // the strip's child doesn't advance this ui's cursor: claim its height so the scroll area knows it
+        ui.allocate_rect(Rect::from_min_size(r.min, vec2(r.width(), used.max(1.0))), Sense::hover());
+        used
+    });
+    let used = scroll.inner;
     // capped like style_h, so controls taller than the cap don't request a repaint every frame
     let wanted = (used + 6.0).clamp(30.0, max_h);
     if (wanted - style_h).abs() > 0.5 {
