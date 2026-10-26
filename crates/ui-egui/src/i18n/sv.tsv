@@ -362,7 +362,7 @@
 	View	Visa
 	Violet	Violett
 	Window	Fönster
-	Workspaces	Arbetsytor
+	Workspaces	Arbetslayouter
 	Yellow	Gul
 	Zoom In	Zooma in
 	Zoom Out	Zooma ut
@@ -505,7 +505,7 @@
 	Close All	Stäng alla
 	Maximize Frame	Maximera ram
 	Restore Frame	Återställ ram
-	Restore Workspace	Återställ arbetsmiljö
+	Restore Workspace	Återställ arbetslayout
 	Reveal Sequence in Project	Visa sekvens i projektet
 	Video Thumbnails	Videominiatyrer
 	Audio Waveforms	Ljudvågformer
@@ -540,9 +540,9 @@
 	Clip Keyframes	Klippnyckelbildrutor
 	Track Keyframes	Spårnyckelbildrutor
 	Delete	Radera
-	Untitled Workspace	Namnlös arbetsmiljö
-	New Workspace	Ny arbetsmiljö
-	Edit Workspaces	Redigera arbetsytor
+	Untitled Workspace	Namnlös arbetslayout
+	New Workspace	Ny arbetslayout
+	Edit Workspaces	Redigera arbetslayouter
 	Rename	Byt namn
 	Restore Original	Återställ original
 	Search effects	Sök effekter
@@ -2390,7 +2390,7 @@
 	Show Project Load Error Dialog	Visa dialogruta vid fel vid projektinläsning
 	Show Rich Tool Tips	Visa utförliga verktygstips
 	Show Tool Tips	Visa verktygstips
-	Show Workspace Reset Warning dialog on double click	Visa varning om återställning av arbetsmiljö vid dubbelklick
+	Show Workspace Reset Warning dialog on double click	Visa varning om återställning av arbetslayout vid dubbelklick
 	Show system compatibility issues at startup	Visa systemkompatibilitetsproblem vid start
 	Shrink	Krymp
 	Shutter Angle	Slutarvinkel
@@ -2726,14 +2726,14 @@
 	Avid Log Exchange…	Avid Log Exchange…
 	Color…	Färg…
 	EDL…	EDL…
-	Edit Workspaces…	Redigera arbetsytor…
+	Edit Workspaces…	Redigera arbetslayouter…
 	FCPXML…	FCPXML…
 	Final Cut Pro XML…	Final Cut Pro XML…
 	General…	Allmänt…
 	OMF…	OMF…
 	OpenTimelineIO…	OpenTimelineIO…
-	Save Changes to this Workspace	Spara ändringar i den här arbetsmiljön
-	Save as New Workspace…	Spara som ny arbetsmiljö…
+	Save Changes to this Workspace	Spara ändringar i den här arbetslayouten
+	Save as New Workspace…	Spara som ny arbetslayout…
 	Create Search Bin	Skapa sökbin
 	Edit Offline File	Redigera offlinefil
 	Source Settings	Källinställningar
@@ -3458,8 +3458,6 @@
 	Commits	Commits
 	% of all commits	% av alla commits
 	Lines +/−	Rader +/−
-	Audio output failed: playing without sound (check Settings ▸ Audio Hardware)	Ljudutmatningen misslyckades: spelar upp utan ljud (kontrollera Inställningar ▸ Ljudhårdvara)
-	Audio output is not responding: playing without sound (check Settings ▸ Audio Hardware)	Ljudutmatningen svarar inte: spelar upp utan ljud (kontrollera Inställningar ▸ Ljudhårdvara)
 	Clip Speed / Duration	Klipphastighet/längd
 	Speed:	Hastighet:
 	Reverse Speed	Omvänd hastighet
@@ -3605,3 +3603,30 @@
 	Shows the version, community links and credits in a FilmCraft window.	Visar version, communitylänkar och medverkande i ett FilmCraft-fönster.
 	Couldn't open your web browser	Det gick inte att öppna webbläsaren
 	Open this address in your browser yourself:	Öppna den här adressen i webbläsaren själv:
+	Delete Redoable Actions	Radera åtgärder som kan göras om
+	Clear History	Rensa historiken
+	Delete the dimmed actions after the current state? They cannot be redone.	Vill du radera de nedtonade åtgärderna efter det aktuella läget? De kan inte göras om.
+	Show Duplicate Frame Markers	Visa markörer för duplicerade bildrutor
+	Transparency Grid	Transparensrutnät
+	Work Area Bar	Arbetsområdesfält
+	Start: {tc}	Start: {tc}
+	End: {tc}	Slut: {tc}
+	Duration: {tc}	Längd: {tc}
+	Animate zoom, scrolling and menus	Animera zoom, rullning och menyer
+	Audio output failed: playing without sound (check Settings > Audio Hardware)	Ljudutmatningen misslyckades: spelar upp utan ljud (kontrollera Inställningar > Ljudhårdvara)
+	Audio output is not responding: playing without sound (check Settings > Audio Hardware)	Ljudutmatningen svarar inte: spelar upp utan ljud (kontrollera Inställningar > Ljudhårdvara)
+	Reset Interface Zoom	Återställ gränssnittszoom
+	Track Color	Spårfärg
+	Open a sequence to search its graphics	Öppna en sekvens för att söka i dess grafik
+	No text graphics in this sequence. Add text with the Type tool.	Det finns ingen textgrafik i den här sekvensen. Lägg till text med textverktyget.
+	No matching text.	Ingen text matchar.
+	H.265 (HEVC) needs a hardware encoder (NVENC on NVIDIA GPUs, VideoToolbox on macOS); none was found on this machine, and FilmCraft has no software H.265 encoder yet. Choose H.264 or ProRes instead.	H.265 (HEVC) kräver en hårdvarukodare (NVENC på NVIDIA-grafikkort, VideoToolbox på macOS). Ingen hittades på den här datorn, och FilmCraft har ännu ingen programvarukodare för H.265. Välj H.264 eller ProRes i stället.
+	AV1 needs a hardware encoder; none was found on this machine, and FilmCraft has no software AV1 encoder yet.	AV1 kräver en hårdvarukodare. Ingen hittades på den här datorn, och FilmCraft har ännu ingen programvarukodare för AV1.
+	Checking for updates…	Söker efter uppdateringar…
+	Could not check for updates:\n{error}	Det gick inte att söka efter uppdateringar:\n{error}
+	FilmCraft {version} is currently the newest version available.	FilmCraft {version} är den senaste tillgängliga versionen.
+	Hardware decoding: Auto uses the system's video decoder (VideoToolbox on macOS, Media Foundation on Windows, VA-API for H.264 and HEVC on Linux) for the streams it supports, and FilmCraft's own decoder for everything else or if the hardware fails. Media that is already open keeps its decoder until it is reopened.	Hårdvaruavkodning: Auto använder systemets videoavkodare (VideoToolbox på macOS, Media Foundation på Windows, VA-API för H.264 och HEVC på Linux) för de strömmar den stöder, och FilmCrafts egen avkodare för allt annat eller om hårdvaruavkodningen misslyckas. Media som redan är öppna behåller sin avkodare tills de öppnas igen.
+	Looks for a newer FilmCraft release and offers to update.	Söker efter en nyare version av FilmCraft och erbjuder uppdatering.
+	Check for Updates…	Sök efter uppdateringar…
+	Set Work Area Bar In Point	Ange arbetsområdesfältets in-punkt
+	Set Work Area Bar Out Point	Ange arbetsområdesfältets ut-punkt
