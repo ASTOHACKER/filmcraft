@@ -50,7 +50,7 @@ fn parse_tc(s: &str) -> Option<Tc> {
     if parts.len() != 4 || parts.iter().any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_digit())) {
         return None;
     }
-    let n: Vec<i64> = parts.iter().map(|p| p.parse().unwrap_or(0)).collect();
+    let n: Vec<i64> = parts.iter().map(|p| p.parse().ok()).collect::<Option<_>>()?;
     Some(Tc { h: n[0], m: n[1], s: n[2], f: n[3], df: s.contains(';') || s.contains(',') })
 }
 
@@ -1027,6 +1027,14 @@ mod tests {
         assert_eq!(parse_channels("AA/V"), Some(vec![Ch::A(1), Ch::A(2), Ch::V]));
         assert_eq!(parse_channels("A4"), Some(vec![Ch::A(4)]));
         assert_eq!(parse_channels("X"), None);
+    }
+
+    #[test]
+    fn timecode_rejects_fields_too_large_for_i64() {
+        for tc in ["9223372036854775808:00:00:00", "00:9223372036854775808:00:00", "00:00:9223372036854775808:00", "00:00:00:9223372036854775808"] {
+            assert!(parse_tc(tc).is_none(), "accepted {tc}");
+        }
+        assert_eq!(parse_tc("01:02:03:04"), Some(Tc { h: 1, m: 2, s: 3, f: 4, df: false }));
     }
 
     #[test]
