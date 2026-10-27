@@ -224,16 +224,16 @@ fn parse(text: &str, report: &mut Report) -> Parsed {
             continue;
         }
         if let Some(line) = parse_event_line(l) {
-            skip_metadata = false;
             for tc in &line.tcs {
                 p.max_ff = p.max_ff.max(tc.f);
                 p.any_df |= tc.df;
             }
-            if let Some(e) = p.events.last_mut().filter(|e| e.lines.last().is_some_and(|last| last.num == line.num)) {
+            if let Some(e) = p.events.last_mut().filter(|e| !skip_metadata && e.lines.last().is_some_and(|last| last.num == line.num)) {
                 e.lines.push(line);
             } else {
                 p.events.push(Event { lines: vec![line], df, ..Default::default() });
             }
+            skip_metadata = false;
             continue;
         }
         if upper.starts_with(">>>") || upper.starts_with("REM") {
@@ -1060,16 +1060,19 @@ M2 B 12.0 00:00:00:00\n\
 AUD 2\n\
 003 C V C 00:00:00:00 00:00:01:00 01:00:02:00 01:00:03:00\n\
 * FROM CLIP NAME: Third\n";
-        let mut report = Report::default();
-        let parsed = parse(text, &mut report);
-        assert_eq!(parsed.events.len(), 2);
-        let first = &parsed.events[0];
-        assert_eq!(first.from_clip.as_deref(), Some("First"));
-        assert_eq!(first.files, ["first.mov"]);
-        assert!(first.locs.is_empty());
-        assert!(first.m2.is_empty());
-        assert_eq!(first.lines[0].chans, [Ch::V]);
-        assert_eq!(parsed.events[1].from_clip.as_deref(), Some("Third"));
+        for number in ["001", "003"] {
+            let text = text.replace("003 C", &format!("{number} C"));
+            let mut report = Report::default();
+            let parsed = parse(&text, &mut report);
+            assert_eq!(parsed.events.len(), 2);
+            let first = &parsed.events[0];
+            assert_eq!(first.from_clip.as_deref(), Some("First"));
+            assert_eq!(first.files, ["first.mov"]);
+            assert!(first.locs.is_empty());
+            assert!(first.m2.is_empty());
+            assert_eq!(first.lines[0].chans, [Ch::V]);
+            assert_eq!(parsed.events[1].from_clip.as_deref(), Some("Third"));
+        }
     }
 
     #[test]
