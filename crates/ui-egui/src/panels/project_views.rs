@@ -558,13 +558,13 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
             let resp = ui.interact(hr2.intersect(hr), id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
             app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
             hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
-            if resp.dragged() {
+            if resp.dragged_by(egui::PointerButton::Primary) {
                 let w = (c.width + resp.drag_delta().x).clamp(30.0, 800.0);
                 if let Some(col) = app.session.prefs.project_panel.view.columns.get_mut(i) {
                     col.width = w;
                 }
             }
-            if resp.drag_stopped() {
+            if resp.drag_stopped_by(egui::PointerButton::Primary) {
                 let w = app.session.prefs.project_panel.view.columns.get(i).map(|c| c.width).unwrap_or(c.width);
                 actions.push(("project.columns.resize".into(), json!({"column": c.name, "width": w})));
             }
