@@ -535,6 +535,15 @@ fn select_track_select_captions(app: &mut FilmcraftApp, seq: &Sequence, t: Tick,
     let _ = app.session.execute("captions.select", json!({"captions": captions, "add": true}));
 }
 
+/// The captions a Track Select drag moves with its clips, in the same undo step. None when the drop
+/// copies (Option) or inserts (Cmd): an insert already carries the sync-locked caption tracks.
+fn track_select_drag_captions(app: &FilmcraftApp, copying: bool, inserting: bool) -> Vec<u64> {
+    if copying || inserting || !matches!(app.ui.tool, Tool::TrackSelectForward | Tool::TrackSelectBackward) {
+        return Vec::new();
+    }
+    app.session.state.caption_selection.iter().map(|c| c.0).collect()
+}
+
 /// Escape cancels an ongoing drag or press (#580): the release commits nothing.
 fn escape_cancel(app: &mut FilmcraftApp, ctx: &egui::Context) {
     // Escape cancels an ongoing drag or press (#580): the release commits nothing
@@ -744,12 +753,7 @@ fn commit_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respons
                         .collect();
                     // Option held while dropping copies (Premiere: Option-drag duplicates)
                     let copying = copy || mods.alt;
-                    // the captions Track Select picked up move with the clips, in the same undo step
-                    let captions: Vec<u64> = if matches!(app.ui.tool, Tool::TrackSelectForward | Tool::TrackSelectBackward) && !copying {
-                        app.session.state.caption_selection.iter().map(|c| c.0).collect()
-                    } else {
-                        Vec::new()
-                    };
+                    let captions = track_select_drag_captions(app, copying, mods.command);
                     Some(app.session.execute("timeline.move", json!({"moves": moves, "insert": mods.command, "linked": false, "copy": copying, "captions": captions})))
                 }
                 Drag::Trim { clip, edge, mode, delta, linked, .. } if delta != Tick::ZERO => Some(app.session.execute(
