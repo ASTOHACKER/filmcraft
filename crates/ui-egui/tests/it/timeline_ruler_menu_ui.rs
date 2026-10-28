@@ -94,3 +94,23 @@ fn right_clicking_the_work_area_bar_opens_the_ruler_menu() {
     assert!(has(&mut d, "timeline.rulerMenu.markers.markIn"), "the ruler's menu opens on the work area bar");
     assert!(!has(&mut d, "timeline.clipMenu.edit.cut"), "and not the clip menu");
 }
+
+/// Mark Selection in the ruler menu marks the span of the selected clips, whatever the playhead.
+#[test]
+fn mark_selection_in_the_ruler_menu_marks_the_selected_clips() {
+    let mut d = Driver::demo();
+    let (clip, start, end) = {
+        let it = &d.harness.state().session.active_sequence().unwrap().video_tracks[0].items[0];
+        (it.id.0, it.start, it.end())
+    };
+    d.ok("engine.execute", json!({"command": "timeline.select", "params": {"clips": [clip], "linked": false}}));
+    d.ok("engine.execute", json!({"command": "playhead.set", "params": {"seconds": 7.0}}));
+    d.frames(2);
+    let (x, y) = d.centre("timeline.ruler");
+    d.ok("ui.click", json!({"x": x + 300.0, "y": y, "button": "right"}));
+    d.ok("ui.click", json!({"id": "timeline.rulerMenu.markers.markSelection"}));
+    let frame = d.harness.state().session.sequence_rate().frame_duration();
+    let q = d.harness.state().session.active_sequence().unwrap();
+    assert_eq!(q.mark_in, Some(start), "the In point is the selection's start");
+    assert_eq!(q.mark_out, Some(end - frame), "the Out point is its last frame");
+}
