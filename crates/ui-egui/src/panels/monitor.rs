@@ -1074,6 +1074,7 @@ fn transport(app: &mut FilmcraftApp, ui: &mut egui::Ui, row: Rect, which: Which)
                     "media.toggleProxies" => Some(app.session.media.use_proxies()),
                     "playback.toggle" => Some(app.playback.playing),
                     "source.playback.toggle" => Some(app.source_playback.clock.playing),
+                    "playback.loop" => Some(app.playback.looping),
                     _ => None,
                 };
                 let response = if let Some(selected) = selected { ui.selectable_label(selected, *label) } else { ui.button(*label) };
@@ -1096,7 +1097,20 @@ fn transport_button(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, prefi
         ui.painter().rect_filled(rect, 4.0, t.hover);
     }
     let size = if matches!(command, "playback.toggle" | "source.playback.toggle") { 20.0 } else { 18.0 };
-    let color = if command == "media.toggleProxies" && app.session.media.use_proxies() {
+    let is_on = match command {
+        "media.toggleProxies" => app.session.media.use_proxies(),
+        // The Loop button shows as active (accent) when looping is enabled (#2295-style fix
+        // for #<issue3>). The same command id is used for both monitors; distinguish by prefix.
+        "playback.loop" => {
+            if prefix.starts_with("source") {
+                app.source_playback.clock.looping
+            } else {
+                app.playback.looping
+            }
+        }
+        _ => false,
+    };
+    let color = if is_on {
         t.accent
     } else if response.hovered() {
         t.tab_text_active
