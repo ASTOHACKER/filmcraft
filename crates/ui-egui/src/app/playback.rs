@@ -91,11 +91,13 @@ impl FilmcraftApp {
         });
         a.start(fill)?;
         self.playback.audio_clock = false;
+        self.playback.tts_preview = true;
         Ok(seconds)
     }
 
     pub fn stop(&mut self) {
         self.playback.playing = false;
+        self.playback.tts_preview = false;
         self.playback.stop_at = None;
         self.playback.rest_at = None;
         self.playback.preroll = None;
@@ -120,10 +122,10 @@ impl FilmcraftApp {
     /// [`stop`](Self::stop) for a press or drag that moves the playhead (a scrub bar, a ruler).
     /// With nothing playing or recording there is nothing to stop, and stopping the output would
     /// close the scrub stream (see `scrub.rs`) that the drag keeps open, once per move. A take
-    /// that records while stopped still ends here, as it does in `stop`.
+    /// that records while stopped and a Text to Speech preview still end here, as they do in `stop`.
     pub(crate) fn stop_for_scrub(&mut self) {
         let recording = self.session.voiceover.recording() || self.session.mixrec.active() || self.session.mcrec.active();
-        if self.playback.playing || self.playback.preroll.is_some() || recording {
+        if self.playback.playing || self.playback.preroll.is_some() || self.playback.tts_preview || recording {
             self.stop();
         }
     }

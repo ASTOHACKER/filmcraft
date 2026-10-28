@@ -131,6 +131,8 @@ pub struct Playback {
     anchor_tick: Tick,
     /// Audio frames played at anchor (when the audio clock drives).
     pub audio_clock: bool,
+    /// A Text to Speech preview owns the audio output (it plays without `playing`).
+    pub tts_preview: bool,
     /// The audio clock's last reading and when (monotonic host s) it last moved: a device that stops
     /// consuming samples hands the clock back to the wall clock (see [`AUDIO_STALL_S`]).
     audio_seen: (u64, f64),
