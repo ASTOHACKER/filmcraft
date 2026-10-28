@@ -66,6 +66,7 @@ fn hot_number_editor(ui: &mut Ui, label: &str, id: egui::Id, value: f64, range: 
     let editing_id = id.with("editing");
     let edit_id = id.with("edit");
     let select_all_id = id.with("select-all");
+    arrows_start_from_the_end(ui, edit_id, buf);
     let r = accessible_name(ui.add(egui::TextEdit::singleline(buf).id(edit_id).desired_width(56.0).font(Tokens::ui(12.0))), label);
     let mut out = None;
     if r.lost_focus() {
@@ -80,19 +81,44 @@ fn hot_number_editor(ui: &mut Ui, label: &str, id: egui::Id, value: f64, range: 
         ui.data_mut(|d| d.insert_temp(editing_id, b));
         // select the whole value once the field has focus (egui collapses a selection to a caret
         // in a field that does not have it yet), so typing replaces it as in Premiere
-        let selected_now = r.has_focus() && ui.data_mut(|d| d.remove_temp::<bool>(select_all_id)).is_some();
+        let focused = holds_focus(&r);
+        let selected_now = focused && ui.data_mut(|d| d.remove_temp::<bool>(select_all_id)).is_some();
         if selected_now {
             let mut st = egui::text_edit::TextEditState::load(ui.ctx(), edit_id).unwrap_or_default();
             st.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(buf.chars().count()))));
             st.store(ui.ctx(), edit_id);
         }
         // the focus and the selection show on the next frame, which nothing else would trigger
-        if !r.has_focus() || selected_now {
+        if !focused || selected_now {
             ui.ctx().request_repaint();
         }
-        r.request_focus();
+        // only until it has focus: `request_focus` resets the field's focus-lock filter, and the
+        // arrow keys would then move focus out of the field (committing it) instead of the caret
+        if !focused {
+            r.request_focus();
+        }
     }
     (r, out)
+}
+
+/// Whether a field has keyboard focus, also while the window is in the background: `has_focus` is
+/// false then, as it is between control-channel inputs.
+fn holds_focus(r: &Response) -> bool {
+    r.ctx.memory(|m| m.has_focus(r.id))
+}
+
+/// Left/Right on a field's whole selected value start from its last digit: egui would jump to the
+/// start. Call before drawing the `TextEdit` with id `edit_id` that holds `text`.
+fn arrows_start_from_the_end(ui: &Ui, edit_id: egui::Id, text: &str) {
+    let arrow = ui.input(|i| i.modifiers.is_none() && (i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::ArrowRight)));
+    if arrow && let Some(mut st) = egui::text_edit::TextEditState::load(ui.ctx(), edit_id) {
+        let len = text.chars().count();
+        let all = [egui::text::CCursor::new(0), egui::text::CCursor::new(len)];
+        if len > 0 && st.cursor.char_range().is_some_and(|c| c.sorted_cursors() == all) {
+            st.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(len))));
+            st.store(ui.ctx(), edit_id);
+        }
+    }
 }
 
 /// The painted, draggable value shown while the field is not in text-edit mode.
@@ -159,16 +185,7 @@ pub fn timecode_field(
     let edit_id = id.with("edit");
     let select_all_id = id.with("select-all");
     if let Some(mut buf) = ui.data(|d| d.get_temp::<String>(editing_id)) {
-        // Left/Right on the whole selected value start from its last digit (egui would jump to the start)
-        let arrow = ui.input(|i| i.modifiers.is_none() && (i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::ArrowRight)));
-        if arrow && let Some(mut st) = egui::text_edit::TextEditState::load(ui.ctx(), edit_id) {
-            let len = buf.chars().count();
-            let all = [egui::text::CCursor::new(0), egui::text::CCursor::new(len)];
-            if len > 0 && st.cursor.char_range().is_some_and(|c| c.sorted_cursors() == all) {
-                st.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(len))));
-                st.store(ui.ctx(), edit_id);
-            }
-        }
+        arrows_start_from_the_end(ui, edit_id, &buf);
         let r =
             accessible_name(ui.put(rect, egui::TextEdit::singleline(&mut buf).id(edit_id).font(Tokens::timecode()).desired_width(rect.width())), "Timecode");
         if r.lost_focus() {
@@ -181,20 +198,21 @@ pub fn timecode_field(
         }
         // select the whole value once the field has focus: egui collapses a selection to a caret
         // in a field that does not have it yet
-        let selected_now = r.has_focus() && ui.data_mut(|d| d.remove_temp::<bool>(select_all_id)).is_some();
+        let focused = holds_focus(&r);
+        let selected_now = focused && ui.data_mut(|d| d.remove_temp::<bool>(select_all_id)).is_some();
         if selected_now {
             let mut st = egui::text_edit::TextEditState::load(ui.ctx(), edit_id).unwrap_or_default();
             st.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(buf.chars().count()))));
             st.store(ui.ctx(), edit_id);
         }
         // the focus and the selection show on the next frame, which nothing else would trigger
-        if !r.has_focus() || selected_now {
+        if !focused || selected_now {
             ui.ctx().request_repaint();
         }
         ui.data_mut(|d| d.insert_temp(editing_id, buf));
         // only until it has focus: `request_focus` resets the field's focus-lock filter, and the
         // arrow keys would then move focus out of the field (committing it) instead of the caret
-        if !r.has_focus() {
+        if !focused {
             r.request_focus();
         }
         return None;
