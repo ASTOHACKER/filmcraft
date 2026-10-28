@@ -63,3 +63,15 @@ Frame has no default key; the Premiere preset moves Shift+E to Export Frame and 
 | Project panel: Next/Previous Column Field, Next/Previous Row Field (Tab, ⇧Tab, Return, ⇧Return) | The list view has no inline-editable metadata cells. |
 | Text panel: Edit Segment (Return) | No inline transcript text editing (corrections go through `transcript.set`). |
 | Text panel: Follow Active Monitor (⇧C), Show Source Transcript (⇧Z) | Only sequence transcripts exist; source clips have no transcript view. |
+
+## Numpad keys
+
+FilmCraft's shortcut engine runs on egui, which maps numpad digits to the same `Key::Num*` variants as the main keyboard row. This means **numpad digits cannot currently be bound independently** of their main-keyboard equivalents — binding `0` on the numpad binds `0` everywhere, and vice versa.
+
+This is a known upstream egui limitation (egui does not yet expose distinct `Key::Numpad*` variants). Until that is resolved:
+
+- Prefer letter keys or function keys for shortcuts that should fire on the numpad only.
+- The **JKL shuttle** (`J` = reverse, `K` = pause, `L` = forward) is the recommended scrubbing shortcut set and does not conflict with numpad use.
+- `0` is bound to **Multi-Camera Record On/Off Toggle** in the Premiere-compatible preset; rebind it if you rely on numpad `0` for something else (Edit ▸ Keyboard Shortcuts…).
+
+See [#2645](https://github.com/storytold/filmcraft/issues/2645) for upstream egui tracking.
