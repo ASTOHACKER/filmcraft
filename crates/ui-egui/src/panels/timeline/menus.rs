@@ -1,4 +1,4 @@
-use super::{ClipId, FilmcraftApp, MarkerId, Sequence, TrackId, TrackItem, Value, json};
+use super::{ClipId, FilmcraftApp, MarkerId, Rect, Sense, Sequence, TrackId, TrackItem, Value, json};
 
 /// The clip context menu: groups (separated by rules) of (label, command id). Entries marked `…`
 /// open their dialog through `menus::invoke`, like the same item in the Clip menu.
@@ -159,7 +159,7 @@ pub(super) fn track_column_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, picke
 /// The menu of a right-clicked track header: add or delete tracks here, or through the dialogs of
 /// Sequence ▸ Add Tracks… / Delete Tracks… (#1117). The command picked goes to `picked`; automation
 /// ids `timeline.track.<V1|A1…>.menu.<item>`.
-pub(super) fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label: &str, track: TrackId, video: bool, picked: &mut Option<(String, Value)>) {
+fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label: &str, track: TrackId, video: bool, picked: &mut Option<(String, Value)>) {
     let mut item = |ui: &mut egui::Ui, key: &str, text: &str, command: &str, params: Value| {
         let button = ui.add_enabled(app.session.is_enabled(command), egui::Button::new(text));
         app.auto.add(&format!("timeline.track.{label}.menu.{key}"), button.rect, text);
@@ -174,6 +174,34 @@ pub(super) fn track_header_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, label
     ui.separator();
     item(ui, "deleteTrack", tl!("Delete Track"), "sequence.deleteTrack", json!({"track": track.0}));
     item(ui, "deleteTracks", tl!("Delete Tracks…"), "sequence.deleteTracks", json!({}));
+}
+
+/// Opens the track header menu on a right-click anywhere on `visible`, a header, even over its
+/// buttons, which take only the click.
+pub(super) fn track_header_popup(
+    app: &mut FilmcraftApp,
+    ui: &mut egui::Ui,
+    visible: Rect,
+    label: &str,
+    track: TrackId,
+    video: bool,
+    picked: &mut Option<(String, Value)>,
+) {
+    let menu_resp = ui.interact(visible, egui::Id::unique(("hdr-menu", track.0)), Sense::click());
+    let mut menu = egui::Popup::context_menu(&menu_resp);
+    if ui.input(|i| i.pointer.secondary_clicked()) && ui.rect_contains_pointer(visible) {
+        menu = menu.open_memory(egui::SetOpenCommand::Bool(true));
+    }
+    menu.show(|ui| track_header_menu(app, ui, label, track, video, picked));
+}
+
+/// Runs the command picked in a track header's menu, if any.
+pub(super) fn run_track_menu(app: &mut FilmcraftApp, ui: &egui::Ui, picked: Option<(String, Value)>) {
+    if let Some((cmd, params)) = picked
+        && let Err(e) = crate::menus::invoke(app, &ui.ctx().clone(), &cmd, params)
+    {
+        app.ui.status = e;
+    }
 }
 
 /// The menu of a right-clicked gap: Ripple Delete closes it.

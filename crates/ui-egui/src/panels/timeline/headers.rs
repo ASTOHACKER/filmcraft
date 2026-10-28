@@ -1,5 +1,5 @@
 use super::layout::Row;
-use super::menus::{track_column_menu, track_header_menu};
+use super::menus::{run_track_menu, track_column_menu, track_header_popup};
 use super::{
     Align2, Color32, CursorIcon, FilmcraftApp, Icon, MASTER_H, Rect, Sense, Sequence, Stroke, StrokeKind, TRACK_HEADER_TINT, Tokens, TrackKind, Value, json,
     label_color, pos2, vec2,
@@ -63,12 +63,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the colour strip and the
         // buttons so they win where they overlap; a right-click on one still opens the menu, since it
         // takes only the click. Automation ids `timeline.track.<V1|A1…>.menu.<item>`.
-        let menu_resp = ui.interact(visible, egui::Id::unique(("hdr-menu", r.track.0)), Sense::click());
-        let mut menu = egui::Popup::context_menu(&menu_resp);
-        if ui.input(|i| i.pointer.secondary_clicked()) && ui.rect_contains_pointer(visible) {
-            menu = menu.open_memory(egui::SetOpenCommand::Bool(true));
-        }
-        menu.show(|ui| track_header_menu(app, ui, &label, r.track, r.kind == TrackKind::Video, &mut header_menu));
+        track_header_popup(app, ui, visible, &label, r.track, r.kind == TrackKind::Video, &mut header_menu);
         // 0. colour label (#1186): a tint over the header, and the strip at its left edge, which
         // opens the colour menu
         let strip = Rect::from_min_max(hrect.min, pos2(hrect.min.x + 9.0, hrect.max.y));
@@ -209,12 +204,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
             app.ui.status = e.to_string();
         }
     }
-    if let Some((cmd, params)) = header_menu {
-        let ctx = ui.ctx().clone();
-        if let Err(e) = crate::menus::invoke(app, &ctx, &cmd, params) {
-            app.ui.status = e;
-        }
-    }
+    run_track_menu(app, ui, header_menu);
     if let Some(a) = vo_action {
         crate::panels::voiceover::run(app, &ui.ctx().clone(), a);
     }
