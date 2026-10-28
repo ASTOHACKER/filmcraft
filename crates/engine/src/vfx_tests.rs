@@ -205,15 +205,19 @@ fn transition_duration_is_clamped_to_what_the_cut_supports() {
     let track = s.active_sequence().unwrap().video_tracks[0].id;
     let clips: Vec<_> = s.active_sequence().unwrap().video_tracks[0].items.iter().map(|c| c.id).collect();
     assert!(clips.len() >= 2, "the demo project needs at least two V1 clips for this test");
-    let items = &mut std::sync::Arc::make_mut(&mut s.project).sequence_mut(sid).unwrap().track_mut(track).unwrap().items;
-    items[0].duration = frame.mul_ratio(3, 1);
-    items[1].start = items[0].start + items[0].duration;
+    let (first_start, second_end) = {
+        let items = &mut std::sync::Arc::make_mut(&mut s.project).sequence_mut(sid).unwrap().track_mut(track).unwrap().items;
+        items[0].duration = frame.mul_ratio(3, 1);
+        let cut = items[0].end();
+        items[1].start = cut;
+        (items[0].start, items[1].end())
+    };
 
     // Crossfade at the cut between the 3-frame clip and its neighbour: the short side
     // caps a centered transition at 2 x 3 frames.
     let (_, planned) = preview_transition(&s, &json!({"effect": "cross_dissolve", "clip": clips[1].0, "edge": "in", "frames": 999}), TrackKind::Video).unwrap();
     assert_eq!(planned.duration, frame.mul_ratio(6, 1), "clamped to twice the short side of the cut");
-    assert!(planned.start >= items[0].start && planned.start + planned.duration <= items[1].end(), "the clamped transition stays inside the clips");
+    assert!(planned.start >= first_start && planned.start + planned.duration <= second_end, "the clamped transition stays inside the clips");
 
     // The same cut with a request that fits is untouched.
     let (_, planned) = preview_transition(&s, &json!({"effect": "cross_dissolve", "clip": clips[1].0, "edge": "in", "frames": 4}), TrackKind::Video).unwrap();
