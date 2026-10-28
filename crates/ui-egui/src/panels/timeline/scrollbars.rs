@@ -1,4 +1,4 @@
-use super::layout::timeline_extent;
+use super::layout::{min_pps, timeline_extent};
 use super::{Drag, FilmcraftApp, Rect, Sense, Stroke, Tokens, pos2, vec2};
 
 /// The narrowest the zoom scroll bar's thumb gets: room for its two handles and a part between
@@ -94,15 +94,16 @@ pub(super) fn zoom_scrollbar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rec
             // a handle: zoom, the other end of the view staying where it is
             _ => {
                 let dx = resp.drag_delta().x as f64 / bar.width().max(1.0) as f64 * total;
+                let floor = min_pps(seq_seconds, bar.width());
                 if mode == 1 {
                     let end = v.scroll + vis;
                     let ns = (v.scroll + dx).clamp(0.0, (end - 0.05).max(0.0));
-                    v.pps = (bar.width() as f64 / (end - ns).max(0.05)).clamp(0.05, 24_000.0);
+                    v.pps = (bar.width() as f64 / (end - ns).max(0.05)).clamp(floor, 24_000.0);
                     v.scroll = ns;
                     v.target_scroll = ns;
                 } else {
                     let ne = (v.scroll + vis + dx).max(v.scroll + 0.05);
-                    v.pps = (bar.width() as f64 / (ne - v.scroll)).clamp(0.05, 24_000.0);
+                    v.pps = (bar.width() as f64 / (ne - v.scroll)).clamp(floor, 24_000.0);
                 }
                 v.target_pps = v.pps;
             }

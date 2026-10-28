@@ -1,5 +1,5 @@
 use super::clips::paint_hatch;
-use super::layout::{Layout, max_scroll, new_track_at};
+use super::layout::{Layout, max_scroll, min_pps, new_track_at};
 use super::menus::{CLIP_MENU, EditPointTarget, edit_point_menu, gap_menu, marker_menu, multicam_menu};
 use super::snap::{snap, snap_playhead};
 use super::{
@@ -228,7 +228,7 @@ fn wheel_scroll(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, layout: &
             let f = if (w.pinch - 1.0).abs() > 1e-4 { w.pinch as f64 } else { (1.0_f64 + w.delta.y as f64 * 0.01).clamp(0.5, 2.0) };
             let anchor_t = layout.tick_at(p.x).seconds();
             let v = &mut app.ui.timeline;
-            v.target_pps = (v.target_pps * f).clamp(0.05, 24_000.0);
+            v.target_pps = (v.target_pps * f).clamp(min_pps(seq.duration().seconds(), app.last_timeline_width), 24_000.0);
             app.tl.zoom_anchor = Some((anchor_t, p.x));
         } else if w.delta != egui::Vec2::ZERO {
             let wheel_sideways = (app.session.prefs.timeline.mouse_scrolling == "horizontal") != w.command;
@@ -373,7 +373,7 @@ fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response
         (Tool::Zoom, _) => {
             if resp.clicked() {
                 let f = if mods.alt { 1.0 / 2.0 } else { 2.0 };
-                app.ui.timeline.target_pps = (app.ui.timeline.target_pps * f).clamp(0.05, 24_000.0);
+                app.ui.timeline.target_pps = (app.ui.timeline.target_pps * f).clamp(min_pps(seq.duration().seconds(), app.last_timeline_width), 24_000.0);
                 app.tl.zoom_anchor = Some((t.seconds(), p.x));
             }
             None

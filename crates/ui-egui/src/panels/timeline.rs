@@ -478,7 +478,7 @@ fn animate_view(app: &mut FilmcraftApp, ctx: &egui::Context, content: Rect, seq_
             v.fit_empty = None;
         }
         if v.fit_pending && content.width() > 50.0 {
-            v.target_pps = (content.width() as f64 * 0.94 / dur_s).clamp(0.05, 24_000.0);
+            v.target_pps = (content.width() as f64 * 0.94 / dur_s).clamp(min_pps(seq.duration().seconds(), content.width()), 24_000.0);
             v.target_scroll = 0.0;
             v.fit_pending = false;
             v.fit_empty = empty.then_some(v.target_pps);
