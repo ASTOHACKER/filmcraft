@@ -816,7 +816,7 @@ fn time_zoom_bar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Wh
         };
         ui.data_mut(|d| d.insert_temp(drag_id, (pos.x, start, mode)));
     }
-    if resp.dragged()
+    if resp.dragged_by(egui::PointerButton::Primary)
         && let Some((grab, start, mode)) = ui.data(|d| d.get_temp::<(f32, f64, u8)>(drag_id))
     {
         match mode {
@@ -961,7 +961,7 @@ fn mini_timeline(
         crate::panels::source_range::trim_cue(p, b, bar, -4.0);
     }
     let scrub = interaction.scrub.or_else(|| {
-        if !interaction.handled && (resp.dragged() || resp.clicked()) {
+        if !interaction.handled && (resp.dragged_by(egui::PointerButton::Primary) || resp.clicked()) {
             resp.interact_pointer_pos().map(|pos| {
                 let f = ((pos.x - bar.min.x) / bar.width().max(1.0)).clamp(0.0, 1.0) as f64;
                 rate.snap(shown.0 + Tick((f * dur) as i64))

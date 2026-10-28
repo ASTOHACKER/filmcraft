@@ -247,3 +247,36 @@ fn source_drag_choices_remain_reachable_at_500_pixels() {
 fn source_drag_choices_remain_reachable_at_250_pixels() {
     source_drag_choices(250.0);
 }
+
+fn drag(h: &mut Harness<'_, FilmcraftApp>, from: egui::Pos2, to: egui::Pos2, button: PointerButton) {
+    h.event(Event::PointerMoved(from));
+    h.step();
+    h.event(Event::PointerButton { pos: from, button, pressed: true, modifiers: Modifiers::NONE });
+    h.step();
+    for f in [0.25, 0.5, 1.0] {
+        h.event(Event::PointerMoved(from + (to - from) * f));
+        h.step();
+    }
+    h.event(Event::PointerButton { pos: to, button, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(3);
+}
+
+#[test]
+fn only_the_primary_button_scrubs_the_monitor() {
+    for which in [Which::Source, Which::Program] {
+        let prefix = if which == Which::Source { "source" } else { "program" };
+        let playhead =
+            |h: &Harness<'_, FilmcraftApp>| if which == Which::Source { h.state().session.state.source_playhead } else { h.state().session.playhead() };
+        let mut h = harness(600.0, ThemeKind::Dark, which);
+        let bar = element(&h, &format!("{prefix}.scrubBar"));
+        let handle = element(&h, &format!("{prefix}.playhead"));
+        let start = playhead(&h);
+        let far = pos2(bar.min.x + bar.width() * 0.6, bar.center().y);
+        drag(&mut h, bar.center(), far, PointerButton::Secondary);
+        assert_eq!(playhead(&h), start, "{prefix}: a right-drag on the bar");
+        drag(&mut h, handle.center(), pos2(far.x, handle.center().y), PointerButton::Secondary);
+        assert_eq!(playhead(&h), start, "{prefix}: a right-drag on the playhead");
+        drag(&mut h, handle.center(), pos2(far.x, handle.center().y), PointerButton::Primary);
+        assert_ne!(playhead(&h), start, "{prefix}: the primary button still scrubs");
+    }
+}

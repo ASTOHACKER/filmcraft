@@ -201,7 +201,7 @@ pub fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Whi
         let id = if which == Which::Source { "source.playhead" } else { "program.playhead" };
         app.auto.add(id, rect, "Scrub playhead");
         let playhead = ui.interact(rect, egui::Id::unique(id), Sense::click_and_drag()).on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-        if (playhead.dragged() || playhead.clicked())
+        if (playhead.dragged_by(egui::PointerButton::Primary) || playhead.clicked())
             && let Some(pos) = playhead.interact_pointer_pos()
         {
             let f = (f64::from(pos.x - bar.min.x) / f64::from(bar.width().max(1.0))).clamp(0.0, 1.0);
