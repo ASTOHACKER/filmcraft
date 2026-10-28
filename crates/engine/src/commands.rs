@@ -3858,6 +3858,9 @@ fn copy_selection(s: &mut Session) {
         Vec::new()
     };
     let mut clip = Vec::new();
+    // transitions go along with their clips: those whose every clip is copied (#3450)
+    let mut transitions = Vec::new();
+    let copied = |c: Option<ClipId>| c.is_none_or(|c| sel.contains(&c));
     for (kind, tracks) in [(TrackKind::Video, &q.video_tracks), (TrackKind::Audio, &q.audio_tracks)] {
         for (ti, t) in tracks.iter().enumerate() {
             for i in t.items.iter().filter(|i| sel.contains(&i.id)) {
@@ -3865,9 +3868,13 @@ fn copy_selection(s: &mut Session) {
                 c.start -= min;
                 clip.push((kind, ti, c));
             }
+            for x in t.transitions.iter().filter(|x| (x.from.is_some() || x.to.is_some()) && copied(x.from) && copied(x.to)) {
+                transitions.push((kind, ti, Transition { start: x.start - min, ..x.clone() }));
+            }
         }
     }
     set_clipboard(&mut s.state, (clip, markers));
+    s.state.clipboard_transitions = transitions;
 }
 
 /// Timeline clips (track kind, track index, item) and the sequence markers that go with them.
@@ -3876,6 +3883,7 @@ type Clipboard = (Vec<(TrackKind, usize, filmcraft_project::TrackItem)>, Vec<Mar
 fn set_clipboard(st: &mut crate::EditorState, (clips, markers): Clipboard) {
     st.clipboard = clips;
     st.clipboard_markers = markers;
+    st.clipboard_transitions.clear();
     st.caption_clipboard.clear();
 }
 
@@ -3923,14 +3931,17 @@ fn paste(s: &mut Session, insert: bool) -> Result<Value> {
     let at = s.playhead();
     let clip = s.state.clipboard.clone();
     let markers = if s.state.copy_paste_sequence_markers { s.state.clipboard_markers.clone() } else { Vec::new() };
+    let transitions = s.state.clipboard_transitions.clone();
     let end = s.edit_sequence(if insert { "Paste Insert" } else { "Paste" }, |q, ctx, st| {
         let mut placements = Vec::new();
         let mut links = std::collections::HashMap::new();
+        let mut new_ids = std::collections::HashMap::new();
         for (kind, ti, item) in clip {
             let tracks = q.tracks(kind);
             let Some(t) = tracks.get(ti).or(tracks.last()) else { continue };
             let mut it = item.clone();
             it.id = ClipId(ctx.alloc());
+            new_ids.insert(item.id, it.id);
             it.start += at;
             if let Some(l) = it.link {
                 it.link = Some(*links.entry(l).or_insert_with(|| ctx.alloc()));
@@ -3939,6 +3950,19 @@ fn paste(s: &mut Session, insert: bool) -> Result<Value> {
         }
         let end = placements.iter().map(|p| p.1.end()).max().unwrap_or(at);
         let ids = if insert { edit::insert(q, placements, ctx)? } else { edit::overwrite(q, placements, ctx)? };
+        // the copied transitions go onto the pasted clips, on the track those clips landed on
+        for (_, _, x) in &transitions {
+            let from = x.from.and_then(|c| new_ids.get(&c).copied());
+            let to = x.to.and_then(|c| new_ids.get(&c).copied());
+            let tracks: Vec<TrackId> = [from, to].into_iter().flatten().filter_map(|c| q.find_item(c).map(|(t, _)| t)).collect();
+            let Some(&track) = tracks.first() else { continue };
+            if tracks.len() != [x.from, x.to].into_iter().flatten().count() || tracks.iter().any(|t| *t != track) {
+                continue;
+            }
+            let Some(t) = q.track_mut(track) else { continue };
+            t.transitions.push(Transition { id: TransitionId(ctx.alloc()), start: x.start + at, from, to, ..x.clone() });
+            t.sort();
+        }
         if insert && st.ripple_sequence_markers {
             crate::sequence_tools::ripple_markers(&mut q.markers, at, end - at);
         }
