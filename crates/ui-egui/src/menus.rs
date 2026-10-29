@@ -629,6 +629,10 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
 /// the keyboard, in the main window or a floating panel's own window, the field gets the key
 /// and the project command does not run.
 pub fn activate_native(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str) -> Result<Value, String> {
+    // Select All of a graphic's text is already handled in `invoke`
+    if text_field_window(ctx).is_none() && app.ui.gfx_edit.is_some() && matches!(id, "edit.copy" | "edit.cut" | "edit.paste") {
+        return Ok(graphic_text_command(app, ctx, id));
+    }
     let (Some(window), Some(text)) = (text_field_window(ctx), text_command(id, ctx.os().is_mac())) else {
         return invoke(app, ctx, id, json!({}));
     };
@@ -653,6 +657,31 @@ pub fn text_field_window(ctx: &egui::Context) -> Option<egui::ViewportId> {
 /// menu keeps such items enabled while one has the keyboard, whatever the project allows.
 pub fn edits_text(id: &str) -> bool {
     text_command(id, false).is_some()
+}
+
+/// Whether the graphic text being edited takes the menu command `id` ([`activate_native`]): Copy,
+/// Cut and Paste go to its text instead of copying or pasting the graphic clip (#1953). Select All
+/// already selects its text in [`invoke`], and Undo stays the project's, as each text edit is one.
+/// The native menu keeps these enabled while a graphic's text is edited.
+pub fn edits_graphic_text(id: &str) -> bool {
+    matches!(id, "edit.copy" | "edit.cut" | "edit.paste" | "edit.selectAll")
+}
+
+/// Hand a native Edit command to the graphic text being edited (main window). The editor gives the
+/// keyboard to any other focused widget (a Text Properties button) and takes it back once nothing
+/// has it, so that widget lets go first and the text receives the event in the next frame.
+fn graphic_text_command(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str) -> Value {
+    let editor = egui::Id::unique(crate::panels::graphics::TEXT_EDIT_ID);
+    if let Some(other) = ctx.memory(|m| m.focused()).filter(|f| *f != editor) {
+        ctx.memory_mut(|m| m.surrender_focus(other));
+    }
+    match id {
+        "edit.paste" => ctx.send_viewport_cmd_to(egui::ViewportId::ROOT, egui::ViewportCommand::RequestPaste),
+        "edit.cut" => app.synthetic.push(egui::Event::Cut),
+        _ => app.synthetic.push(egui::Event::Copy),
+    }
+    ctx.request_repaint();
+    Value::Null
 }
 
 /// What a focused text field does for an Edit menu command.
