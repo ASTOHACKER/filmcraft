@@ -111,3 +111,28 @@ fn cancel_leaves_the_marker_alone() {
     assert!(!d.has_element("timeline.markerDialog.cancel"));
     assert_eq!(d.marker(id), before);
 }
+
+/// Renaming a marker keeps a duration the dialog cannot show exactly: one that is not a whole number
+/// of frames, and one beyond the duration control's range.
+#[test]
+fn ok_keeps_a_duration_that_was_not_edited() {
+    for ticks in [|frame: i64| frame * 10 + 1, |frame: i64| frame * 20_000_000] {
+        let mut d = Driver::demo();
+        let id = d.setup();
+        let frame = d.harness.state().session.sequence_rate().tick_of(1).0;
+        let want = filmcraft_time::Tick(ticks(frame));
+        d.harness
+            .state_mut()
+            .session
+            .edit_sequence("Set duration", |q, _, _| {
+                q.markers.iter_mut().filter(|m| m.id.0 == id).for_each(|m| m.duration = want);
+                Ok(())
+            })
+            .expect("set the duration");
+        d.click(&format!("timeline.marker.{id}"), 2);
+        d.type_into("timeline.markerDialog.name", "Renamed");
+        d.click("timeline.markerDialog.ok", 1);
+        let m = d.marker(id);
+        assert_eq!((m.name.as_str(), m.duration), ("Renamed", want), "only the name changed");
+    }
+}

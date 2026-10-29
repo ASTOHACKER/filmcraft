@@ -14,6 +14,9 @@ struct Draft {
     comment: String,
     color: Label,
     duration_frames: i64,
+    /// The duration when the dialog opened, in whole frames: `durationFrames` is sent only once it has been edited, so a
+    /// duration that is not a whole number of frames, or beyond the control's range, survives renaming the marker.
+    opened_frames: i64,
 }
 
 fn key() -> egui::Id {
@@ -28,7 +31,23 @@ pub(crate) fn open(app: &FilmcraftApp, ctx: &egui::Context, marker: MarkerId) {
 }
 
 fn draft_of(m: &Marker, rate: filmcraft_time::FrameRate) -> Draft {
-    Draft { marker: m.id.0, name: m.name.clone(), comment: m.comment.clone(), color: m.color, duration_frames: rate.frame_at(m.duration).max(0) }
+    let frames = rate.frame_at(m.duration).max(0);
+    Draft { marker: m.id.0, name: m.name.clone(), comment: m.comment.clone(), color: m.color, duration_frames: frames, opened_frames: frames }
+}
+
+/// The parameters of the `markers.edit` that OK runs.
+fn edit_params(draft: &Draft) -> serde_json::Value {
+    let mut params = json!({
+        "target": "program",
+        "marker": draft.marker,
+        "name": draft.name,
+        "comment": draft.comment,
+        "color": draft.color.name(),
+    });
+    if draft.duration_frames != draft.opened_frames {
+        params["durationFrames"] = json!(draft.duration_frames);
+    }
+    params
 }
 
 /// Draws the dialog when it is open. It closes by itself when its marker is gone.
@@ -73,7 +92,7 @@ pub(crate) fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 ui.end_row();
 
                 ui.label(tl!("Duration (frames):"));
-                let r = ui.add(egui::DragValue::new(&mut draft.duration_frames).range(0..=10_000_000).speed(1.0));
+                let r = ui.add(egui::DragValue::new(&mut draft.duration_frames).range(0..=draft.opened_frames.max(10_000_000)).speed(1.0));
                 app.auto.add_response("timeline.markerDialog.duration", &r, "Duration");
                 ui.end_row();
             });
@@ -88,18 +107,8 @@ pub(crate) fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                 cancel = r.clicked();
             });
         });
-    if ok {
-        let params = json!({
-            "target": "program",
-            "marker": draft.marker,
-            "name": draft.name,
-            "comment": draft.comment,
-            "color": draft.color.name(),
-            "durationFrames": draft.duration_frames,
-        });
-        if let Err(e) = app.session.execute("markers.edit", params) {
-            app.ui.status = e.to_string();
-        }
+    if ok && let Err(e) = app.session.execute("markers.edit", edit_params(&draft)) {
+        app.ui.status = e.to_string();
     }
     if ok || cancel || crate::widgets::escape_closes(ctx) {
         ctx.data_mut(|d| d.remove::<Draft>(key()));
