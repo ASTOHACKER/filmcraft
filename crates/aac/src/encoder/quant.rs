@@ -195,11 +195,64 @@ fn candidates(m: i32) -> &'static [u8] {
     }
 }
 
-/// Bits per candidate codebook for a band holding `vals` (largest magnitude `maxq`); `u32::MAX / 4`
+/// Bring the scalefactor differences between coded bands (`sf >= 0`) within ±60 by lowering the
+/// offenders, sweeping up and down until stable.
+fn limit_sf_steps(sf: &mut [i32]) {
+    let coded: Vec<usize> = (0..sf.len()).filter(|&i| sf[i] >= 0).collect();
+    for _ in 0..8 {
+        let mut changed = false;
+        for w in coded.windows(2) {
+            if sf[w[1]] > sf[w[0]] + 60 {
+                sf[w[1]] = sf[w[0]] + 60;
+                changed = true;
+            }
+        }
+        for w in coded.windows(2).rev() {
+            if sf[w[0]] > sf[w[1]] + 60 {
+                sf[w[0]] = sf[w[1]] + 60;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+}
+
+/// Quantise every band at its scalefactor into `q`, recording each band's largest magnitude in
+/// `maxq`; a band already quantised at that scalefactor is taken from `cache`. A band that quantises
+/// to all zeros leaves the chain (`sf = -1`); returns whether any did.
+fn quantise_bands(ch: &ChannelInput, cache: &mut QuantCache, sf: &mut [i32], q: &mut [i32], maxq: &mut [i32]) -> bool {
+    let mut removed = false;
+    for (i, b) in ch.bands.iter().enumerate() {
+        let r = b.start..b.end;
+        if sf[i] < 0 {
+            q[r].fill(0);
+            maxq[i] = 0;
+            continue;
+        }
+        let memo = &mut cache.bands[i];
+        if memo.sf != sf[i] {
+            quantise(&ch.x[r.clone()], sf[i], &ch.x34[r.clone()], &mut cache.q[r.clone()]);
+            *memo = BandMemo { sf: sf[i], maxq: cache.q[r.clone()].iter().map(|v| v.abs()).max().unwrap_or(0), cost: None };
+        }
+        q[r.clone()].copy_from_slice(&cache.q[r]);
+        maxq[i] = memo.maxq;
+        if maxq[i] == 0 {
+            sf[i] = -1;
+            removed = true;
+        }
+    }
+    removed
+}
+
+/// Cost sentinel for a codebook that cannot code a band.
+const INF: u32 = u32::MAX / 4;
+
+/// Bits per candidate codebook for a band holding `vals` (largest magnitude `maxq`); `INF`
 /// marks codebooks that cannot code it. An all-zero band inside a coded section also needs a (zero)
 /// scalefactor difference, hence the extra bit.
 fn band_costs(vals: &[i32], maxq: i32) -> [u32; 12] {
-    const INF: u32 = u32::MAX / 4;
     let mut cost = [INF; 12];
     let extra = (maxq == 0) as u32;
     for &c in candidates(maxq) {
@@ -218,6 +271,112 @@ fn band_costs(vals: &[i32], maxq: i32) -> [u32; 12] {
     cost
 }
 
+/// Bits to code each band of a group with each codebook (`INF` when the codebook cannot), from the
+/// per-band memo.
+fn codebook_costs(ch: &ChannelInput, cache: &mut QuantCache, sf: &[i32], q: &[i32], maxq: &[i32], base: usize, n: usize) -> Vec<[u32; 12]> {
+    let mut cost = vec![[INF; 12]; n];
+    for i in 0..n {
+        let bi = base + i;
+        let b = &ch.bands[bi];
+        let vals = &q[b.start..b.end];
+        // A band that ends up uncoded (`sf < 0`) holds zeros, whatever its memo says.
+        let row = if sf[bi] >= 0 { &mut cache.bands[bi].cost } else { &mut cache.zero_cost[bi] };
+        cost[i] = *row.get_or_insert_with(|| band_costs(vals, maxq[bi]));
+    }
+    cost
+}
+
+/// Dynamic programming over the codebook of each band of a group, charging `new_sec` bits for every
+/// section start. Returns the chosen codebook per band.
+fn best_codebooks(cost: &[[u32; 12]], new_sec: u32) -> Vec<u8> {
+    let n = cost.len();
+    let mut best = [INF; 12];
+    let mut back = vec![[0u8; 12]; n];
+    for c in 0..12 {
+        if cost[0][c] < INF {
+            best[c] = new_sec + cost[0][c];
+        }
+    }
+    for i in 1..n {
+        let (mut min_c, mut min_v) = (0usize, INF);
+        for c in 0..12 {
+            if best[c] < min_v {
+                min_v = best[c];
+                min_c = c;
+            }
+        }
+        let mut nb_ = [INF; 12];
+        for c in 0..12 {
+            if cost[i][c] >= INF {
+                continue;
+            }
+            let stay = best[c];
+            let switch = min_v + new_sec;
+            if stay <= switch {
+                nb_[c] = stay + cost[i][c];
+                back[i][c] = c as u8;
+            } else {
+                nb_[c] = switch + cost[i][c];
+                back[i][c] = min_c as u8;
+            }
+        }
+        best = nb_;
+    }
+    let mut cbs = vec![0u8; n];
+    let mut c = (0..12).min_by_key(|&c| best[c]).unwrap_or(0);
+    for i in (0..n).rev() {
+        cbs[i] = c as u8;
+        c = back[i][c] as usize;
+    }
+    cbs
+}
+
+/// Run-length encode a group's codebooks into `(codebook, length)` sections, and sum the spectral
+/// bits of its non-zero sections from the cost rows. `base` is the index of the group's first band.
+fn group_sections(cost: &[[u32; 12]], maxq: &[i32], cbs: &[u8], base: usize) -> (Vec<(u8, usize)>, u32) {
+    let mut secs: Vec<(u8, usize)> = Vec::new();
+    let mut spectral_bits = 0u32;
+    for (i, &c) in cbs.iter().enumerate() {
+        match secs.last_mut() {
+            Some((lc, len)) if *lc == c => *len += 1,
+            _ => secs.push((c, 1)),
+        }
+        if c != ZERO_HCB {
+            // the cost row carries one extra bit for an all-zero band (its scalefactor difference)
+            spectral_bits += cost[i][c as usize] - (maxq[base + i] == 0) as u32;
+        }
+    }
+    (secs, spectral_bits)
+}
+
+/// Section selection: a codebook per band, the sections of each group and the bits they cost
+/// `(codebooks, sections, spectral_bits, section_bits)`.
+fn select_sections(ch: &ChannelInput, cache: &mut QuantCache, sf: &[i32], q: &[i32], maxq: &[i32]) -> (Vec<u8>, Vec<Vec<(u8, usize)>>, u32, u32) {
+    let info = &ch.info;
+    let (sect_bits, esc) = if info.is_short() { (3u32, 7usize) } else { (5u32, 31usize) };
+    let mut cb = vec![ZERO_HCB; ch.bands.len()];
+    let mut sections = Vec::with_capacity(info.num_groups);
+    let mut spectral_bits = 0u32;
+    let mut section_bits = 0u32;
+    let n = info.max_sfb;
+    for g in 0..info.num_groups {
+        let base = g * n;
+        if n == 0 {
+            sections.push(Vec::new());
+            continue;
+        }
+        let cost = codebook_costs(ch, cache, sf, q, maxq, base, n);
+        cb[base..base + n].copy_from_slice(&best_codebooks(&cost, 4 + sect_bits));
+        let (secs, bits) = group_sections(&cost, maxq, &cb[base..base + n], base);
+        spectral_bits += bits;
+        for &(_, len) in &secs {
+            section_bits += 4 + sect_bits * (len / esc + 1) as u32;
+        }
+        sections.push(secs);
+    }
+    (cb, sections, spectral_bits, section_bits)
+}
+
 /// Quantise one channel at rate-distortion multiplier `lambda` and select sections.
 pub fn quantise_channel(ch: &ChannelInput, cache: &mut QuantCache, lambda: f32) -> QuantChannel {
     let nb = ch.bands.len();
@@ -234,132 +393,13 @@ pub fn quantise_channel(ch: &ChannelInput, cache: &mut QuantCache, lambda: f32) 
     let mut q = vec![0i32; ch.x.len()];
     let mut maxq = vec![0i32; nb];
     loop {
-        for _ in 0..8 {
-            let mut changed = false;
-            let coded: Vec<usize> = (0..nb).filter(|&i| sf[i] >= 0).collect();
-            for w in coded.windows(2) {
-                if sf[w[1]] > sf[w[0]] + 60 {
-                    sf[w[1]] = sf[w[0]] + 60;
-                    changed = true;
-                }
-            }
-            for w in coded.windows(2).rev() {
-                if sf[w[0]] > sf[w[1]] + 60 {
-                    sf[w[0]] = sf[w[1]] + 60;
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-        let mut removed = false;
-        for (i, b) in ch.bands.iter().enumerate() {
-            let r = b.start..b.end;
-            if sf[i] < 0 {
-                q[r].fill(0);
-                maxq[i] = 0;
-                continue;
-            }
-            let memo = &mut cache.bands[i];
-            if memo.sf != sf[i] {
-                quantise(&ch.x[r.clone()], sf[i], &ch.x34[r.clone()], &mut cache.q[r.clone()]);
-                *memo = BandMemo { sf: sf[i], maxq: cache.q[r.clone()].iter().map(|v| v.abs()).max().unwrap_or(0), cost: None };
-            }
-            q[r.clone()].copy_from_slice(&cache.q[r]);
-            maxq[i] = memo.maxq;
-            if maxq[i] == 0 {
-                sf[i] = -1;
-                removed = true;
-            }
-        }
-        if !removed {
+        limit_sf_steps(&mut sf);
+        if !quantise_bands(ch, cache, &mut sf, &mut q, &mut maxq) {
             break;
         }
     }
 
-    // Section selection: dynamic programming per group over codebooks.
-    let info = &ch.info;
-    let (sect_bits, esc) = if info.is_short() { (3u32, 7usize) } else { (5u32, 31usize) };
-    let mut cb = vec![ZERO_HCB; nb];
-    let mut sections = Vec::with_capacity(info.num_groups);
-    let mut spectral_bits = 0u32;
-    let mut section_bits = 0u32;
-    let per_group = info.max_sfb;
-    for g in 0..info.num_groups {
-        let base = g * per_group;
-        let n = per_group;
-        if n == 0 {
-            sections.push(Vec::new());
-            continue;
-        }
-        // cost[i][c]
-        const INF: u32 = u32::MAX / 4;
-        let mut cost = vec![[INF; 12]; n];
-        for i in 0..n {
-            let bi = base + i;
-            let b = &ch.bands[bi];
-            let vals = &q[b.start..b.end];
-            // A band that ends up uncoded (`sf < 0`) holds zeros, whatever its memo says.
-            let row = if sf[bi] >= 0 { &mut cache.bands[bi].cost } else { &mut cache.zero_cost[bi] };
-            cost[i] = *row.get_or_insert_with(|| band_costs(vals, maxq[bi]));
-        }
-        let new_sec = 4 + sect_bits;
-        let mut best = [INF; 12];
-        let mut back = vec![[0u8; 12]; n];
-        for c in 0..12 {
-            if cost[0][c] < INF {
-                best[c] = new_sec + cost[0][c];
-            }
-        }
-        for i in 1..n {
-            let (mut min_c, mut min_v) = (0usize, INF);
-            for c in 0..12 {
-                if best[c] < min_v {
-                    min_v = best[c];
-                    min_c = c;
-                }
-            }
-            let mut nb_ = [INF; 12];
-            for c in 0..12 {
-                if cost[i][c] >= INF {
-                    continue;
-                }
-                let stay = best[c];
-                let switch = min_v + new_sec;
-                if stay <= switch {
-                    nb_[c] = stay + cost[i][c];
-                    back[i][c] = c as u8;
-                } else {
-                    nb_[c] = switch + cost[i][c];
-                    back[i][c] = min_c as u8;
-                }
-            }
-            best = nb_;
-        }
-        let mut c = (0..12).min_by_key(|&c| best[c]).unwrap_or(0);
-        for i in (0..n).rev() {
-            cb[base + i] = c as u8;
-            c = back[i][c] as usize;
-        }
-        // run-length sections and exact costs
-        let mut secs: Vec<(u8, usize)> = Vec::new();
-        for i in 0..n {
-            let c = cb[base + i];
-            match secs.last_mut() {
-                Some((lc, len)) if *lc == c => *len += 1,
-                _ => secs.push((c, 1)),
-            }
-            if c != ZERO_HCB {
-                // the cost row carries one extra bit for an all-zero band (its scalefactor difference)
-                spectral_bits += cost[i][c as usize] - (maxq[base + i] == 0) as u32;
-            }
-        }
-        for &(_, len) in &secs {
-            section_bits += 4 + sect_bits * (len / esc + 1) as u32;
-        }
-        sections.push(secs);
-    }
+    let (cb, sections, spectral_bits, section_bits) = select_sections(ch, cache, &sf, &q, &maxq);
 
     // Scalefactors: global gain is the first coded band's value; bands coded with a non-zero
     // codebook but all-zero values reuse the previous value (difference 0).
@@ -376,7 +416,7 @@ pub fn quantise_channel(ch: &ChannelInput, cache: &mut QuantCache, lambda: f32) 
         sf_bits += huffman::sf_bits(sf[i] - prev);
         prev = sf[i];
     }
-    let tns_bits = 1 + ch.tns.as_ref().map(|t| t.bit_count(info)).unwrap_or(0);
+    let tns_bits = 1 + ch.tns.as_ref().map(|t| t.bit_count(&ch.info)).unwrap_or(0);
     let bits = 8 + section_bits + sf_bits + 1 + tns_bits + 1 + spectral_bits;
     QuantChannel { q, sf, cb, sections, global_gain: first, bits }
 }
