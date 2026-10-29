@@ -198,6 +198,15 @@ const QPEL_SRC: [[(u8, u8, u8); 2]; 16] = [
     [(2, 1, 0), (1, 0, 1)],
 ];
 
+/// A `w` x `h` block at sample position (`x`, `y`) of a plane.
+#[derive(Clone, Copy, Debug)]
+pub struct McBlock {
+    pub x: usize,
+    pub y: usize,
+    pub w: usize,
+    pub h: usize,
+}
+
 impl RefPic {
     #[inline]
     fn plane(&self, p: u8) -> &Plane {
@@ -217,22 +226,23 @@ impl RefPic {
             let i = a.idx(x as isize + (mv.x as isize >> 2) + dxa as isize, y as isize + (mv.y as isize >> 2) + dya as isize);
             (&a.data[i..], a.stride)
         } else {
-            self.mc_luma(x, y, mv, w, h, buf, 16);
+            self.mc_luma(McBlock { x, y, w, h }, mv, buf, 16);
             (buf, 16)
         }
     }
 
     /// Luma prediction of a w x h block at picture position (x, y) displaced by `mv` (quarter samples).
-    pub fn mc_luma(&self, x: usize, y: usize, mv: Mv, w: usize, h: usize, out: &mut [u8], ostride: usize) {
-        match w {
-            16 => self.mc_luma_w(x, y, mv, 16, h, out, ostride),
-            8 => self.mc_luma_w(x, y, mv, 8, h, out, ostride),
-            _ => self.mc_luma_w(x, y, mv, w, h, out, ostride),
+    pub fn mc_luma(&self, blk: McBlock, mv: Mv, out: &mut [u8], ostride: usize) {
+        match blk.w {
+            16 => self.mc_luma_w(McBlock { w: 16, ..blk }, mv, out, ostride),
+            8 => self.mc_luma_w(McBlock { w: 8, ..blk }, mv, out, ostride),
+            _ => self.mc_luma_w(blk, mv, out, ostride),
         }
     }
 
     #[inline(always)]
-    fn mc_luma_w(&self, x: usize, y: usize, mv: Mv, w: usize, h: usize, out: &mut [u8], ostride: usize) {
+    fn mc_luma_w(&self, blk: McBlock, mv: Mv, out: &mut [u8], ostride: usize) {
+        let McBlock { x, y, w, h } = blk;
         let xi = x as isize + (mv.x as isize >> 2);
         let yi = y as isize + (mv.y as isize >> 2);
         let q = ((mv.y & 3) * 4 + (mv.x & 3)) as usize;
@@ -259,16 +269,18 @@ impl RefPic {
     }
 
     /// Chroma prediction (both planes) of a w x h chroma block at chroma position (x, y); mv in luma quarter units.
-    pub fn mc_chroma(&self, x: usize, y: usize, mv: Mv, w: usize, h: usize, out_u: &mut [u8], out_v: &mut [u8], ostride: usize) {
-        match w {
-            8 => self.mc_chroma_w(x, y, mv, 8, h, out_u, out_v, ostride),
-            4 => self.mc_chroma_w(x, y, mv, 4, h, out_u, out_v, ostride),
-            _ => self.mc_chroma_w(x, y, mv, w, h, out_u, out_v, ostride),
+    pub fn mc_chroma(&self, blk: McBlock, mv: Mv, out: (&mut [u8], &mut [u8]), ostride: usize) {
+        match blk.w {
+            8 => self.mc_chroma_w(McBlock { w: 8, ..blk }, mv, out, ostride),
+            4 => self.mc_chroma_w(McBlock { w: 4, ..blk }, mv, out, ostride),
+            _ => self.mc_chroma_w(blk, mv, out, ostride),
         }
     }
 
     #[inline(always)]
-    fn mc_chroma_w(&self, x: usize, y: usize, mv: Mv, w: usize, h: usize, out_u: &mut [u8], out_v: &mut [u8], ostride: usize) {
+    fn mc_chroma_w(&self, blk: McBlock, mv: Mv, out: (&mut [u8], &mut [u8]), ostride: usize) {
+        let McBlock { x, y, w, h } = blk;
+        let (out_u, out_v) = out;
         let xi = x as isize + (mv.x as isize >> 3);
         let yi = y as isize + (mv.y as isize >> 3);
         let fx = (mv.x & 7) as u32;
