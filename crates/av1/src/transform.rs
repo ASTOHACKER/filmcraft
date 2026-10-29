@@ -1,6 +1,9 @@
 //! Inverse transforms (spec 7.13), implemented step by step as specified.
 
-use crate::spec_tables::*;
+use crate::spec_tables::{
+    ADST_ADST, ADST_DCT, ADST_FLIPADST, COS128_LOOKUP, DCT_ADST, DCT_DCT, DCT_FLIPADST, FLIPADST_ADST, FLIPADST_DCT, FLIPADST_FLIPADST, H_ADST, H_DCT,
+    H_FLIPADST, TRANSFORM_ROW_SHIFT, TX_HEIGHT_LOG2, TX_WIDTH_LOG2, V_ADST, V_DCT, V_FLIPADST,
+};
 
 #[inline(always)]
 fn round2_64(x: i64, n: u32) -> i32 {
@@ -180,25 +183,9 @@ fn hd<T: Lane>(t: &mut [T], a: usize, b: usize, flip: bool, r: u32) {
     t[b] = y;
 }
 
-/// Inverse DCT of length 2^n (7.13.2.3), in place.
-pub(crate) fn inverse_dct<T: Lane>(t: &mut [T], n: u32, r: u32) {
-    match n {
-        2 => inverse_dct_n::<T, 2>(t, r),
-        3 => inverse_dct_n::<T, 3>(t, r),
-        4 => inverse_dct_n::<T, 4>(t, r),
-        5 => inverse_dct_n::<T, 5>(t, r),
-        _ => inverse_dct_n::<T, 6>(t, r),
-    }
-}
-
-fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
-    // 7.13.2.2 permutation
-    let len = 1usize << N;
-    let mut copy = [T::ZERO; 64];
-    copy[..len].copy_from_slice(&t[..len]);
-    for i in 0..len {
-        t[i] = copy[BREV[N as usize][i] as usize];
-    }
+/// Rotations and Hadamards that build the odd half of the larger transforms (first part of 7.13.2.3).
+#[inline(always)]
+fn dct_stage_outer_rotations<T: Lane, const N: u32>(t: &mut [T], r: u32) {
     if N == 6 {
         for i in 0..16 {
             bf(t, 32 + i, 63 - i, 63 - 4 * BREV[4][i] as i32, false);
@@ -255,6 +242,11 @@ fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
             }
         }
     }
+}
+
+/// Butterflies of the smallest sub-transforms (second part of 7.13.2.3).
+#[inline(always)]
+fn dct_stage_even_half<T: Lane, const N: u32>(t: &mut [T], r: u32) {
     for i in 0..2 {
         bf(t, 2 * i, 2 * i + 1, 32 + 16 * i as i32, i == 0);
     }
@@ -282,6 +274,11 @@ fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
             }
         }
     }
+}
+
+/// Merges the quarter-size sub-transforms (third part of 7.13.2.3).
+#[inline(always)]
+fn dct_stage_merge_quarters<T: Lane, const N: u32>(t: &mut [T], r: u32) {
     for i in 0..2 {
         hd(t, i, 3 - i, false, r);
     }
@@ -329,6 +326,11 @@ fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
             bf(t, 59 - i, 36 + i, if i < 4 { 48 } else { 112 }, true);
         }
     }
+}
+
+/// Final merges of the half-size sub-transforms (last part of 7.13.2.3).
+#[inline(always)]
+fn dct_stage_merge_halves<T: Lane, const N: u32>(t: &mut [T], r: u32) {
     if N >= 4 {
         for i in 0..8 {
             hd(t, i, 15 - i, false, r);
@@ -360,6 +362,31 @@ fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
             hd(t, i, 63 - i, false, r);
         }
     }
+}
+
+/// Inverse DCT of length 2^n (7.13.2.3), in place.
+pub(crate) fn inverse_dct<T: Lane>(t: &mut [T], n: u32, r: u32) {
+    match n {
+        2 => inverse_dct_n::<T, 2>(t, r),
+        3 => inverse_dct_n::<T, 3>(t, r),
+        4 => inverse_dct_n::<T, 4>(t, r),
+        5 => inverse_dct_n::<T, 5>(t, r),
+        _ => inverse_dct_n::<T, 6>(t, r),
+    }
+}
+
+fn inverse_dct_n<T: Lane, const N: u32>(t: &mut [T], r: u32) {
+    // 7.13.2.2 permutation
+    let len = 1usize << N;
+    let mut copy = [T::ZERO; 64];
+    copy[..len].copy_from_slice(&t[..len]);
+    for i in 0..len {
+        t[i] = copy[BREV[N as usize][i] as usize];
+    }
+    dct_stage_outer_rotations::<T, N>(t, r);
+    dct_stage_even_half::<T, N>(t, r);
+    dct_stage_merge_quarters::<T, N>(t, r);
+    dct_stage_merge_halves::<T, N>(t, r);
 }
 
 const SINPI_1_9: i64 = 1321;
@@ -732,6 +759,7 @@ fn transform_lanes<const L: usize>(dequant: &[i32], residual: &mut [i32], p: &Tx
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spec_tables::{TX_HEIGHT, TX_SIZES_ALL, TX_WIDTH};
 
     /// The DCT step list must implement an orthogonal transform: a DC-only input gives a flat
     /// output equal to DC * cos(pi/4) (in the 2^12 fixed-point scale).
