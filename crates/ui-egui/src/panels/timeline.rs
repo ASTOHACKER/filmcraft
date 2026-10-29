@@ -144,6 +144,8 @@ pub struct Pressed {
     /// The time under the pointer.
     pub tick: Tick,
     pub grab: Grab,
+    /// The vertical scroll when the button went down (a wheel turn before the drag starts must not move a box's corner).
+    pub v_scroll: f32,
 }
 
 /// Where a box selection began, in Timeline content coordinates: the time under the pointer, and

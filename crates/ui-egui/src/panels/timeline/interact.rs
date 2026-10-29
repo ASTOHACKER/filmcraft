@@ -112,13 +112,17 @@ pub(super) fn move_transition_preview(app: &FilmcraftApp, seq: &Sequence, trn: &
 
 /// The clips a marquee rectangle touches, on the tracks it crosses.
 impl MarqueeAnchor {
-    pub(super) fn new(layout: &Layout, v_scroll: f32, p: Pos2) -> Self {
-        MarqueeAnchor { t: layout.tick_at(p.x), y: p.y, v_scroll, video: p.y < layout.split_y }
+    pub(super) fn new(layout: &Layout, t: Tick, v_scroll: f32, p: Pos2) -> Self {
+        MarqueeAnchor { t, y: p.y, v_scroll, video: p.y < layout.split_y }
     }
 
     /// The box from this corner, wherever it is on screen now, to the pointer at `p`.
     pub(super) fn rect_to(&self, layout: &Layout, v_scroll: f32, p: Pos2) -> Rect {
-        let y = if self.video { self.y + (v_scroll - self.v_scroll) } else { self.y };
+        let mut y = if self.video { self.y + (v_scroll - self.v_scroll) } else { self.y };
+        // video scrolling away under a pointer that is still over the video area must not reach into the audio rows
+        if self.video && p.y < layout.split_y {
+            y = y.min(layout.split_y - 1.0);
+        }
         Rect::from_two_pos(pos2(layout.x_of(self.t), y), p)
     }
 }
@@ -345,7 +349,7 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
             // a press and release in the same frame is never stored: it happened where egui says
             None => {
                 let Some(p) = resp.interact_pointer_pos() else { return true };
-                Pressed { pos: p, tick: layout.tick_at(p.x), grab: grab_at(seq, layout, p, tool, mods, roll_ripple) }
+                Pressed { pos: p, tick: layout.tick_at(p.x), grab: grab_at(seq, layout, p, tool, mods, roll_ripple), v_scroll: app.ui.timeline.v_scroll }
             }
         };
         let (p, t) = (pressed.pos, pressed.tick);
@@ -355,7 +359,7 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
             Grab::Volume { .. } if resp.clicked() && !adding => Grab::Other(pressed.grab.hit()),
             g => g,
         };
-        start_drag(app, ctx, resp, seq, layout, grab, p, t);
+        start_drag(app, ctx, resp, seq, layout, grab, p, t, pressed.v_scroll);
     }
 
     false
@@ -364,7 +368,17 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
 /// What a press does: the drag it starts (or the tool's click action), the playhead jump a
 /// ruler press makes, and the selection a tool change makes first.
 #[allow(clippy::too_many_arguments)]
-fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response, seq: &Sequence, layout: &Layout, grab: Grab, p: Pos2, t: Tick) {
+fn start_drag(
+    app: &mut FilmcraftApp,
+    ctx: &egui::Context,
+    resp: &egui::Response,
+    seq: &Sequence,
+    layout: &Layout,
+    grab: Grab,
+    p: Pos2,
+    t: Tick,
+    v_scroll: f32,
+) {
     let tool = app.ui.tool;
     let mods = ctx.input(|i| i.modifiers);
     let rate = seq.settings.frame_rate;
@@ -500,7 +514,7 @@ fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response
         (_, Grab::Other(hit @ (Hit::Empty { .. } | Hit::None))) if layout.content.contains(p) => {
             if resp.drag_started() {
                 Some(Drag::Marquee {
-                    start: MarqueeAnchor::new(layout, app.ui.timeline.v_scroll, p),
+                    start: MarqueeAnchor::new(layout, t, v_scroll, p),
                     before: app.session.state.selection.clone(),
                     add: mods.shift || mods.command,
                     individual: mods.alt,
@@ -1023,7 +1037,7 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
         if matches!(grab, Grab::Other(Hit::Ruler)) {
             scrub_playhead(app, seq, layout, p, mods.shift);
         }
-        app.tl.pressed = Some(Pressed { pos: p, tick: layout.tick_at(p.x), grab });
+        app.tl.pressed = Some(Pressed { pos: p, tick: layout.tick_at(p.x), grab, v_scroll: app.ui.timeline.v_scroll });
     }
 
     wheel_scroll(app, ui, rect, layout, seq);
@@ -1228,4 +1242,26 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
     drop_targets(app, ui, seq, layout);
 
     app.auto.add("timeline.tracks", layout.content, "tracks");
+}
+
+#[cfg(test)]
+mod marquee_tests {
+    use super::*;
+
+    fn layout() -> Layout {
+        let content = Rect::from_min_max(pos2(0.0, 0.0), pos2(1000.0, 600.0));
+        Layout { content, ruler: Rect::from_min_max(pos2(0.0, 0.0), pos2(1000.0, 20.0)), rows: Vec::new(), pps: 100.0, scroll: 0.0, split_y: 300.0 }
+    }
+
+    /// Review of #3583: a video corner scrolled down past the divider, with the pointer still over the
+    /// video tracks, must not reach into the audio tracks; once the pointer enters them it does.
+    #[test]
+    fn a_video_corner_scrolled_below_the_divider_stays_out_of_the_audio_tracks() {
+        let l = layout();
+        let anchor = MarqueeAnchor::new(&l, Tick::ZERO, 0.0, pos2(50.0, 100.0));
+        let r = anchor.rect_to(&l, 500.0, pos2(200.0, 150.0));
+        assert!(r.max.y < l.split_y, "the box ends above the divider: {r:?}");
+        let r = anchor.rect_to(&l, 500.0, pos2(200.0, 400.0));
+        assert!(r.max.y >= 400.0, "the pointer in the audio tracks reaches them: {r:?}");
+    }
 }
