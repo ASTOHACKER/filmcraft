@@ -274,6 +274,7 @@ fn start_job(s: &mut Session, label: String, work: Vec<(ItemId, ReservedOutput, 
     job.progress.total.store(total, std::sync::atomic::Ordering::Relaxed);
     let outputs: Arc<Mutex<Vec<(ItemId, String)>>> = Arc::default();
     let (prog, res, outs) = (job.progress.clone(), job.result.clone(), outputs.clone());
+    let (pool, project, services) = (s.media.clone(), s.project.clone(), s.services.clone());
     let run = move || {
         let t0 = web_time::Instant::now();
         let mut bytes = 0;
@@ -286,6 +287,9 @@ fn start_job(s: &mut Session, label: String, work: Vec<(ItemId, ReservedOutput, 
             }
             *prog.status.lock().unwrap_or_else(|e| e.into_inner()) = format!("{name} ({} of {n})", k + 1);
             let out = output.path().to_string_lossy().into_owned();
+            // its own copy of the file, opened here rather than on the main thread, so the
+            // monitors keep their decoder
+            let src = pool.own_source(&project, item, &*services).unwrap_or(src);
             match transcode_with_file(&clip, &name, src, None, Dest { path: &out, file: output.file() }, pr, &prog) {
                 Ok(r) => {
                     bytes += r.bytes;
