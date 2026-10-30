@@ -492,8 +492,19 @@ impl filmcraft_render::SourceProvider for PoolProvider {
         {
             // opened under the lock: the job's threads open each file once
             let mut own = own.lock().unwrap_or_else(PoisonError::into_inner);
-            if let Some(src) = own.entry(media).or_insert_with(|| self.pool.own_source(&self.project, media, &*self.services)) {
-                return Some(src.clone());
+            let src = match own.get(&media) {
+                Some(src) => src.clone(),
+                None => {
+                    let src = self.pool.own_source(&self.project, media, &*self.services);
+                    // the host is still fetching the file's bytes (the browser): try again next time
+                    if src.is_some() || !filmcraft_media::pending::is_set() {
+                        own.insert(media, src.clone());
+                    }
+                    src
+                }
+            };
+            if let Some(src) = src {
+                return Some(src);
             }
         }
         if self.full_res { self.pool.full_res_source(&self.project, item, &*self.services) } else { self.pool.source_for(&self.project, item, &*self.services) }
@@ -740,6 +751,41 @@ mod tests {
         fn write_file(&self, _path: &str, _data: &[u8]) -> std::io::Result<()> {
             Ok(())
         }
+    }
+
+    /// A host whose first reader is still fetching the file (the browser's `BlobReader`): it marks
+    /// the read pending, then reads the file.
+    struct FetchingFirst(Arc<[u8]>, std::sync::atomic::AtomicBool);
+    impl Services for FetchingFirst {
+        fn read_file(&self, path: &str) -> std::io::Result<Vec<u8>> {
+            Err(std::io::Error::other(format!("{path}: read whole")))
+        }
+        fn write_file(&self, _path: &str, _data: &[u8]) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn reader(&self, _path: &str) -> Option<std::io::Result<filmcraft_media::SharedReader>> {
+            if !self.1.swap(true, Ordering::Relaxed) {
+                filmcraft_media::pending::mark();
+                return Some(Err(filmcraft_media::pending::would_block()));
+            }
+            Some(Ok(Arc::new(filmcraft_media::reader::MemReader(self.0.clone()))))
+        }
+    }
+
+    /// A file the host is still fetching gets its own copy once the bytes are there, instead of
+    /// the job reading the monitors' source to its end.
+    #[test]
+    fn own_sources_retry_a_file_still_being_fetched() {
+        use filmcraft_render::SourceProvider;
+        let movie = crate::media_test_util::tmp_dir("own-sources-pending").join("a.mp4");
+        crate::media_test_util::make_movie(&movie, filmcraft_media::DemoScene::Aurora, 64, 36, 12);
+        let (s, items, _) = crate::media_test_util::session_with(&[&movie]);
+        let monitor = s.media.full_res_source(&s.project, items[0], &*s.services).unwrap();
+        let host = Arc::new(FetchingFirst(std::fs::read(&movie).unwrap().into(), Default::default()));
+        let job = s.media.full_res_provider(s.project.clone(), host).own_sources();
+        assert!(job.source(items[0]).is_some_and(|x| Arc::ptr_eq(&x, &monitor)), "shared while the bytes are fetched");
+        assert!(filmcraft_media::pending::take());
+        assert!(job.source(items[0]).is_some_and(|x| !Arc::ptr_eq(&x, &monitor)), "its own copy once they are there");
     }
 
     /// A background job reads its own copy of a file, so the monitors' source keeps its decoder
