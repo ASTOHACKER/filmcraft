@@ -89,3 +89,7 @@ Apple-silicon laptop CPU).
 - Transcription runs synchronously inside the command (no background job or progress bar yet).
 - Track items that refer to a subclip are looked up by the subclip's id, so a transcript made for
   the parent media is not shown through subclip clips yet.
+- Word bounds are only moved across pauses. A start that the alignment places late inside
+  continuous speech (no pause of 0.2 s between the two words) stays where it is, so the word
+  before it can hold the beginning of the next one: the audio level gives no boundary to move it
+  to. Words that the alignment places a whole sentence away are not moved back either.
