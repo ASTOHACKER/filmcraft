@@ -1011,12 +1011,12 @@ pub fn slip(seq: &mut Sequence, clip: ClipId, delta_media: Tick, ctx: &mut EditC
     let (_, it) = seq.find_item(clip).ok_or(EditError::NoItem(clip))?;
     let used = src_of(it.duration, it.speed);
     let max_in = media_len(ctx, it).map(|m| m - used).unwrap_or(Tick::MAX);
-    let lo = if it.frame_hold.is_some() {
-        Tick::ZERO
-    } else if (ctx.media_duration)(it.item).is_none() {
+    let lo = if (ctx.media_duration)(it.item).is_none() {
         // media with no length has no set time, therefore no floor either.
         // its source_in can already be below 0 from a left extension (#3367).
         Tick::MIN
+    } else if it.frame_hold.is_some() {
+        Tick::ZERO
     } else {
         (ctx.media_start)(it.item)
     };

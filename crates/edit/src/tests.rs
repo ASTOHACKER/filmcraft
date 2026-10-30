@@ -393,6 +393,23 @@ fn a_slip_moves_a_stretched_graphic_by_what_was_asked() {
 }
 
 #[test]
+fn a_slip_moves_a_frame_held_stretched_graphic_by_what_was_asked() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let g = fx.put(v1, 20, 10, 0);
+    {
+        let it = fx.seq.find_item_mut(g).unwrap().1;
+        it.item = ItemId(2);
+        it.source_in = -f(12);
+        it.frame_hold = Some(Tick::ZERO);
+    }
+    let mut n = fx.next;
+    let d = slip(&mut fx.seq, g, f(1), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(d, f(1));
+    assert_eq!(fx.seq.find_item(g).unwrap().1.source_in, -f(11));
+}
+
+#[test]
 fn a_roll_extends_a_frame_held_graphic() {
     let mut fx = Fx::new();
     let v1 = fx.v(0);
