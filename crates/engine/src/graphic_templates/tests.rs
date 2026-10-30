@@ -459,3 +459,16 @@ fn character_style_merge_preserves_default_calls_and_separate_clips() {
     }
     assert_eq!(s.history.undo.len(), n + 2, "distinct layers do not merge");
 }
+
+/// Issue #3094: a gradient stop set as `#rrggbbaa` keeps its opacity.
+#[test]
+fn gradient_stop_keeps_its_alpha() {
+    let mut s = demo("gt-gradient-alpha");
+    let c = clip_of(&s.execute("graphics.newText", json!({"text": "G"})).unwrap());
+    s.execute("graphics.set", json!({"clip": c.0, "props": {"gradient_start": "#ff000080", "gradient_end": "#0000ff"}})).unwrap();
+    let it = item(&s, c);
+    let col = |id: &str| it.effects.iter().find_map(|e| e.params.get(id)).and_then(|p| p.value.as_color());
+    let start = col("gradient_start").unwrap();
+    assert!((start[3] - 128.0 / 255.0).abs() < 1e-3, "{start:?}");
+    assert_eq!(col("gradient_end").unwrap()[3], 1.0);
+}
