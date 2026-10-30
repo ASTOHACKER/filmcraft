@@ -813,7 +813,8 @@ pub fn cli_main() {
                         // Live play (effects rendered per frame), render previews, then play twice.
                         reports.push(bench.play(&s, seq, &mut display, *scale, Tick::ZERO, &tag("live")));
                         let t0 = Instant::now();
-                        s.execute("sequence.renderEffectsInToOut", json!({"wait": true})).expect("render previews");
+                        // every segment, not only red ones: the bench compares playing previews with playing live
+                        s.execute("sequence.renderInToOut", json!({"wait": true})).expect("render previews");
                         eprintln!("  rendered previews in {:.1}s (load {})", t0.elapsed().as_secs_f64(), load_avg());
                         reports.push(bench.play(&s, seq, &mut display, *scale, Tick::ZERO, &tag("1st after")));
                         reports.push(bench.play(&s, seq, &mut display, *scale, Tick::ZERO, &tag("2nd after")));
