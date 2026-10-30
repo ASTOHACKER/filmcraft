@@ -235,10 +235,18 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             bui.painter().text(pos2(hr.min.x + 8.0, hr.center().y), Align2::LEFT_CENTER, heading, Tokens::semibold(11.5), t.text_dim);
             // a graphic with Responsive Design – Time: its clip effects below keep media time (#3361)
             if *kind == TrackKind::Video && it.graphic.as_deref().is_some_and(|g| g.has_responsive_time()) {
-                let hint = tl!("Responsive Design – Time remaps the graphic's layer keyframes, not these clip effects");
+                let hint = tl!("Responsive Design – Time remaps the graphic's layer keyframes; clip effects like Opacity and Motion keep media time");
                 let ir = Rect::from_center_size(pos2(hr.max.x - 14.0, hr.center().y), vec2(18.0, 18.0));
-                bui.painter().text(ir.center(), Align2::CENTER_CENTER, "ⓘ", Tokens::ui(12.0), t.text_dim);
-                bui.interact(ir, bui.scope_id().with(("ec-graphic-time-hint", clip.0)), Sense::hover()).on_hover_text(hint);
+                // a small button: keyboard-focusable, with an accessible name, tooltip on hover or focus
+                let resp = bui.put(ir, egui::Button::new(egui::RichText::new("ⓘ").size(12.0).color(t.text_dim)).frame(false));
+                if resp.ctx.has_accesskit_node(resp.id) {
+                    resp.ctx.accesskit_node_builder(resp.id, |node| node.set_label(hint));
+                }
+                if resp.has_focus() {
+                    resp.show_tooltip_text(hint);
+                } else {
+                    resp.on_hover_text(hint);
+                }
                 app.auto.add("effectControls.graphicTimeHint", ir, hint);
             }
             let mt_now = it.source_time_at(ph.clamp(it.start, (it.end() - Tick(1)).max(it.start)));

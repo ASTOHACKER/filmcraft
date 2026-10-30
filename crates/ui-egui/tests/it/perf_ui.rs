@@ -7,6 +7,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::time::{Duration, Instant};
 
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use filmcraft_engine::Session;
 use filmcraft_ui_egui::FilmcraftApp;
 use filmcraft_ui_egui::control::ControlRequest;
@@ -257,4 +258,7 @@ fn effect_controls_hint_that_clip_effects_are_not_remapped() {
     d.exec("graphics.setResponsiveTime", json!({"clip": g, "introFrames": 12, "outroFrames": 12}));
     d.exec("timeline.select", json!({"clips": [g]}));
     assert!(hint(&mut d), "the hint shows for a graphic with responsive time");
+    // it is a labelled button a keyboard can reach, naming both the layer and the clip effects
+    let label = "Responsive Design – Time remaps the graphic's layer keyframes; clip effects like Opacity and Motion keep media time";
+    let _ = d.harness.get_by_role_and_label(egui::accesskit::Role::Button, label);
 }
