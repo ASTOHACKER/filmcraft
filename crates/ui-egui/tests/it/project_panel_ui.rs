@@ -225,7 +225,6 @@ fn list_view_columns_sort_resize_and_rename() {
     d.ok("ui.menu.invoke", json!({"id": "projectPanel.rename"}));
     d.frames(3);
     assert!(d.has("project.rename"));
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Hero shot"}));
     d.frames(2);
     d.key("Enter");
@@ -509,7 +508,6 @@ fn bins_open_in_place_in_a_tab_or_in_a_window() {
     // inline rename of a bin
     d.ok("ui.menu.invoke", json!({"id": "projectPanel.rename", "params": {"bin": bin}}));
     d.frames(3);
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Camera A"}));
     d.key("Enter");
     let name = d.app().session.project.root.find_bin(filmcraft_project::BinId(bin)).unwrap().name.clone();
@@ -628,7 +626,6 @@ fn new_bin_asks_for_its_name() {
     d.frames(2);
     let bin = d.app().ui.project_panel.rename.as_ref().and_then(|r| r.bin).expect("the new bin's name is being edited");
     assert!(d.has("project.rename"), "the name field is shown");
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Interviews"}));
     d.key("Enter");
     let name = d.app().session.project.root.find_bin(filmcraft_project::BinId(bin)).unwrap().name.clone();
