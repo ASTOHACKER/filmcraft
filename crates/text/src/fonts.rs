@@ -36,6 +36,28 @@ pub struct CraftFont {
 
 include!(concat!(env!("OUT_DIR"), "/craft_fonts.rs"));
 
+#[cfg(test)]
+mod craft_wasm_tests {
+    use super::*;
+
+    /// The web build embeds the UI font and Noto Sans Thai, so Thai names draw on a browser
+    /// without a Thai font (#3374). Skipped without craft-fonts.
+    #[test]
+    fn web_build_embeds_the_ui_font_and_the_thai_face() {
+        if CRAFT_FONTS.is_empty() {
+            eprintln!("skipped: built without craft-fonts");
+            return;
+        }
+        assert!(CRAFT_WASM_FACES.contains(&("BIZ UDPGothic", "Regular")), "{CRAFT_WASM_FACES:?}");
+        assert!(CRAFT_WASM_FACES.contains(&("Noto Sans Thai", "Regular")), "{CRAFT_WASM_FACES:?}");
+        // every listed face is a real craft-fonts entry, and the Thai one carries the Thai script
+        for (family, style) in CRAFT_WASM_FACES {
+            assert!(CRAFT_FONTS.iter().any(|f| f.family == *family && f.style == *style), "{family} {style}");
+        }
+        assert!(CRAFT_FONTS.iter().any(|f| f.family == "Noto Sans Thai" && f.scripts.contains(&"Thai")));
+    }
+}
+
 /// The craft-fonts entries for Japanese (`Jpan`), in [`CRAFT_FONTS`] order. Empty when the app was
 /// built without craft-fonts.
 pub fn craft_japanese() -> impl Iterator<Item = &'static CraftFont> {
