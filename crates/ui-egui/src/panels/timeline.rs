@@ -144,8 +144,9 @@ pub struct Pressed {
     /// The time under the pointer.
     pub tick: Tick,
     pub grab: Grab,
-    /// The vertical scroll when the button went down (a wheel turn before the drag starts must not move a box's corner).
+    /// The vertical scrolls when the button went down (a wheel turn before the drag starts must not move a box's corner).
     pub v_scroll: f32,
+    pub a_scroll: f32,
 }
 
 /// Where a box selection began, in Timeline content coordinates: the time under the pointer, and
@@ -155,8 +156,9 @@ pub struct Pressed {
 pub struct MarqueeAnchor {
     pub t: Tick,
     pub y: f32,
-    pub v_scroll: f32,
-    /// Pressed over the video tracks, which move with `v_scroll`; the audio tracks do not.
+    /// The scroll of the tracks it was pressed over: `v_scroll` for the video tracks, `a_scroll` for the audio tracks.
+    pub scroll: f32,
+    /// Pressed over the video tracks; the audio tracks scroll on their own.
     pub video: bool,
 }
 
@@ -329,7 +331,8 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let rect = Rect::from_min_max(pos2(content.min.x, top), pos2(content.max.x, top + ah));
         rows.push(Row { track: tr.id, kind: TrackKind::Audio, index: i, rect, lane: app.ui.timeline.track_lanes.contains_key(&tr.id.0) });
     }
-    let layout = Layout { content, ruler, rows: rows.clone(), pps, scroll, split_y };
+    let (v_scroll, a_scroll) = (app.ui.timeline.v_scroll, app.ui.timeline.a_scroll);
+    let layout = Layout { content, ruler, rows: rows.clone(), pps, scroll, split_y, v_scroll, a_scroll };
     app.tl.layout = Some(layout.clone());
 
     // ---- backgrounds
@@ -1065,6 +1068,8 @@ mod new_track_tests {
             pps: 100.0,
             scroll: 0.0,
             split_y: 200.0,
+            v_scroll: 0.0,
+            a_scroll: 0.0,
         };
         let at = |y| new_track_at(&seq, &layout, y, 50.0, 50.0);
         assert_eq!(at(40.0), Some((TrackKind::Video, Rect::from_min_max(pos2(0.0, 100.0), pos2(800.0, 150.0)))));
@@ -1105,6 +1110,8 @@ mod new_track_tests {
             pps: 100.0,
             scroll: 0.0,
             split_y: 150.0,
+            v_scroll: 0.0,
+            a_scroll: 0.0,
         };
         assert_eq!(new_track_at(&seq, &layout, 10.0, 50.0, 50.0), Some((TrackKind::Video, Rect::from_min_max(pos2(0.0, 0.0), pos2(800.0, 50.0)))));
         // scrolled to the bottom, V1..V3 fill the area as before

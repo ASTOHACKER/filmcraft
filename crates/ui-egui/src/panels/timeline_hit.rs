@@ -386,6 +386,8 @@ mod tests {
             pps: 100.0,
             scroll: 0.0,
             split_y: TOP + 60.0,
+            v_scroll: 0.0,
+            a_scroll: 0.0,
         };
         (seq, layout, track)
     }

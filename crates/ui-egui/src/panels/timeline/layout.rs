@@ -20,6 +20,10 @@ pub struct Layout {
     pub scroll: f64,
     /// The y of the divider between the video tracks (above) and the audio tracks (below).
     pub split_y: f32,
+    /// The vertical scrolls the rows were laid out at; a wheel turn changes the view's own values
+    /// before the next frame lays the rows out again (and clamps them).
+    pub v_scroll: f32,
+    pub a_scroll: f32,
 }
 
 impl Layout {
