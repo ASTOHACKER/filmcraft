@@ -192,6 +192,132 @@ fn view_menu_resolutions_and_display_modes() {
     assert_eq!((s["display"].as_str(), s["show_rulers"].as_bool()), (Some("Composite"), Some(true)));
 }
 
+/// The filled rectangles and the mesh vertex colors painted this frame inside `area`.
+fn fills_in(d: &Driver, area: egui::Rect) -> (Vec<(egui::Rect, egui::Color32)>, Vec<egui::Color32>) {
+    fn walk(s: &egui::Shape, area: egui::Rect, rects: &mut Vec<(egui::Rect, egui::Color32)>, verts: &mut Vec<egui::Color32>) {
+        match s {
+            egui::Shape::Rect(r) if area.expand(0.5).contains_rect(r.rect) => rects.push((r.rect, r.fill)),
+            egui::Shape::Mesh(m) => verts.extend(m.vertices.iter().filter(|v| area.expand(0.5).contains(v.pos)).map(|v| v.color)),
+            egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, area, rects, verts)),
+            _ => {}
+        }
+    }
+    let (mut rects, mut verts) = (Vec::new(), Vec::new());
+    d.harness.output().shapes.iter().for_each(|c| walk(&c.shape, area, &mut rects, &mut verts));
+    (rects, verts)
+}
+
+/// The wrench menu's Transparency Grid paints a gray and white checkerboard behind
+/// the picture instead of the monitor background; each monitor keeps its own setting.
+#[test]
+fn transparency_grid_paints_a_checkerboard_behind_the_picture() {
+    use filmcraft_ui_egui::frames::Target;
+    use filmcraft_ui_egui::panels::monitor_view::{GRID_DARK, GRID_LIGHT};
+    let mut d = Driver::demo();
+    // the check mark of the wrench menu item
+    let checked = |d: &mut Driver| filmcraft_ui_egui::panels::monitor_view::checked(d.harness.state(), "view.transparencyGrid");
+    let menu = d.ok("ui.menu.list", json!({}));
+    assert!(menu.as_array().unwrap().iter().all(|m| m["id"] != "view.transparencyGrid"), "not in the View menu");
+    assert_eq!(d.program()["transparency_grid"], false, "off by default");
+    assert_eq!(checked(&mut d), Some(false));
+    let r = d.rect("program.picture");
+    let pic = egui::Rect::from_min_size(egui::pos2(r[0] as f32, r[1] as f32), egui::vec2(r[2] as f32, r[3] as f32));
+    let covers = |rects: &[(egui::Rect, egui::Color32)]| {
+        rects.iter().any(|(r, c)| *c == GRID_LIGHT && (r.min - pic.min).length() < 1.0 && (r.max - pic.max).length() < 1.0)
+    };
+    let (rects, verts) = fills_in(&d, pic);
+    assert!(!covers(&rects) && !verts.contains(&GRID_DARK), "no grid while it is off");
+
+    d.click("program.settings");
+    assert!(d.try_rect("program.settings.transparencyGrid").is_some(), "the wrench menu lists Transparency Grid");
+    d.click("program.settings.transparencyGrid");
+    d.frames(2);
+    assert_eq!(d.program()["transparency_grid"], true);
+    assert_eq!(checked(&mut d), Some(true));
+    let (rects, verts) = fills_in(&d, pic);
+    assert!(covers(&rects), "the light squares fill the picture");
+    let dark = verts.iter().filter(|c| **c == GRID_DARK).count();
+    assert!(dark >= 4 * 100, "the dark squares are drawn: {dark} vertices");
+    // the Program picture is rendered live (render previews are flattened over black)
+    let live = |d: &Driver| matches!(d.harness.state().program_picture().map(|k| k.target), Some(Target::SequenceLive(_)));
+    for _ in 0..600 {
+        if live(&d) {
+            break;
+        }
+        d.frames(1);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(live(&d), "the Program monitor shows a live render: {:?}", d.harness.state().program_picture());
+    assert_eq!(d.ok("ui.inspect", json!({}))["ui"]["source"]["transparency_grid"], false, "the Source monitor keeps its own setting");
+
+    // Comparison View: the reference frame has the grid behind it too
+    d.menu("view.display.comparison");
+    d.frames(3);
+    let r = d.rect("program.compare.reference");
+    let reference = egui::Rect::from_min_size(egui::pos2(r[0] as f32, r[1] as f32), egui::vec2(r[2] as f32, r[3] as f32));
+    let (rects, _) = fills_in(&d, reference);
+    assert!(
+        rects.iter().any(|(r, c)| *c == GRID_LIGHT && (r.min - reference.min).length() < 1.0 && (r.max - reference.max).length() < 1.0),
+        "the light squares fill the reference frame"
+    );
+    d.menu("view.display.composite");
+    d.frames(2);
+
+    d.ok("ui.menu.invoke", json!({"id": "view.transparencyGrid", "params": {"monitor": "source", "enabled": true}}));
+    assert_eq!(d.ok("ui.inspect", json!({}))["ui"]["source"]["transparency_grid"], true);
+    assert_eq!(d.program()["transparency_grid"], true);
+
+    // a Transparent Video in the Source monitor: the frame keeps its alpha and goes up as the
+    // grid's texture, so the grid shows through it
+    let item = d.exec("file.newTransparentVideo", json!({}))["item"].as_u64().expect("new item");
+    d.exec("source.open", json!({"item": item}));
+    let mut key = None;
+    for _ in 0..600 {
+        d.frames(1);
+        key = d.harness.state().texture_key("monitor-source-grid");
+        if key.is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let key = key.expect("the Source monitor shows its frame through the grid");
+    let frame = d.harness.state().frames.get(&key).expect("the shown frame is cached");
+    assert!(!frame.px.is_empty() && frame.px.as_chunks::<4>().0.iter().all(|p| p[3] == 0), "the frame keeps its alpha");
+
+    d.ok("ui.menu.invoke", json!({"id": "view.transparencyGrid", "params": {"monitor": "program"}}));
+    d.frames(2);
+    assert_eq!(d.program()["transparency_grid"], false);
+    let (rects, verts) = fills_in(&d, pic);
+    assert!(!covers(&rects) && !verts.contains(&GRID_DARK), "the grid goes when it is turned off");
+}
+
+/// Display Mode ▸ Alpha shows a live render of the sequence (render previews are opaque); Red
+/// keeps the usual frames.
+#[test]
+fn alpha_display_mode_shows_a_live_render() {
+    use filmcraft_ui_egui::frames::Target;
+    let shown_live = |d: &mut Driver, live: bool| {
+        let is = |d: &Driver| match d.harness.state().program_picture().map(|k| k.target) {
+            Some(Target::SequenceLive(_)) => live,
+            Some(Target::Sequence(_)) => !live,
+            _ => false,
+        };
+        for _ in 0..600 {
+            if is(d) {
+                break;
+            }
+            d.frames(1);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(is(d), "live render {live}: {:?}", d.harness.state().program_picture());
+    };
+    let mut d = Driver::demo();
+    d.menu("view.display.alpha");
+    shown_live(&mut d, true);
+    d.menu("view.display.red");
+    shown_live(&mut d, false);
+}
+
 fn num(v: &Value) -> f64 {
     v.as_f64().unwrap_or_else(|| panic!("not a number: {v}"))
 }
@@ -555,6 +681,100 @@ fn snap_in_program_monitor_and_graphics_menu() {
     let shortcut = menu.as_array().unwrap().iter().find(|m| m["id"] == "graphics.bringToFront").unwrap()["shortcut"].clone();
     assert_eq!(shortcut, "Cmd+Shift+]");
     d.shot("graphics-menu");
+}
+
+#[test]
+fn snap_in_program_monitor_snaps_video_clip_motion_drags() {
+    let mut d = Driver::demo();
+    let seq = d.exec("sequence.inspect", json!({}));
+    let c = &seq["video"][0]["items"][0];
+    let (clip, start, dur) = (c["clip"].as_u64().unwrap(), c["start"].as_i64().unwrap(), c["duration"].as_i64().unwrap());
+    d.exec("playhead.set", json!({"time": start + dur / 2}));
+    d.exec("timeline.select", json!({"clips": [clip]}));
+    // half size, centred 80 frame pixels left of the frame centre
+    d.exec("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "scale", "value": 50.0}));
+    d.exec("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "position", "value": [880.0, 540.0]}));
+    d.frames(3);
+    d.exec("effects.select", json!({"clip": clip, "effect": "motion"}));
+    d.frames(3);
+    let pos_x = |d: &mut Driver| {
+        let app = d.harness.state();
+        let it = app.session.active_sequence().unwrap().find_item(filmcraft_project::ClipId(clip)).unwrap().1;
+        let mt = it.source_time_at(app.session.playhead());
+        it.effect("motion").unwrap().param("position").unwrap().vec2_at(mt).x
+    };
+    let drag = |d: &mut Driver, frame_dx: f64, extra: f64| {
+        let pic = d.rect("program.picture");
+        let k = pic[2] / 1920.0;
+        let b = d.rect("program.transform.box");
+        // off the anchor point at the centre
+        let (x, y) = (b[0] + b[2] * 0.3, b[1] + b[3] * 0.3);
+        d.ok("ui.drag", json!({"from": {"x": x, "y": y}, "to": {"x": x + frame_dx * k + extra, "y": y}, "steps": 8}));
+        d.frames(2);
+    };
+    // the box centre goes 80 frame pixels + 3 screen pixels towards the frame centre: it snaps onto it
+    drag(&mut d, 80.0, 3.0);
+    assert!((pos_x(&mut d) - 960.0).abs() < 0.01, "snapped to the frame centre: {}", pos_x(&mut d));
+    // snapping off: the same kind of drag lands off the centre
+    d.menu("view.snapInProgramMonitor");
+    assert_eq!(d.program()["snap"], false);
+    // back to the start, then the same drag towards the centre: it moves as far as the pointer did
+    d.exec("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "position", "value": [880.0, 540.0]}));
+    d.frames(3);
+    let k = d.rect("program.picture")[2] / 1920.0;
+    drag(&mut d, 80.0, 3.0);
+    let free = pos_x(&mut d);
+    assert!((free - (960.0 + 3.0 / k)).abs() < 1.5 && (free - 960.0).abs() > 0.5, "free move near the centre: {free}");
+}
+
+#[test]
+fn snap_in_program_monitor_follows_the_modifier_with_the_pointer_still() {
+    let mut d = Driver::demo();
+    let seq = d.exec("sequence.inspect", json!({}));
+    let c = &seq["video"][0]["items"][0];
+    let (clip, start, dur) = (c["clip"].as_u64().unwrap(), c["start"].as_i64().unwrap(), c["duration"].as_i64().unwrap());
+    d.exec("playhead.set", json!({"time": start + dur / 2}));
+    d.exec("timeline.select", json!({"clips": [clip]}));
+    d.exec("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "scale", "value": 50.0}));
+    d.exec("effects.setParam", json!({"clip": clip, "effect": "motion", "param": "position", "value": [880.0, 540.0]}));
+    d.frames(3);
+    d.exec("effects.select", json!({"clip": clip, "effect": "motion"}));
+    d.frames(3);
+    let pos_x = |d: &mut Driver| {
+        let app = d.harness.state();
+        let it = app.session.active_sequence().unwrap().find_item(filmcraft_project::ClipId(clip)).unwrap().1;
+        let mt = it.source_time_at(app.session.playhead());
+        it.effect("motion").unwrap().param("position").unwrap().vec2_at(mt).x
+    };
+    let pic = d.rect("program.picture");
+    let k = pic[2] / 1920.0;
+    let b = d.rect("program.transform.box");
+    let (x, y) = (b[0] + b[2] * 0.3, b[1] + b[3] * 0.3);
+    let at = |dx: f32| egui::pos2(x as f32 + dx, y as f32);
+    let push = |d: &mut Driver, e: egui::Event| d.harness.input_mut().events.push(e);
+    let button =
+        |pressed: bool, pos: egui::Pos2| egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() };
+    push(&mut d, egui::Event::PointerMoved(at(0.0)));
+    d.frames(1);
+    push(&mut d, button(true, at(0.0)));
+    d.frames(1);
+    let end = (80.0 * k + 3.0) as f32;
+    for i in 1..=8 {
+        push(&mut d, egui::Event::PointerMoved(at(end * i as f32 / 8.0)));
+        d.frames(1);
+    }
+    assert!((pos_x(&mut d) - 960.0).abs() < 0.01, "snapped to the centre: {}", pos_x(&mut d));
+    // ⌘/Ctrl goes down with the pointer still: the position is free again
+    push(&mut d, egui::Event::ModifiersChanged(egui::Modifiers::COMMAND));
+    d.frames(2);
+    assert!((pos_x(&mut d) - 960.0).abs() > 0.5, "free with the modifier held: {}", pos_x(&mut d));
+    // and released again: snapped
+    push(&mut d, egui::Event::ModifiersChanged(egui::Modifiers::NONE));
+    d.frames(2);
+    assert!((pos_x(&mut d) - 960.0).abs() < 0.01, "snapped again: {}", pos_x(&mut d));
+    push(&mut d, button(false, at(end)));
+    d.frames(3);
+    assert!((pos_x(&mut d) - 960.0).abs() < 0.01, "released snapped: {}", pos_x(&mut d));
 }
 
 #[test]
