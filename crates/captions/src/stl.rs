@@ -267,7 +267,15 @@ fn ascii_field(b: &[u8]) -> String {
 }
 
 fn tc_frames(b: &[u8], rate: FrameRate) -> i64 {
-    fields_to_frames(b[0] as i64, b[1] as i64, b[2] as i64, b[3] as i64, rate, false)
+    let [hours, minutes, seconds, frames] = b else { return -1 };
+    if rate.num <= 0 || rate.den <= 0 {
+        return -1;
+    }
+    let max_frames = rate.num / rate.den + i64::from(rate.num % rate.den != 0);
+    if *hours >= 24 || *minutes >= 60 || *seconds >= 60 || i64::from(*frames) >= max_frames {
+        return -1;
+    }
+    fields_to_frames(*hours as i64, *minutes as i64, *seconds as i64, *frames as i64, rate, false)
 }
 
 pub fn parse(bytes: &[u8]) -> Result<Document> {
@@ -311,6 +319,9 @@ pub fn parse(bytes: &[u8]) -> Result<Document> {
         }
         let tin = tc_frames(&blk[5..9], rate);
         let tout = tc_frames(&blk[9..13], rate);
+        if tin < 0 || tout < 0 {
+            return Err(Error::Syntax { line: 0, msg: "invalid EBU STL timecode".into() });
+        }
         let same = cur.as_ref().is_some_and(|c| c.0 == sn);
         if !same {
             finish(cur.take(), &mut doc);
@@ -472,6 +483,18 @@ mod tests {
         assert_eq!(back.cues[1].text, long);
         assert_eq!(back.cues[1].start, FrameRate::FPS_25.tick_of(100));
         assert!(parse(&b[..500]).is_err());
+    }
+
+    #[test]
+    fn rejects_out_of_range_stl_timecodes() {
+        let doc = Document {
+            cues: vec![Cue { start: FrameRate::FPS_25.tick_of(25), end: FrameRate::FPS_25.tick_of(75), text: "A".into(), ..Default::default() }],
+            ..Default::default()
+        };
+        let mut bytes = write(&doc, None);
+        bytes[GSI + 6] = 60;
+        assert!(parse(&bytes).is_err());
+        assert_eq!(tc_frames(&[0, 0, 0, 24], FrameRate::FPS_24), -1);
     }
 
     #[test]
