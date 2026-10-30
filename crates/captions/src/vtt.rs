@@ -124,7 +124,7 @@ pub fn write(doc: &Document) -> String {
     }
     for c in &doc.cues {
         if let Some(id) = c.id.as_deref().map(str::trim).filter(|i| !i.is_empty() && !i.contains("-->")) {
-            out.push_str(id);
+            out.push_str(&id.replace(['\r', '\n'], " "));
             out.push('\n');
         }
         out.push_str(&format!("{} --> {}", format_clock(c.start, '.'), format_clock(c.end, '.')));
@@ -193,7 +193,10 @@ mod tests {
             settings: String::new(),
         });
 
-        assert_eq!(parse(&write(&doc)).unwrap().cues, doc.cues);
+        let output = write(&doc);
+        assert!(output.contains("first second\n00:00:00.000 --> 00:00:00.001\n"), "{output:?}");
+        assert!(!output.contains("first\nsecond"));
+        assert_eq!(parse(&output).unwrap().cues[0].id.as_deref(), Some("first second"));
     }
 
     #[test]
