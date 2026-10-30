@@ -379,6 +379,37 @@ fn a_slide_extends_a_graphic_from_its_left_edge() {
 }
 
 #[test]
+fn a_slip_moves_a_stretched_graphic_by_what_was_asked() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let g = fx.put(v1, 20, 10, 0);
+    fx.seq.find_item_mut(g).unwrap().1.item = ItemId(2);
+    let mut n = fx.next;
+    trim(&mut fx.seq, g, Edge::In, TrimMode::Regular, -f(12), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(fx.seq.find_item(g).unwrap().1.source_in, -f(12));
+    let d = slip(&mut fx.seq, g, f(1), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(d, f(1));
+    assert_eq!(fx.seq.find_item(g).unwrap().1.source_in, -f(11));
+}
+
+#[test]
+fn a_roll_extends_a_frame_held_graphic() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let a = fx.put(v1, 0, 10, 10);
+    let g = fx.put(v1, 10, 10, 0);
+    {
+        let it = fx.seq.find_item_mut(g).unwrap().1;
+        it.item = ItemId(2);
+        it.source_in = -f(5);
+        it.frame_hold = Some(Tick::ZERO);
+    }
+    let mut n = fx.next;
+    let d = roll(&mut fx.seq, a, g, -f(3), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(d, -f(3));
+}
+
+#[test]
 fn trim_on_a_locked_track_is_refused() {
     let mut fx = Fx::new();
     let v1 = fx.v(0);
