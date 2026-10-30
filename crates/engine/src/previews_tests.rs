@@ -306,6 +306,39 @@ fn enter_renders_only_red_segments() {
     assert!(!s.previews.dir().unwrap().exists(), "no previews folder for nothing rendered");
 }
 
+/// #1220 end to end: on a red and a yellow segment, Enter starts a job for the red one only.
+#[test]
+fn enter_renders_the_red_segment_and_leaves_the_yellow_one() {
+    let mut s = Session::default();
+    s.previews.set_dir(Some(tmp("enter-red")));
+    let r = FrameRate::FPS_24;
+    let mut p = (*s.project).clone();
+    let matte = GeneratorSource::new(Generator::ColorMatte { color: [0.2, 0.5, 0.8, 1.0] }, 1920, 1080, r, Tick(TICKS_PER_SECOND));
+    let matte = crate::demo::add_generator(&mut p, &s.media, matte, "Matte", Label::Iris, None);
+    // 1080p, where four heavy effects cost more than a frame lasts (red) and a Tint does not
+    let seq = p.new_sequence("Seq", SequenceSettings { width: 1920, height: 1080, frame_rate: r, ..Default::default() }, 1, 1, None);
+    let clip = |p: &mut filmcraft_project::Project, at: i64, fx: &[&str]| {
+        let mut it = p.make_track_item(matte, TrackKind::Video, r.tick_of(at), TimeRange::new(r.tick_of(at), r.tick_of(2)), r).unwrap();
+        for e in &mut it.effects {
+            filmcraft_project::resolve_auto_points(e, (1920, 1080), (1920, 1080));
+        }
+        it.effects.extend(fx.iter().map(|f| find_effect(f).unwrap().instance()));
+        it
+    };
+    let red = clip(&mut p, 0, &["gaussian_blur", "sharpen", "lumetri", "noise"]);
+    let yellow = clip(&mut p, 2, &["tint"]);
+    p.sequence_mut(seq).unwrap().video_tracks[0].items = vec![red, yellow];
+    s.project = Arc::new(p);
+    s.state.active_sequence = Some(seq);
+    s.state.open_sequences = vec![seq];
+    assert_eq!(states(&s), vec!["red", "yellow"]);
+    let v = s.execute("sequence.renderEffectsInToOut", json!({"wait": true})).unwrap();
+    job_ok(&s, &v);
+    assert_eq!((v["segments"].as_i64(), v["frames"].as_i64()), (Some(1), Some(2)), "{v}");
+    assert_eq!(states(&s), vec!["green", "yellow"]);
+    let _ = std::fs::remove_dir_all(s.previews.dir().unwrap());
+}
+
 #[test]
 fn render_commands_are_registered_like_premiere() {
     let f = |id| crate::commands::find(id).unwrap();
