@@ -14,6 +14,7 @@ fn catalog_text(l: Language) -> Option<&'static str> {
         Language::Fr => Some(include_str!("fr.tsv")),
         Language::Id => Some(include_str!("id.tsv")),
         Language::It => Some(include_str!("it.tsv")),
+        Language::Bs => Some(include_str!("bs.tsv")),
         Language::Ko => Some(include_str!("ko.tsv")),
     }
 }
@@ -62,6 +63,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
         (Language::Fr, "Français"),
         (Language::Id, "Bahasa Indonesia"),
         (Language::It, "Italiano"),
+        (Language::Bs, "Bosanski"),
         (Language::Ko, "한국어"),
     ] {
         assert_eq!(l.name(), name);
@@ -513,6 +515,7 @@ fn language_commands_switch_and_persist_without_a_document() {
         ("french", Language::Fr, "fr", "Français", Some(("app.language.german", "Deutsch"))),
         ("indonesian", Language::Id, "id", "Bahasa Indonesia", Some(("app.language.french", "Français"))),
         ("italian", Language::It, "it", "Italiano", Some(("app.language.indonesian", "Bahasa Indonesia"))),
+        ("bosnian", Language::Bs, "bs", "Bosanski", Some(("app.language.italian", "Italiano"))),
     ] {
         switch_and_check(&mut app, &ctx, name, lang, code, own, earlier);
     }
@@ -748,4 +751,14 @@ fn japanese_needs_an_installed_font() {
             }
         }
     });
+}
+
+/// Every Bosnian locale, with region, script or encoding, picks the Bosnian catalog.
+#[test]
+fn system_language_picks_bosnian() {
+    let l = locales;
+    for tag in ["bs", "BS", "bs-BA", "bs_BA.UTF-8", "bs-Latn-BA", "bs-Cyrl-BA", "BS-ba"] {
+        assert_eq!(l(&[tag]), Language::Bs, "{tag}");
+    }
+    assert_eq!(l(&["hr-HR", "bs-BA"]), Language::Bs, "Croatian has no catalog here, so the next preference wins");
 }

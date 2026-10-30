@@ -47,6 +47,8 @@ pub enum Language {
     Fr,
     Id,
     It,
+    /// Bosnian, Latin script (Ijekavian); `bs-Cyrl` locales use it too.
+    Bs,
     /// Korean; Hangul needs an installed system font ([`korean_font_available`]).
     Ko,
 }
@@ -62,9 +64,11 @@ static FRENCH: OnceLock<Catalog> = OnceLock::new();
 static KOREAN: OnceLock<Catalog> = OnceLock::new();
 static INDONESIAN: OnceLock<Catalog> = OnceLock::new();
 static ITALIAN: OnceLock<Catalog> = OnceLock::new();
+static BOSNIAN: OnceLock<Catalog> = OnceLock::new();
 
 impl Language {
-    pub const ALL: [Self; 12] = [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It];
+    pub const ALL: [Self; 13] =
+        [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It, Self::Bs];
 
     /// BCP 47 tag for AccessKit and the web IME's hidden input. Keep the persisted spelling
     /// (`pt-br`, `zh-cn`) out of the protocol-facing value.
@@ -81,6 +85,7 @@ impl Language {
             Self::Fr => "fr",
             Self::Id => "id",
             Self::It => "it",
+            Self::Bs => "bs",
             Self::Ko => "ko",
         }
     }
@@ -98,6 +103,7 @@ impl Language {
             Self::Fr => "Français",
             Self::Id => "Bahasa Indonesia",
             Self::It => "Italiano",
+            Self::Bs => "Bosanski",
             Self::Ko => "한국어",
         }
     }
@@ -115,6 +121,7 @@ impl Language {
             "fr" => Some(Self::Fr),
             "id" => Some(Self::Id),
             "it" => Some(Self::It),
+            "bs" => Some(Self::Bs),
             "ko" => Some(Self::Ko),
             _ => None,
         }
@@ -126,11 +133,11 @@ impl Language {
     /// any German (`de-AT`, `de_CH.UTF-8`…) gets the German one and any French (`fr-CA`, `fr_BE.UTF-8`…)
     /// the French one; any Indonesian (`id-ID`, `id_ID.UTF-8`, and the legacy `in-ID` that older Java
     /// and Android runtimes report) the Indonesian one; any Italian (`it-IT`, `it-CH`, `it_IT.UTF-8`…)
-    /// the Italian one. Chinese gets the Simplified catalog
+    /// the Italian one; any Bosnian (`bs-BA`, `bs_BA.UTF-8`, `bs-Latn-BA`…) the Bosnian one. Chinese gets the Simplified catalog
     /// only for Simplified locales (`zh`, `zh-CN`, `zh-SG`, `zh-Hans…`); Traditional ones (`zh-TW`,
     /// `zh-HK`, `zh-MO`, `zh-Hant…`) are skipped.
     pub fn from_locales(tags: &[String]) -> Self {
-        const PRIMARY: [(&str, Language); 12] = [
+        const PRIMARY: [(&str, Language); 13] = [
             ("en", Language::En),
             ("ja", Language::Ja),
             ("es", Language::Es),
@@ -142,6 +149,7 @@ impl Language {
             ("id", Language::Id),
             ("in", Language::Id),
             ("it", Language::It),
+            ("bs", Language::Bs),
             ("ko", Language::Ko),
         ];
         tags.iter()
@@ -174,6 +182,7 @@ impl Language {
             Self::Fr => "fr",
             Self::Id => "id",
             Self::It => "it",
+            Self::Bs => "bs",
             Self::Ko => "ko",
         }
     }
@@ -192,6 +201,7 @@ impl Language {
             Self::Fr => Some(FRENCH.get_or_init(|| Catalog::parse(include_str!("i18n/fr.tsv")))),
             Self::Id => Some(INDONESIAN.get_or_init(|| Catalog::parse(include_str!("i18n/id.tsv")))),
             Self::It => Some(ITALIAN.get_or_init(|| Catalog::parse(include_str!("i18n/it.tsv")))),
+            Self::Bs => Some(BOSNIAN.get_or_init(|| Catalog::parse(include_str!("i18n/bs.tsv")))),
             Self::Ko => Some(KOREAN.get_or_init(|| Catalog::parse(include_str!("i18n/ko.tsv")))),
         }
     }
