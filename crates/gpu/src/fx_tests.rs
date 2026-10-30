@@ -114,6 +114,45 @@ fn cases() -> Vec<(&'static str, Vec<(&'static str, ParamValue)>, bool)> {
         ("black_white", vec![], false),
         ("color_balance", vec![("shadow_r", fl(50.0)), ("mid_g", fl(-40.0)), ("hi_b", fl(80.0)), ("shadow_b", fl(-100.0)), ("hi_r", fl(100.0))], false),
         ("color_balance", vec![("mid_r", fl(70.0)), ("hi_g", fl(-60.0)), ("preserve", ParamValue::Bool(true))], false),
+        (
+            "three_way_color",
+            vec![
+                ("shadow_hue", fl(220.0)),
+                ("shadow_balance", fl(60.0)),
+                ("hi_hue", fl(30.0)),
+                ("hi_balance", fl(80.0)),
+                ("mid_level", fl(-30.0)),
+                ("saturation", fl(130.0)),
+            ],
+            false,
+        ),
+        (
+            "three_way_color",
+            vec![
+                ("shadow_level", fl(50.0)),
+                ("hi_level", fl(-40.0)),
+                ("shadow_threshold", fl(50.0)),
+                ("shadow_softness", fl(0.0)),
+                ("hi_threshold", fl(50.0)),
+                ("hi_softness", fl(0.0)),
+                ("saturation", fl(0.0)),
+            ],
+            false,
+        ),
+        // overlapping ranges (shadow edge above the highlight edge)
+        (
+            "three_way_color",
+            vec![
+                ("shadow_threshold", fl(80.0)),
+                ("hi_threshold", fl(20.0)),
+                ("shadow_balance", fl(70.0)),
+                ("hi_balance", fl(70.0)),
+                ("hi_hue", fl(200.0)),
+                ("shadow_level", fl(30.0)),
+                ("hi_level", fl(30.0)),
+            ],
+            false,
+        ),
         ("leave_color", vec![("amount", fl(80.0)), ("tolerance", fl(20.0)), ("softness", fl(30.0))], true),
         ("leave_color", vec![("amount", fl(100.0)), ("color", col(0.1, 0.8, 0.2)), ("tolerance", fl(0.0)), ("softness", fl(0.0))], true),
         ("change_to_color", vec![], true),
@@ -333,6 +372,38 @@ fn gpu_effects_match_cpu_exactly() {
         }
     }
     assert!(failures.is_empty(), "GPU effects differ from the CPU:\n{}", failures.join("\n"));
+}
+
+/// #3465 review: a neutral Three-Way Color Corrector leaves every value alone on both paths,
+/// negative and HDR channels included.
+#[test]
+fn gpu_neutral_three_way_leaves_negative_and_hdr_values() {
+    let Some((dev, q)) = device() else {
+        eprintln!("no GPU adapter; skipping");
+        return;
+    };
+    let mut c = GpuCompositor::new(&dev, &q);
+    let (w, h) = (16u32, 8u32);
+    let mut px = picture(w, h);
+    for (i, p) in px.chunks_mut(4).enumerate() {
+        p[3] = 1.0;
+        if i % 3 == 0 {
+            p[0] = -0.1;
+        }
+        if i % 5 == 0 {
+            p[1] = 2.0;
+        }
+    }
+    let frame = VideoFrame::rgba_f32(w, h, px.clone());
+    let e = effect("three_way_color", &[]);
+    let op = FxOp::eval(&e, &cx(Tick::ZERO, 1.0), w as usize, h as usize).expect("three_way_color has a GPU op");
+    assert!(op.is_identity_three_way());
+    let mut cpu = filmcraft_render::Image { w: w as usize, h: h as usize, px: px.clone() };
+    op.apply(&mut cpu);
+    assert_eq!(cpu.px, px, "the CPU leaves a neutral corrector's input untouched");
+    let (_, _, gpu) = c.effect_image(&frame, &LayerFx { size: (w, h), decimation: 1, ops: vec![op] }).expect("effect image");
+    let (worst, flips) = compare(&px, &gpu);
+    assert!(worst <= EXACT && flips == 0.0, "the GPU changed a neutral corrector's input: {worst:.2e}, {flips:.4} of the values");
 }
 
 #[test]
