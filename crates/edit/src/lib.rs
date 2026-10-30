@@ -693,6 +693,12 @@ fn head(ctx: &EditCtx, item: &TrackItem) -> Tick {
     if item.frame_hold.is_some() {
         return item.source_in;
     }
+    // media with no length (an image, graphic, or adjustment layer, ..) has no set time,
+    // therefore head limit does not apply, like its tail.
+    // its source_in may go below 0, which keeps its keyframes true to timeline position (#3367).
+    if (ctx.media_duration)(item.item).is_none() {
+        return Tick::MAX;
+    }
     (item.source_in - (ctx.media_start)(item.item)).max(Tick::ZERO)
 }
 

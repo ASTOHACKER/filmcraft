@@ -290,6 +290,95 @@ fn regular_trim_respects_neighbours_and_handles() {
 }
 
 #[test]
+fn a_graphic_extends_from_its_left_edge() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let g = fx.put(v1, 20, 10, 0);
+    fx.put(v1, 0, 8, 0);
+    fn ctx(n: &mut u64) -> EditCtx<'_> {
+        EditCtx { next_id: n, media_duration: &|_| None, media_start: &|_| Tick::ZERO, min_duration: f(1) }
+    }
+    let mut n = fx.next;
+    // dragging the left edge 30 frames earlier stops at the previous clip, 12 frames away
+    let d = trim(&mut fx.seq, g, Edge::In, TrimMode::Regular, -f(30), &mut ctx(&mut n)).unwrap();
+    assert_eq!(d, -f(12));
+    let it = fx.seq.find_item(g).unwrap().1;
+    assert_eq!((it.start, it.duration, it.source_in), (f(8), f(22), -f(12)));
+    // a keyframe at media time 4 is still at timeline frame 24
+    assert_eq!(it.effect_time_at(f(24)), f(4));
+    // shrinking it back returns exactly to where it started
+    trim(&mut fx.seq, g, Edge::In, TrimMode::Regular, f(12), &mut ctx(&mut n)).unwrap();
+    let it = fx.seq.find_item(g).unwrap().1;
+    assert_eq!((it.start, it.duration, it.source_in), (f(20), f(10), Tick::ZERO));
+    // a clip with real media and no footage before it is still blocked
+    let a = fx.put(fx.v(1), 20, 10, 0);
+    let d = trim(&mut fx.seq, a, Edge::In, TrimMode::Regular, -f(3), &mut Fx::ctx(&mut n)).unwrap();
+    assert_eq!(d, Tick::ZERO);
+    fx.seq.check().unwrap();
+}
+
+#[test]
+fn a_graphic_ripple_extends_from_its_left_edge() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let g = fx.put(v1, 20, 10, 0);
+    let mut n = fx.next;
+    let mut ctx = EditCtx { next_id: &mut n, media_duration: &|_| None, media_start: &|_| Tick::ZERO, min_duration: f(1) };
+    let d = ripple_trim_group(&mut fx.seq, &[g], Edge::In, -f(5), &mut ctx).unwrap();
+    assert_eq!(d, -f(5));
+    let it = fx.seq.find_item(g).unwrap().1;
+    assert_eq!((it.duration, it.source_in), (f(15), -f(5)));
+    // the ripple keeps the start, so what showed at media time 4 now shows 5 frames later
+    assert_eq!(it.effect_time_at(it.start + f(9)), f(4));
+    fx.seq.check().unwrap();
+}
+
+/// Item 2 is a graphic (no media length); everything else is long media.
+fn graphic_media(i: ItemId) -> Option<Tick> {
+    if i == ItemId(2) { None } else { Some(f(1000)) }
+}
+
+fn graphic_ctx(n: &mut u64) -> EditCtx<'_> {
+    EditCtx { next_id: n, media_duration: &graphic_media, media_start: &|_| Tick::ZERO, min_duration: f(1) }
+}
+
+#[test]
+fn a_roll_extends_a_graphic_from_its_left_edge() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    let a = fx.put(v1, 0, 10, 10);
+    let g = fx.put(v1, 10, 10, 0);
+    fx.seq.find_item_mut(g).unwrap().1.item = ItemId(2);
+    let mut n = fx.next;
+    let d = roll(&mut fx.seq, a, g, -f(5), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(d, -f(5));
+    assert_eq!(fx.spans(v1), vec![(0, 5), (5, 15)]);
+    let it = fx.seq.find_item(g).unwrap().1;
+    assert_eq!(it.source_in, -f(5));
+    // what showed at frame 12 still does
+    assert_eq!(it.effect_time_at(f(12)), f(2));
+    fx.seq.check().unwrap();
+}
+
+#[test]
+fn a_slide_extends_a_graphic_from_its_left_edge() {
+    let mut fx = Fx::new();
+    let v1 = fx.v(0);
+    fx.put(v1, 0, 10, 10);
+    let b = fx.put(v1, 10, 10, 10);
+    let g = fx.put(v1, 20, 10, 0);
+    fx.seq.find_item_mut(g).unwrap().1.item = ItemId(2);
+    let mut n = fx.next;
+    let d = slide(&mut fx.seq, b, -f(5), &mut graphic_ctx(&mut n)).unwrap();
+    assert_eq!(d, -f(5));
+    assert_eq!(fx.spans(v1), vec![(0, 5), (5, 10), (15, 15)]);
+    let it = fx.seq.find_item(g).unwrap().1;
+    assert_eq!(it.source_in, -f(5));
+    assert_eq!(it.effect_time_at(f(22)), f(2));
+    fx.seq.check().unwrap();
+}
+
+#[test]
 fn trim_on_a_locked_track_is_refused() {
     let mut fx = Fx::new();
     let v1 = fx.v(0);
