@@ -369,10 +369,9 @@ impl Probes<'_> {
 
     /// The per-slice bits at `q`, measuring them if `q` was not tried yet.
     fn take(&mut self, q: u8) -> Vec<u64> {
-        self.total(q);
         match self.tried.iter().position(|(tq, _, _)| *tq == q) {
             Some(i) => self.tried.swap_remove(i).1,
-            None => Vec::new(),
+            None => par_map(self.threads, self.slices, |sd| slice_bits(sd, q)),
         }
     }
 }
@@ -558,6 +557,22 @@ pub(crate) fn encode_alpha(w: &mut Writer, vals: &[u32], bits: u32) {
 #[cfg(test)]
 mod rate_tests {
     use super::*;
+
+    /// `take` gives a quantiser's measured per-slice bits whether or not `total` tried it: an
+    /// empty list would skip the slices' 16-bit size checks in `choose_quantisers`.
+    #[test]
+    fn take_measures_an_untried_quantiser() {
+        let block = |v: f32| std::array::from_fn::<f32, 64, _>(|i| v * (64 - i) as f32);
+        let slices: Vec<SliceData> =
+            (1..=3).map(|k| SliceData { comps: [vec![block(40.0 * k as f32); 4], vec![block(10.0); 2], vec![block(5.0); 2]], alpha: None }).collect();
+        let want = |q| slices.iter().map(|sd| slice_bits(sd, q)).collect::<Vec<_>>();
+        assert!(want(4).iter().all(|&b| b > 0));
+        let mut probes = Probes { slices: &slices, threads: false, tried: Vec::new() };
+        assert_eq!(probes.take(4), want(4), "untried");
+        probes.total(6);
+        assert_eq!(probes.take(6), want(6), "tried");
+        assert!(probes.tried.is_empty());
+    }
 
     /// Frame bits falling with the quantiser (steeply at first, then flat), as real content does.
     fn bits(q: u8) -> u64 {
