@@ -1,6 +1,6 @@
 # Where FilmCraft falls short of Premiere Pro
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-12 · **Change:** minor (G14 heading, summary row and counts re-measured) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-30 · **Change:** minor (G14 catalog counts refreshed; G13 GIF binary transparency retained) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
 
 Every known shortfall, one entry each, ranked by what most stops an editor using FilmCraft for real
 work. This is the work list: agents should prefer it over adding checklist items. Numbers are in
@@ -161,8 +161,8 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
   rearrangement (#493); clicking empty space to deselect (#683); filmstrip thumbnails (#614);
   marquee selection in the Project panel (#578); Freeform bins and middle-mouse pan (#579);
   Program monitor Button Editor (+) (#431); keyframe curves for Position (#448); transition
-  editing controls (#577: Effect Controls has the transition's own timeline, drag to slide or resize;
-  the A/B previews with Start / End sliders remain); track renaming (#654); window controls on macOS (#637); UI scale on
+  editing controls (#577: Effect Controls has the transition's own timeline, drag to slide or resize,
+  drag the cut to move it with the transition; the A/B previews with Start / End sliders remain); track renaming (#654); window controls on macOS (#637); UI scale on
   X11 (#457).
 - **Estimate:** 120–200 h. Doc: [ui-parity.md](ui-parity.md).
 
@@ -229,15 +229,19 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 - **Have:** PNG, TIFF, BMP, JPEG, Targa and DPX (10-bit) image sequences (#779); OpenEXR
   sequences (half float, linear; uncompressed, RLE, ZIPS or ZIP; #806, #874); AAC Audio
   (audio-only `.m4a`, or ADTS `.aac`; #814); ProRes 4444 / 4444 XQ in the export UI (#342).
+- **GIF transparency:** Include Alpha Channel preserves binary transparency (#3396), with an
+  explicit 128/255 alpha threshold; decoded synthetic animation tests cover moving transparent
+  regions and clearing prior frames. Partial transparency remains a GIF limitation. See the
+  [export README](../crates/export/README.md). No readiness estimate changes.
 - **Estimate:** 60–110 h. Doc: [file-format-parity.md](file-format-parity.md).
 
 ## G14. Localization: 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese)
 
 - **Have:** Spanish, Japanese, Simplified Chinese, French (#498, #804), Portuguese (Brazil) (#859,
   #866), Indonesian (#867, #878), Korean (#508), Italian and German (#630) catalogs cover
-  98.9–100% of the 3,597 cataloged strings (measured 2026-10-12 on the merged tree from
+  98.7–100% of the 3,610 cataloged strings (measured 2026-10-30 on the merged tree from
   `crates/ui-egui/src/i18n/*.tsv`: distinct context + source pairs with a translation);
-  Russian (#610, 355 strings) and Ukrainian (355) are menus only (~10% each).
+  Russian (#610, 356 strings) and Ukrainian (356) are menus only (~10% each).
 - **Missing:** Hindi, Arabic (no RTL interface layout or catalog; the interface has Arabic and Hebrew
   fallback fonts and shows captions in reading order, but other names and fields keep egui's
   left-to-right run order; Arabic titles reported broken, #395),
@@ -245,7 +249,7 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
   is what the heading counts. Russian and Ukrainian are menus only (#610). Engine errors,
   CLI and MCP stay English. Apart from the German menus (#630), no language has a recorded
   native-speaker review.
-- **Done:** Indonesian (#867): `id.tsv` covers 3,559 of 3,597 strings (98.9%), in Edit ▸
+- **Done:** Indonesian (#867): `id.tsv` covers 3,562 of 3,610 strings (98.7%), in Edit ▸
   Language, Settings ▸ General and the native macOS menu; System Language picks it for `id-*` (and
   legacy `in-*`) locales. Native-speaker review welcome.
 - **Done:** Italian: `it.tsv` has every entry of the Spanish catalog (~100%), in Edit ▸ Language,
@@ -301,7 +305,9 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
   with circular fillets (`masks.add` `cornerRadius`, `masks.roundCorners`, every path keyframe;
   #813), from an on-monitor corner-roundness handle with a live preview (one undo step per drag;
   #844); Shift snaps pen mask segments and dragged-out Bézier handles to 45° steps (#853), and
-  Shift constrains vertex and whole-mask drags to 45° steps from the press point (#1408).
+  Shift constrains vertex and whole-mask drags to 45° steps from the press point (#1408); a
+  marquee or Shift-click selects several vertices on the Program monitor, and dragging any of
+  them moves them all in one undo step (#3150).
 - **Estimate:** 60–110 h.
 
 ## G19. Speech to text off in release builds
@@ -320,7 +326,9 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-10-12 | minor | G14: heading and summary row now say 3 of the 12 key languages missing (Hindi, Arabic, Vietnamese have no catalog; Korean, Italian and German are full; Russian and Ukrainian menus only); catalog counts re-measured on the merged tree (union 3,597 strings); other entries untouched (see #1412) |
+| 2026-10-30 | minor | G14: three key languages have no catalog (Hindi, Arabic, Vietnamese); Korean, Italian and German are near-complete; Russian and Ukrainian are menus only. Catalog counts re-measured on the merged tree (union 3,610 strings); G13 GIF transparency retained |
 | 2026-10-10 | major | Created from ROADMAP.md's "Where we are lacking" (2026-10-05); re-ranked against Premiere 26.5.2 and the 188 open issues; added `.prproj`, 10-bit / 4:2:2 camera decode, launch crashes and missing PR CI, localization, delivery formats |
 | 2026-10-12 | minor | G10: MP1 (`A_MPEG/L1`) in Matroska imports (#1402) |
 | 2026-10-12 | minor | G10: OpenEXR PXR24 import |
+| 2026-10-24 | minor | G8: dragging the cut on a transition's timeline in Effect Controls moves the cut, and the transition moves with it (#577) |
+| 2026-10-26 | minor | G13: optional GIF binary transparency, threshold and frame-disposal regression coverage (#3396); estimates unchanged |
