@@ -176,6 +176,14 @@ keep their timing from the clip start, those inside the outro from the clip end,
 stretched or squeezed (`graphic_design::remap_time`). Trimming the head keeps the intro playing
 from the new start.
 
+*What the remap covers.* Responsive Design – Time remaps the keyframes of the graphic's **layers**
+(text, shapes, their appearance and transforms). The clip's **own effects and masks** (Opacity,
+Motion, a Gaussian Blur you add to the graphic clip, ...) are not remapped: like on any clip they
+use media time, so a keyframe stays at its media time when the graphic is trimmed or extended (a
+head trim advances the clip's source-in, so a keyframe at media 4 s sits 3 s from the new start
+after a 1 s head trim). To make an animation follow the intro / outro, keyframe the layer (or the
+graphic's own layer opacity), not the clip effect.
+
 **Rolls and crawls.** `graphics.setRoll {mode: off | roll | crawlLeft | crawlRight,
 startOffScreen, endOffScreen, prerollFrames, easeInFrames, easeOutFrames, postrollFrames}` (the
 Roll options of Responsive Design – Time) moves the whole graphic: up for a roll, sideways for a

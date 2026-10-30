@@ -233,6 +233,14 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             let (hr, _) = bui.allocate_exact_size(vec2(body.width(), 18.0), Sense::hover());
             let heading = if *kind == TrackKind::Video { tl!("Video") } else { tl!("Audio") };
             bui.painter().text(pos2(hr.min.x + 8.0, hr.center().y), Align2::LEFT_CENTER, heading, Tokens::semibold(11.5), t.text_dim);
+            // a graphic with Responsive Design – Time: its clip effects below keep media time (#3361)
+            if *kind == TrackKind::Video && it.graphic.as_deref().is_some_and(|g| g.has_responsive_time()) {
+                let hint = tl!("Responsive Design – Time remaps the graphic's layer keyframes, not these clip effects");
+                let ir = Rect::from_center_size(pos2(hr.max.x - 14.0, hr.center().y), vec2(18.0, 18.0));
+                bui.painter().text(ir.center(), Align2::CENTER_CENTER, "ⓘ", Tokens::ui(12.0), t.text_dim);
+                bui.interact(ir, bui.scope_id().with(("ec-graphic-time-hint", clip.0)), Sense::hover()).on_hover_text(hint);
+                app.auto.add("effectControls.graphicTimeHint", ir, hint);
+            }
             let mt_now = it.source_time_at(ph.clamp(it.start, (it.end() - Tick(1)).max(it.start)));
             // Premiere lists the fixed effects (Motion, Opacity, Time Remapping / Volume…) first.
             let mut order: Vec<usize> = (0..it.effects.len()).collect();
