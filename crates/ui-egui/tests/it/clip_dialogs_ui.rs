@@ -506,3 +506,73 @@ fn clip_rename_menu_opens_a_rename_dialog() {
     d.click("rename.ok");
     assert_eq!(d.app().session.project.item(item).unwrap().name, "Renamed media");
 }
+
+/// #2191: Duration is editable, updates Speed, and applies through the undoable command.
+#[test]
+fn duration_text_edits_speed_and_rejects_invalid_input() {
+    let mut d = Driver::new();
+    let original = d.v1(0);
+    let rate = d.app().session.active_sequence().unwrap().settings.frame_rate;
+    let target = rate.tick_of(rate.frame_at(original.duration) / 2);
+    d.exec("timeline.select", json!({"clips": [original.id.0]}));
+    d.menu("clip.speedDuration");
+    assert!(d.has("speedDuration.duration"), "Duration must be an editable automation field");
+    /// Replace the duration through keyboard input and settle the dialog's draft state.
+    fn type_duration(d: &mut Driver, text: &str) {
+        d.click("speedDuration.duration");
+        d.ok("ui.key", json!({"key": "Cmd+A"}));
+        d.ok("ui.type", json!({"text": text}));
+        d.frames(3);
+    }
+    for invalid in ["abc", "00:00:00:00", "-100"] {
+        type_duration(&mut d, invalid);
+        d.click("speedDuration.ok");
+        assert!(d.app().ui.clip_dialog.is_some(), "invalid duration must not apply");
+        assert_eq!(d.v1(0).duration, original.duration);
+    }
+    type_duration(&mut d, &filmcraft_time::format_timecode_frames(rate.frame_at(target), rate, false));
+    let speed = d.app().ui.clip_dialog.as_ref().unwrap().params["speed"].as_f64().unwrap();
+    assert!((speed - original.duration.0 as f64 * 100.0 / target.0 as f64).abs() < 1e-8);
+    assert_eq!(d.v1(0).duration, original.duration, "typing only edits the draft");
+
+    d.click("speedDuration.ok");
+    assert!(d.app().ui.clip_dialog.is_none());
+    assert!((d.v1(0).duration.0 - target.0).abs() <= 1);
+    d.exec("edit.undo", json!({}));
+    assert_eq!(d.v1(0).duration, original.duration);
+    d.exec("edit.redo", json!({}));
+    assert!((d.v1(0).duration.0 - target.0).abs() <= 1);
+
+    d.menu("clip.speedDuration");
+    type_duration(&mut d, "00:00:01:00");
+    d.click("speedDuration.cancel");
+    assert!((d.v1(0).duration.0 - target.0).abs() <= 1, "Cancel leaves the clip unchanged");
+    d.menu("clip.speedDuration");
+    d.app().ui.clip_dialog.as_mut().unwrap().params["duration"] = json!("00:00:01:00");
+    d.frames(3);
+    d.click("speedDuration.ok");
+    assert!((d.v1(0).duration.0 - rate.tick_of(filmcraft_time::parse_timecode("00:00:01:00", rate, false, 0).unwrap()).0).abs() <= 1);
+}
+
+/// Speed edits retain the command's one-frame minimum without changing the requested speed.
+#[test]
+fn speed_edits_preserve_one_frame_minimum() {
+    let mut d = Driver::new();
+    let original = d.v1(0);
+    let rate = d.app().session.active_sequence().unwrap().settings.frame_rate;
+    d.exec("timeline.trim", json!({"clip": original.id.0, "edge": "out", "deltaFrames": 1 - rate.frame_at(original.duration)}));
+    assert_eq!(d.v1(0).duration, rate.tick_of(1));
+    d.exec("timeline.select", json!({"clips": [original.id.0]}));
+    for percent in [200.0, 100_000.0] {
+        d.menu("clip.speedDuration");
+        d.app().ui.clip_dialog.as_mut().unwrap().params["speed"] = json!(percent);
+        d.frames(3);
+        assert_eq!(d.app().ui.clip_dialog.as_ref().unwrap().params["duration"], json!("00:00:00:01"));
+        d.click("speedDuration.ok");
+        assert!(d.app().ui.clip_dialog.is_none(), "a valid speed edit must apply");
+        assert_eq!(d.v1(0).speed, percent / 100.0);
+        assert_eq!(d.v1(0).duration, rate.tick_of(1));
+        d.exec("edit.undo", json!({}));
+        assert_eq!(d.v1(0).speed, 1.0);
+    }
+}
