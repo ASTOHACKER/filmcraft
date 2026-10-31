@@ -4729,6 +4729,33 @@ pub fn preview_transition(s: &Session, p: &Value, kind: TrackKind) -> Result<(Tr
     if q.track(track).is_some_and(|tr| tr.locked) {
         return Err(edit::EditError::Locked.into());
     }
+    // A transition has to fit the clips around its cut: `edit::transitions::set_span` keeps that
+    // invariant when one is resized, but nothing limited the duration when a transition was
+    // created, so a default longer than a short clip can hold went in unchecked (#3455). Clamp
+    // the planned duration to the same limit: a centered crossfade spends half on each side of
+    // the cut, a fade to/from nothing spends it all on its one side.
+    let (lo, hi) = {
+        let track_ref = q.track(track).ok_or_else(|| EngineError::Other("no track at the edit point".into()))?;
+        let f = from.and_then(|c| track_ref.item(c));
+        let n = to.and_then(|c| track_ref.item(c));
+        match (f, n) {
+            (Some(f), Some(n)) => (f.start, n.end()),
+            (None, Some(n)) => (n.start, n.end()),
+            (Some(f), None) => (f.start, f.end()),
+            (None, None) => return Err(EngineError::Other("the edit point has no clip to transition on".into())),
+        }
+    };
+    let room = if from.is_some() && to.is_some() {
+        (cut - lo).min(hi - cut).mul_ratio(2, 1)
+    } else if to.is_some() {
+        hi - cut
+    } else {
+        cut - lo
+    };
+    let dur = dur.min(room);
+    if dur < rate.tick_of(1) {
+        return Err(bad("transition", "no room for a transition at this cut: the clip(s) around it are shorter than a frame"));
+    }
     let start = if from.is_some() && to.is_some() {
         cut - dur.mul_ratio(1, 2)
     } else if to.is_some() {
