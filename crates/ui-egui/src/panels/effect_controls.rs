@@ -238,7 +238,8 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                 let hint = tl!("Responsive Design – Time remaps the graphic's layer keyframes; clip effects like Opacity and Motion keep media time");
                 let ir = Rect::from_center_size(pos2(hr.max.x - 14.0, hr.center().y), vec2(18.0, 18.0));
                 // a small button: keyboard-focusable, with an accessible name, tooltip on hover or focus
-                let resp = bui.put(ir, egui::Button::new(egui::RichText::new("ⓘ").size(12.0).color(t.text_dim)).frame(false));
+                let resp = bui.put(ir, egui::Button::new("").frame(false));
+                icons::paint(bui.painter(), ir.shrink(2.0), Icon::Info, t.text_dim);
                 if resp.ctx.has_accesskit_node(resp.id) {
                     resp.ctx.accesskit_node_builder(resp.id, |node| node.set_label(hint));
                 }
