@@ -500,3 +500,32 @@ fn a_dragged_lumetri_curve_point_undoes_and_redoes() {
     d.frames(3);
     assert_eq!(curve(&mut d), edited, "one Cmd+Z undoes the second drag only");
 }
+
+/// #3431: a plain click on the Lumetri luma curve places a point where it landed; a click away
+/// from the curve adds nothing.
+#[test]
+fn a_click_on_the_lumetri_curve_places_a_point() {
+    let mut d = Driver::demo();
+    d.ok("ui.set", json!({"workspace": "Color"}));
+    d.frames(3);
+    let clip = select_first_clip(&mut d);
+    d.exec("effects.apply", json!({"clips": [clip], "effect": "lumetri"}));
+    d.frames(3);
+    d.click("lumetri.section.Curves");
+    d.frames(2);
+    let points = |d: &mut Driver| {
+        let q = d.app().session.active_sequence().unwrap().clone();
+        let (_, it) = q.find_item(filmcraft_project::ClipId(clip)).unwrap();
+        let e = it.effects.iter().find(|e| e.effect == "lumetri").unwrap();
+        e.param("curve_luma").and_then(|p| p.value.as_curve().map(|c| c.len())).unwrap_or_default()
+    };
+    let before = points(&mut d);
+    // the middle of the identity diagonal
+    d.ok("ui.click", json!({"id": "lumetri.curve.curve_luma", "fx": 0.5, "fy": 0.5}));
+    d.frames(3);
+    assert_eq!(points(&mut d), before + 1, "a click on the curve adds a point");
+    // the top-left corner of the curve box is far from the diagonal
+    d.ok("ui.click", json!({"id": "lumetri.curve.curve_luma", "fx": 0.1, "fy": 0.1}));
+    d.frames(3);
+    assert_eq!(points(&mut d), before + 1, "a click off the curve adds none");
+}

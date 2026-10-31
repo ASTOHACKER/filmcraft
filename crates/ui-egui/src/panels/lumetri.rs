@@ -546,7 +546,7 @@ fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col:
     }
     .unwrap_or_else(|| filmcraft_render::effects::curve_lut(&draw_pts, 128));
     let line: Vec<Pos2> = lut.iter().enumerate().map(|(i, y)| to_screen([i as f32 / 127.0, y.clamp(0.0, 1.0)])).collect();
-    p.add(egui::Shape::line(line, Stroke::new(1.5, col)));
+    p.add(egui::Shape::line(line.clone(), Stroke::new(1.5, col)));
     // the point nearest `pos` within reach (drag and double-click pick the same one)
     let nearest = |pos: Pos2| {
         pts.iter().enumerate().map(|(i, q)| (i, to_screen(*q).distance(pos))).filter(|(_, d)| *d < 9.0).min_by(|a, b| a.1.total_cmp(&b.1)).map(|x| x.0)
@@ -578,6 +578,23 @@ fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col:
     }
     if resp.drag_stopped() {
         dragging = None;
+    }
+    // A plain click on the curve places a point where it landed (#3431): before, only a drag
+    // created points, so the curve ignored the click the interaction promises. A click on a
+    // point selects it (as a drag start does); a click off the curve adds nothing, so the RGB
+    // double-click reset and the hue double-click remove keep working.
+    if resp.clicked()
+        && let Some(pos) = resp.interact_pointer_pos()
+    {
+        match nearest(pos) {
+            Some(i) => dragging = Some(i),
+            None if line.iter().any(|p| p.distance(pos) < 9.0) => {
+                dragging = None;
+                new_pts.push(from_screen(pos));
+                changed = true;
+            }
+            _ => dragging = None,
+        }
     }
     if resp.double_clicked()
         && let Some(pos) = resp.interact_pointer_pos()
