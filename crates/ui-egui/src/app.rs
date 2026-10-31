@@ -101,6 +101,7 @@ impl FilmcraftApp {
             last_timeline_width: 1000.0,
             timeline_view_of: None,
             pending_timeline_drop: None,
+            clip_mismatch: None,
             file_drag_hover: None,
             window_files: Vec::new(),
             timeline_view_last: None,
