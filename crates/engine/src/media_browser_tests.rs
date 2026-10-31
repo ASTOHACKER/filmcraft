@@ -327,3 +327,31 @@ fn ale_logs_are_not_offered_for_import() {
     assert!(!media_browser::extensions().contains(&"ale"));
     assert_eq!(media_browser::kind_of("cut.edl"), Some("project"));
 }
+
+/// The background probe returns `None` until its thread has the result, then the same properties
+/// as the blocking probe; a path that isn't media is answered at once.
+#[cfg(any(unix, windows))]
+#[test]
+fn probe_background_returns_the_blocking_probe_result() {
+    let dir = crate::media_test_util::tmp_dir("browser-probe-background");
+    let wav = dir.join("voice.wav");
+    std::fs::write(&wav, filmcraft_media::wav::write_wav16(&[0.1; 9_600], 2, 48_000)).unwrap();
+    let path = wav.to_string_lossy().to_string();
+    let mut s = Session::default();
+    let mut got = None;
+    for _ in 0..500 {
+        got = media_browser::probe_background(&mut s, &path);
+        if got.is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let background = got.expect("background probe finished").expect("wav has properties");
+    let mut fresh = Session::default();
+    let blocking = media_browser::probe(&mut fresh, &path).unwrap();
+    assert_eq!(background.duration, blocking.duration);
+    assert_eq!(background.audio().map(|a| a.sample_rate), blocking.audio().map(|a| a.sample_rate));
+    let notes = dir.join("notes.txt");
+    assert_eq!(media_browser::probe_background(&mut s, &notes.to_string_lossy()), Some(None));
+    let _ = std::fs::remove_dir_all(&dir);
+}
