@@ -227,7 +227,7 @@ pub(super) fn item_interactions(app: &mut FilmcraftApp, ui: &egui::Ui, actions: 
             actions.push((cmd.into(), json!({"item": id.0})));
         }
     }
-    if drag && resp.drag_started() {
+    if drag && resp.drag_started_by(egui::PointerButton::Primary) {
         crate::panels::start_drag_item(ui, id);
     }
     if menu {
@@ -596,10 +596,10 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
             }
             // the width lives in UI state while dragging: had the drag changed the preferences
             // already, the command would see nothing new and not write preferences.json
-            if resp.dragged() {
+            if resp.dragged_by(egui::PointerButton::Primary) {
                 app.ui.project_panel.column_drag = Some((c.name.clone(), (c.width + resp.drag_delta().x).clamp(30.0, 800.0)));
             }
-            if resp.drag_stopped() {
+            if resp.drag_stopped_by(egui::PointerButton::Primary) {
                 let w = app.ui.project_panel.column_drag.take().filter(|(d, _)| *d == c.name).map_or(c.width, |(_, w)| w);
                 actions.push(("project.columns.resize".into(), json!({"column": c.name, "width": w})));
             }
@@ -736,7 +736,7 @@ fn list_bin(app: &mut FilmcraftApp, ui: &mut egui::Ui, bin: &Bin, depth: usize, 
         app.auto.add(&format!("{}.bin.{}", v.prefix, b.id.0), r.intersect(ui.clip_rect()), &b.name);
         app.auto.add(&format!("{}.bin.{}.toggle", v.prefix, b.id.0), tri, "Expand");
         accept_bin_drop(app, ui, r, b.id.0, actions);
-        if resp.drag_started() {
+        if resp.drag_started_by(egui::PointerButton::Primary) {
             crate::panels::start_drag_bin(ui, b.id.0);
         }
         if resp.clicked() {
@@ -986,7 +986,7 @@ fn bin_card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, b: &Bin, v: &Vie
     }
     app.auto.add(&format!("{}.bin.{}", v.prefix, b.id.0), th, &b.name);
     accept_bin_drop(app, ui, th, b.id.0, actions);
-    if resp.drag_started() {
+    if resp.drag_started_by(egui::PointerButton::Primary) {
         crate::panels::start_drag_bin(ui, b.id.0);
     }
     if resp.clicked() {

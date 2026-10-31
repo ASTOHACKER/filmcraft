@@ -120,7 +120,7 @@ pub fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Whi
             RangeEdge::Out => result.out_hot = response.hovered(),
             RangeEdge::Move => {}
         }
-        if response.drag_started() {
+        if response.drag_started_by(egui::PointerButton::Primary) {
             let Some(pointer) = ctx.input(|i| i.pointer.press_origin()) else { continue };
             let bounds = TimeRange::from_bounds(view.start, view.end);
             let original = view.selected_range();
@@ -200,7 +200,7 @@ pub fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Whi
         let id = if which == Which::Source { "source.playhead" } else { "program.playhead" };
         app.auto.add(id, rect, "Scrub playhead");
         let playhead = ui.interact(rect, egui::Id::unique(id), Sense::click_and_drag()).on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-        if (playhead.dragged() || playhead.clicked())
+        if (playhead.dragged_by(egui::PointerButton::Primary) || playhead.clicked())
             && let Some(pos) = playhead.interact_pointer_pos()
         {
             let f = (f64::from(pos.x - bar.min.x) / f64::from(bar.width().max(1.0))).clamp(0.0, 1.0);

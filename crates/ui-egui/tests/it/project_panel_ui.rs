@@ -236,6 +236,30 @@ fn list_view_columns_sort_resize_and_rename() {
     assert_ne!(d.app().session.project.item(ItemId(items[0])).unwrap().name, "Hero shot");
 }
 
+#[test]
+fn a_right_button_drag_does_not_resize_a_list_column() {
+    let mut d = project_driver();
+    d.exec("project.view.set", json!({"view": "list"}));
+    d.frames(3);
+    let width = |d: &mut Driver| d.app().session.prefs.project_panel.view.columns.iter().find(|c| c.name == "Frame Rate").unwrap().width;
+    let w0 = width(&mut d);
+    let r = d.rect("project.list.resize.Frame Rate");
+    let from = egui::pos2(r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
+    let button = egui::PointerButton::Secondary;
+    let to = from + egui::vec2(60.0, 0.0);
+    let send = |d: &mut Driver, event| {
+        d.harness.input_mut().events.push(event);
+        d.frames(1);
+    };
+    send(&mut d, egui::Event::PointerMoved(from));
+    send(&mut d, egui::Event::PointerButton { pos: from, button, pressed: true, modifiers: egui::Modifiers::NONE });
+    send(&mut d, egui::Event::PointerMoved(from + egui::vec2(20.0, 0.0)));
+    send(&mut d, egui::Event::PointerMoved(to));
+    send(&mut d, egui::Event::PointerButton { pos: to, button, pressed: false, modifiers: egui::Modifiers::NONE });
+    d.frames(3);
+    assert_eq!(width(&mut d), w0);
+}
+
 // Regression test for #1295: in a narrow List-view column the sort arrow was painted over the end of
 // the (clipped) column name; the name must be clipped to the left of the arrow.
 #[test]

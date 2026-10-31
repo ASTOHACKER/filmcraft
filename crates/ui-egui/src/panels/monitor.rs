@@ -370,7 +370,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
     if let Some((top, left)) = ruler_rects {
         monitor_view::rulers(app, ui, which, top, left, video_area, pic, frame_size);
     }
-    if which == Which::Source && show_picture && pic_resp.drag_started() && app.ui.tool != crate::state::Tool::Hand {
+    if which == Which::Source && show_picture && pic_resp.drag_started_by(egui::PointerButton::Primary) && app.ui.tool != crate::state::Tool::Hand {
         crate::panels::source_drag::begin(app, ui, true, true);
     }
     if pic_resp.double_clicked() && which == Which::Source {
@@ -797,7 +797,7 @@ fn time_zoom_bar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Wh
     // (a drag is known to be one only after the pointer has moved: what was grabbed is what was
     // under the pointer when the button went down)
     let drag_id = egui::Id::unique((prefix, "zoomBar-drag"));
-    if resp.drag_started()
+    if resp.drag_started_by(egui::PointerButton::Primary)
         && let Some(pos) = ui.input(|i| i.pointer.press_origin()).or(resp.interact_pointer_pos())
     {
         let mut start = s;
@@ -816,7 +816,7 @@ fn time_zoom_bar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rect, which: Wh
         };
         ui.data_mut(|d| d.insert_temp(drag_id, (pos.x, start, mode)));
     }
-    if resp.dragged()
+    if resp.dragged_by(egui::PointerButton::Primary)
         && let Some((grab, start, mode)) = ui.data(|d| d.get_temp::<(f32, f64, u8)>(drag_id))
     {
         match mode {
@@ -961,7 +961,7 @@ fn mini_timeline(
         crate::panels::source_range::trim_cue(p, b, bar, -4.0);
     }
     let scrub = interaction.scrub.or_else(|| {
-        if !interaction.handled && (resp.dragged() || resp.clicked()) {
+        if !interaction.handled && (resp.dragged_by(egui::PointerButton::Primary) || resp.clicked()) {
             resp.interact_pointer_pos().map(|pos| {
                 let f = ((pos.x - bar.min.x) / bar.width().max(1.0)).clamp(0.0, 1.0) as f64;
                 rate.snap(shown.0 + Tick((f * dur) as i64))
