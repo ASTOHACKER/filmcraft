@@ -1103,6 +1103,12 @@ pub fn label_color(labels: &filmcraft_engine::settings::LabelPrefs, l: filmcraft
     egui::Color32::from_rgb(r, g, b)
 }
 
+/// The left gutter of a menu row that can carry a checkmark or a label swatch: the label is pushed
+/// right by these spaces and the mark is painted in the room they leave, centred 10 points from the
+/// row's left edge. The two agree at the default font and size; one constant keeps every gutter
+/// (menu bar, right-click menus) the same width.
+const GUTTER: &str = "      ";
+
 /// A label choice in a right-click Label menu (Project panel items, Timeline clips; #786), drawn
 /// as Edit ▸ Label draws it: the user's name for the label with a swatch of its colour in the
 /// left gutter. Registered for automation as `<prefix>.<Label>` (the label's built-in name).
@@ -1115,10 +1121,18 @@ pub fn label_choice(
 ) -> egui::Response {
     let name = labels.name(l);
     let text = crate::i18n::t(&name);
-    let r = ui.button(format!("      {text}"));
+    let r = ui.button(format!("{GUTTER}{text}"));
     auto.add(&format!("{prefix}.{}", l.name()), r.rect, text);
     paint_swatch(ui, r.rect, label_color(labels, l));
     r
+}
+
+/// A checkmark in the left gutter of the menu row `row`.
+fn paint_check(ui: &egui::Ui, row: egui::Rect) {
+    let c = row.left_center() + egui::vec2(10.0, 0.0);
+    let st = egui::Stroke::new(1.5, ui.visuals().text_color());
+    ui.painter().line_segment([c + egui::vec2(-4.0, 0.0), c + egui::vec2(-1.0, 3.0)], st);
+    ui.painter().line_segment([c + egui::vec2(-1.0, 3.0), c + egui::vec2(4.5, -3.5)], st);
 }
 
 /// A label swatch in the left gutter of the menu row `row`.
@@ -1131,7 +1145,7 @@ fn paint_swatch(ui: &egui::Ui, row: egui::Rect, color: egui::Color32) {
 fn menu_entry(ui: &mut egui::Ui, it: &MenuItem, auto: &mut crate::automation::Registry, labels: &filmcraft_engine::settings::LabelPrefs) -> bool {
     // Checkmarks and label swatches each occupy the same left gutter.
     let swatch = label_menu_swatch(&it.id, labels);
-    let label = if it.checked.is_some() || swatch.is_some() { format!("      {}", it.label) } else { it.label.clone() };
+    let label = if it.checked.is_some() || swatch.is_some() { format!("{GUTTER}{}", it.label) } else { it.label.clone() };
     let mut b = egui::Button::new(label);
     if let Some(s) = &it.shortcut {
         b = b.shortcut_text(shortcut_text(s));
@@ -1146,13 +1160,25 @@ fn menu_entry(ui: &mut egui::Ui, it: &MenuItem, auto: &mut crate::automation::Re
         paint_swatch(ui, r.rect, color);
     }
     if it.checked == Some(true) {
-        let c = r.rect.left_center() + egui::vec2(10.0, 0.0);
-        let col = ui.visuals().text_color();
-        let st = egui::Stroke::new(1.5, col);
-        ui.painter().line_segment([c + egui::vec2(-4.0, 0.0), c + egui::vec2(-1.0, 3.0)], st);
-        ui.painter().line_segment([c + egui::vec2(-1.0, 3.0), c + egui::vec2(4.5, -3.5)], st);
+        paint_check(ui, r.rect);
     }
     r.clicked()
+}
+
+/// A row of a right-click menu with the menu bar's checkmark gutter, so it lines up with the
+/// checkable rows around it. `checked` is as in [`MenuItem::checked`]: `None` is a command,
+/// reported to accessibility as a plain button; `Some` is a checkable row, reported with its state
+/// and showing the checkmark when true.
+pub fn checked_entry(ui: &mut egui::Ui, label: &str, enabled: bool, checked: Option<bool>) -> egui::Response {
+    let r = ui.add_enabled(enabled, egui::Button::new(format!("{GUTTER}{label}")));
+    r.widget_info(|| match checked {
+        Some(checked) => egui::WidgetInfo::selected(egui::WidgetType::Button, enabled, checked, label),
+        None => egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label),
+    });
+    if checked == Some(true) {
+        paint_check(ui, r.rect);
+    }
+    r
 }
 
 #[cfg(test)]

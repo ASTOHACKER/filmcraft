@@ -993,7 +993,6 @@
 	Eyedropper (pick a color from the Program monitor)	Conta-gotas (capturar uma cor do monitor do programa)
 	Eyedropper: no picture to sample	Conta-gotas: nenhuma imagem para amostrar
 	Add/Remove Keyframe	Adicionar/remover quadro-chave
-	Temporal Interpolation	Interpolação temporal
 	Linear	Linear
 	Bezier	Bézier
 	Auto Bezier	Bézier automático
