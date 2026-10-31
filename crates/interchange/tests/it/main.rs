@@ -1,5 +1,6 @@
 mod aaf_omf;
 mod api;
+mod cyclic_subclips;
 mod edl;
 mod fcp7;
 mod fcpxml;
