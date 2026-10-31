@@ -12,6 +12,7 @@ use crate::theme::Tokens;
 
 /// Height of the header bar. With `integrated_titlebar` it sits in the macOS title-bar strip.
 pub const HEIGHT: f32 = 38.0;
+
 /// Draws the header bar in `rect` and handles its clicks: Home, the mode tabs, the workspace name
 /// and its menu (the workspaces, then Reset to Saved Layout, Save Changes to this Workspace, Save as
 /// New Workspace… and Edit Workspaces…), Discord and the quick actions.
