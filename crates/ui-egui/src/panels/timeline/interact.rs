@@ -117,7 +117,6 @@ pub(super) fn move_transition_preview(app: &FilmcraftApp, seq: &Sequence, trn: &
     lands.iter().skip(1).all(|l| *l == (dest, delta)).then(|| (trn.start + delta, trn.end() + delta, dest))
 }
 
-/// The clips a marquee rectangle touches, on the tracks it crosses.
 impl MarqueeAnchor {
     pub(super) fn new(layout: &Layout, t: Tick, (v_scroll, a_scroll): (f32, f32), p: Pos2) -> Self {
         let video = p.y < layout.split_y;
@@ -141,6 +140,7 @@ impl MarqueeAnchor {
     }
 }
 
+/// The clips a marquee rectangle touches, on the tracks it crosses.
 fn marquee_clips(seq: &Sequence, layout: &Layout, r: Rect) -> Vec<ClipId> {
     let (a, b) = (layout.tick_at(r.min.x), layout.tick_at(r.max.x));
     layout
