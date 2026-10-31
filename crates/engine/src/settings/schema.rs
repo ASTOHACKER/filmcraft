@@ -559,6 +559,7 @@ pub(super) static CATEGORIES: &[Category] = &[
             b("timeline.restoreOpenSequences", "Restore open sequences when opening projects", true),
             b("timeline.addTracksAutomatically", "Add tracks automatically when editing source clips onto the Timeline", false),
             b("timeline.dropImportToTimeline", "Place files dropped onto the Timeline directly on the Timeline", true),
+            b("timeline.selectionFollowsPlayhead", "Selection Follows Playhead", true),
         ],
     },
     Category {
