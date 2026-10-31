@@ -231,9 +231,12 @@ impl TrackItem {
     }
 }
 
-fn param_eq_default(v: &ParamValue, d: &ParamValue) -> bool {
+pub(crate) fn param_eq_default(v: &ParamValue, d: &ParamValue) -> bool {
     match (v, d) {
-        (ParamValue::Vec2(_), ParamValue::Vec2(dd)) if dd.x.is_nan() => true,
+        // A NaN default marks an "auto" point (motion position/anchor): it only equals a value
+        // that is itself still auto. (The interchange `param_modified` helper uses the same
+        // both-NaN rule; the old arm ignored `v`, so a moved clip never counted as modified.)
+        (ParamValue::Vec2(vv), ParamValue::Vec2(dd)) if dd.x.is_nan() => vv.x.is_nan() && vv.y.is_nan(),
         _ => v == d,
     }
 }
