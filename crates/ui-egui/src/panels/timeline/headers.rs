@@ -269,16 +269,8 @@ fn header_line_buttons(
             actions.push(("timeline.setTrack".into(), json!({"track": r.track.0, "muted": !tr.muted})));
         }
         let s2 = Rect::from_center_size(pos2(hrect.min.x + x + 20.0, upper_y), vec2(14.0, 14.0));
-        let so = crate::widgets::letter_toggle_clipped(
-            ui,
-            s2,
-            visible,
-            "S",
-            tr.solo,
-            Color32::from_rgb(0xf0, 0xf0, 0x4f),
-            t,
-            egui::Id::unique(("solo", r.track.0)),
-        );
+        let so =
+            crate::widgets::letter_toggle_clipped(ui, s2, visible, "S", tr.solo, Color32::from_rgb(0xf0, 0xf0, 0x4f), t, egui::Id::unique(("solo", r.track.0)));
         app.auto.add(&format!("timeline.track.{label}.solo"), s2, "Solo Track");
         if so.clicked() {
             actions.push(("timeline.setTrack".into(), json!({"track": r.track.0, "solo": !tr.solo})));

@@ -809,8 +809,7 @@ fn language_menu_and_settings_choices_are_in_the_same_order() {
         choices(c.rows, &mut settings);
     }
     let app = crate::FilmcraftApp::new(filmcraft_engine::Session::default());
-    let menu: Vec<String> =
-        crate::menus::menu_items(&app).into_iter().filter(|it| it.id.starts_with("app.language.")).map(|it| it.label).collect();
+    let menu: Vec<String> = crate::menus::menu_items(&app).into_iter().filter(|it| it.id.starts_with("app.language.")).map(|it| it.label).collect();
     assert!(!settings.is_empty());
     assert_eq!(menu, settings);
 }

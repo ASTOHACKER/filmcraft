@@ -187,7 +187,6 @@ pub(super) fn ruler_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &mut e
                 }
                 ui.close();
             }
-            }
         }
     }
 }

@@ -54,8 +54,8 @@ pub(crate) use menus::{CLIP_MENU, EDIT_POINT_TYPES};
 use ruler::draw_top;
 pub use ruler::ruler_steps;
 use scrollbars::{vertical_scrollbar, zoom_scrollbar};
-pub(super) use snap::{snap, snap_caption};
 pub use snap::{hit_json, locate};
+pub(super) use snap::{snap, snap_caption};
 pub(crate) use waveforms::request_peaks;
 #[cfg(test)]
 use waveforms::{source_peaks, waveform_display_gain, waveform_zone_height};

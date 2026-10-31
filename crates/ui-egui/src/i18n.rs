@@ -78,8 +78,25 @@ static SWEDISH: OnceLock<Catalog> = OnceLock::new();
 static TURKISH: OnceLock<Catalog> = OnceLock::new();
 
 impl Language {
-    pub const ALL: [Self; 17] =
-        [Self::En, Self::Ja, Self::Es, Self::PtBr, Self::Uk, Self::ZhCn, Self::De, Self::Ru, Self::Fr, Self::Id, Self::Ko, Self::It, Self::Cs, Self::Pl, Self::Sv, Self::Tr, Self::Bs];
+    pub const ALL: [Self; 17] = [
+        Self::En,
+        Self::Ja,
+        Self::Es,
+        Self::PtBr,
+        Self::Uk,
+        Self::ZhCn,
+        Self::De,
+        Self::Ru,
+        Self::Fr,
+        Self::Id,
+        Self::Ko,
+        Self::It,
+        Self::Cs,
+        Self::Pl,
+        Self::Sv,
+        Self::Tr,
+        Self::Bs,
+    ];
 
     /// BCP 47 tag for AccessKit and the web IME's hidden input. Keep the persisted spelling
     /// (`pt-br`, `zh-cn`) out of the protocol-facing value.

@@ -522,6 +522,80 @@ mod tests {
         }
     }
 
+<<<<<<< HEAD
+=======
+    /// Alpha at frame pixel `(x, y)` of an overlay (0 outside it).
+    fn alpha(o: &Overlay, x: i32, y: i32) -> f32 {
+        let (lx, ly) = (x - o.x, y - o.y);
+        if lx < 0 || ly < 0 || lx as usize >= o.w || ly as usize >= o.h {
+            return 0.0;
+        }
+        o.px.get((ly as usize * o.w + lx as usize) * 4 + 3).copied().unwrap_or(0.0)
+    }
+
+    /// Frame columns `[first, last]` with alpha > 0.5 on row `y`.
+    fn row_span(o: &Overlay, y: i32) -> Option<(i32, i32)> {
+        let xs: Vec<i32> = (o.x..o.x + o.w as i32).filter(|&x| alpha(o, x, y) > 0.5).collect();
+        Some((*xs.first()?, *xs.last()?))
+    }
+
+    /// Frame rows `[first, last]` with alpha > 0.5 in column `x`.
+    fn col_span(o: &Overlay, x: i32) -> Option<(i32, i32)> {
+        let ys: Vec<i32> = (o.y..o.y + o.h as i32).filter(|&y| alpha(o, x, y) > 0.5).collect();
+        Some((*ys.first()?, *ys.last()?))
+    }
+
+    #[test]
+    fn background_padding_sets_the_box_edges() {
+        let ts = caption_style("Inter", "", 58.0);
+        let text_w = filmcraft_text::measure("Hello world", &ts);
+        for (pad, scale_h) in [([20.0_f32, 20.0], 1080), ([30.0, 10.0], 1080), ([30.0, 10.0], 2160)] {
+            let st = CaptionStyle { size: 58.0, background_color: [0, 0, 0, 255], background_padding: Some(pad), ..Default::default() };
+            let (w, h) = (scale_h * 16 / 9, scale_h);
+            let k = h as f32 / 1080.0;
+            let o = render_caption(&cap("Hello world"), &st, w, h).unwrap();
+            let (x0, x1) = row_span(&o, o.y + o.h as i32 / 2).unwrap();
+            let (y0, y1) = col_span(&o, w as i32 / 2).unwrap();
+            let box_w = (x1 - x0 + 1) as f32;
+            let want_w = text_w * k + 2.0 * (pad[0] * k).round();
+            assert!((box_w - want_w).abs() <= 2.0, "{pad:?}@{h}: box width {box_w}, expected {want_w}");
+            let box_h = (y1 - y0 + 1) as f32;
+            let want_h = 58.0 * k * st.line_spacing + 2.0 * (pad[1] * k).round();
+            assert!((box_h - want_h).abs() <= 2.0, "{pad:?}@{h}: box height {box_h}, expected {want_h}");
+            // the bottom margin is measured to the box edge, padding included
+            let bottom = (y1 + 1) as f32;
+            assert!((bottom - (h as f32 - 0.08 * h as f32)).abs() <= 2.0, "{pad:?}@{h}: box bottom {bottom}");
+        }
+    }
+
+    #[test]
+    fn padding_above_the_frame_is_clipped_without_moving_the_text() {
+        // a WebVTT cue at line:1% with 100 px of vertical padding: the box runs off the top of the
+        // frame, but the text stays where it is without padding
+        let first_text_row = |pad: f32| {
+            let st = CaptionStyle { background: false, background_padding: Some([0.0, pad]), ..Default::default() };
+            let mut c = cap("Hi");
+            c.settings = "line:1%".into();
+            let o = render_caption(&c, &st, 1920, 1080).unwrap();
+            (o.y..o.y + o.h as i32).find(|&y| (o.x..o.x + o.w as i32).any(|x| alpha(&o, x, y) > 0.5)).unwrap()
+        };
+        assert_eq!(first_text_row(100.0), first_text_row(0.0), "rows: pad 100 {} vs pad 0 {}", first_text_row(100.0), first_text_row(0.0));
+    }
+
+    #[test]
+    fn hostile_background_padding_is_clamped() {
+        for pad in [[f32::NAN, f32::INFINITY], [-4.0, -1e30], [1e30, 1e9], [f32::NEG_INFINITY, 0.0]] {
+            let st = CaptionStyle { background_padding: Some(pad), ..Default::default() };
+            let r = std::panic::catch_unwind(|| render_caption(&cap("Hello world"), &st, 640, 360));
+            assert!(r.is_ok(), "{pad:?}");
+        }
+        // negative and non-finite padding is none
+        let none = CaptionStyle { background_padding: Some([0.0, 0.0]), ..Default::default() };
+        let neg = CaptionStyle { background_padding: Some([-4.0, f32::NAN]), ..Default::default() };
+        assert_eq!(render_caption(&cap("Hi"), &neg, 640, 360), render_caption(&cap("Hi"), &none, 640, 360));
+    }
+
+>>>>>>> f58a54cad (Integration: #3389 #3391 fix the ruler menu braces and the caption padding test's style call)
     #[test]
     fn font_style_is_used() {
         // two styles of one family differ; an empty style is the default SemiBold
