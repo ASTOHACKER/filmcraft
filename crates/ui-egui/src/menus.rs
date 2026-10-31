@@ -27,16 +27,23 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     uic!("window.floatPanel", "Undock Panel", [], None),
     uic!("window.closePanel", "Close Panel", [], None),
     uic!("app.language.english", "English", ["Edit", "Language"], None),
-    uic!("app.language.japanese", "日本語", ["Edit", "Language"], None),
-    uic!("app.language.spanish", "Español", ["Edit", "Language"], None),
-    uic!("app.language.portuguese", "Português (Brasil)", ["Edit", "Language"], None),
-    uic!("app.language.ukrainian", "Українська", ["Edit", "Language"], None),
-    uic!("app.language.chinese", "简体中文", ["Edit", "Language"], None),
-    uic!("app.language.german", "Deutsch", ["Edit", "Language"], None),
-    uic!("app.language.russian", "Русский", ["Edit", "Language"], None),
-    uic!("app.language.french", "Français", ["Edit", "Language"], None),
+    // Alphabetical by the language's own name after English; Cyrillic, then CJK names follow
+    // the Latin ones. Settings ▸ General ▸ Interface Language lists them the same way.
     uic!("app.language.indonesian", "Bahasa Indonesia", ["Edit", "Language"], None),
+    uic!("app.language.bosnian", "Bosanski", ["Edit", "Language"], None),
+    uic!("app.language.czech", "Čeština", ["Edit", "Language"], None),
+    uic!("app.language.german", "Deutsch", ["Edit", "Language"], None),
+    uic!("app.language.spanish", "Español", ["Edit", "Language"], None),
+    uic!("app.language.french", "Français", ["Edit", "Language"], None),
     uic!("app.language.italian", "Italiano", ["Edit", "Language"], None),
+    uic!("app.language.polish", "Polski", ["Edit", "Language"], None),
+    uic!("app.language.portuguese", "Português (Brasil)", ["Edit", "Language"], None),
+    uic!("app.language.swedish", "Svenska", ["Edit", "Language"], None),
+    uic!("app.language.turkish", "Türkçe", ["Edit", "Language"], None),
+    uic!("app.language.russian", "Русский", ["Edit", "Language"], None),
+    uic!("app.language.ukrainian", "Українська", ["Edit", "Language"], None),
+    uic!("app.language.japanese", "日本語", ["Edit", "Language"], None),
+    uic!("app.language.chinese", "简体中文", ["Edit", "Language"], None),
     uic!("app.language.korean", "한국어", ["Edit", "Language"], None),
     uic!("source.playback.toggle", "Source Play/Stop", [], None),
     uic!("source.playback.play", "Play Source", [], None),
@@ -202,7 +209,12 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
             | "app.language.french"
             | "app.language.indonesian"
             | "app.language.italian"
+            | "app.language.bosnian"
             | "app.language.korean"
+            | "app.language.czech"
+            | "app.language.polish"
+            | "app.language.swedish"
+            | "app.language.turkish"
     ) {
         // Japanese needs the craft-fonts (built with CRAFT_FONTS_DIR) or a font installed on the system
         if id == "app.language.japanese" && !crate::i18n::install_japanese_font(ctx) {
@@ -227,7 +239,12 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
             "app.language.french" => crate::i18n::Language::Fr,
             "app.language.indonesian" => crate::i18n::Language::Id,
             "app.language.italian" => crate::i18n::Language::It,
+            "app.language.bosnian" => crate::i18n::Language::Bs,
             "app.language.korean" => crate::i18n::Language::Ko,
+            "app.language.czech" => crate::i18n::Language::Cs,
+            "app.language.polish" => crate::i18n::Language::Pl,
+            "app.language.swedish" => crate::i18n::Language::Sv,
+            "app.language.turkish" => crate::i18n::Language::Tr,
             _ => crate::i18n::Language::En,
         };
         // The preference is updated in memory before it is written, so a failed write (read-only
@@ -852,7 +869,12 @@ pub fn menu_items(app: &FilmcraftApp) -> Vec<MenuItem> {
             "app.language.french" => it.checked = Some(app.ui.language == crate::i18n::Language::Fr),
             "app.language.indonesian" => it.checked = Some(app.ui.language == crate::i18n::Language::Id),
             "app.language.italian" => it.checked = Some(app.ui.language == crate::i18n::Language::It),
+            "app.language.bosnian" => it.checked = Some(app.ui.language == crate::i18n::Language::Bs),
             "app.language.korean" => it.checked = Some(app.ui.language == crate::i18n::Language::Ko),
+            "app.language.czech" => it.checked = Some(app.ui.language == crate::i18n::Language::Cs),
+            "app.language.polish" => it.checked = Some(app.ui.language == crate::i18n::Language::Pl),
+            "app.language.swedish" => it.checked = Some(app.ui.language == crate::i18n::Language::Sv),
+            "app.language.turkish" => it.checked = Some(app.ui.language == crate::i18n::Language::Tr),
             _ => {}
         }
         if it.id.starts_with("view.") {
