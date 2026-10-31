@@ -495,4 +495,28 @@ fn create_proxies_from_the_item_menu_takes_the_whole_selection() {
     assert_eq!(d.app().session.state.project_selection.iter().map(|i| i.0).collect::<Vec<_>>(), vec![items[0], items[1]], "the selection stays");
     // right-click a clip that is not selected: only that one
     assert_eq!(create_from(&mut d, items[2]), vec![items[2]]);
+
+/// File ▸ Close All Projects with unsaved changes refused ("save it first, or pass force"); like
+/// Close Project, it asks Save / Don't Save / Cancel, and closes right away when nothing is unsaved.
+#[test]
+fn close_all_projects_asks_to_save() {
+    let mut d = Driver::new();
+    d.edit();
+    assert_eq!(d.menu("file.closeAllProjects")["dialog"], "closeProject");
+    assert!(d.has("closeProject.save") && d.has("closeProject.dontSave") && d.has("closeProject.cancel"));
+    d.click("closeProject.cancel");
+    assert!(!d.app().session.project.items.is_empty() && d.app().session.is_dirty(), "Cancel keeps the project");
+    d.menu("file.closeAllProjects");
+    d.click("closeProject.dontSave");
+    assert!(d.app().session.project.items.is_empty(), "closed without saving");
+    assert!(d.app().ui.clip_dialog.is_none());
+    // nothing unsaved: no question
+    d.exec("file.openDemoProject", json!({}));
+    let path = std::env::temp_dir().join(format!("fc-close-all-{}.fcproj", std::process::id()));
+    d.exec("file.saveAs", json!({"path": path.to_string_lossy()}));
+    assert!(!d.app().session.is_dirty());
+    d.menu("file.closeAllProjects");
+    let _ = std::fs::remove_file(&path);
+    assert!(d.app().ui.clip_dialog.is_none());
+    assert!(d.app().session.project.items.is_empty(), "closed at once");
 }
