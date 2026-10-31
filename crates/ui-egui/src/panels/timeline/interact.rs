@@ -701,6 +701,14 @@ fn drag_update(app: &mut FilmcraftApp, ui: &mut egui::Ui, resp: &egui::Response,
             }
             !blocked
         });
+        // the trim cursor stays for the whole drag of an edge: the hover feedback above stops once
+        // a drag is in progress (#1780)
+        if matches!(
+            app.tl.drag,
+            Some(Drag::Trim { .. } | Drag::Roll { .. } | Drag::Stretch { .. } | Drag::Remix { .. } | Drag::Transition { edge: Some(_), .. })
+        ) {
+            ctx.set_cursor_icon(CursorIcon::ResizeColumn);
+        }
         // auto-scroll when dragging near the edges
         if !matches!(app.tl.drag, Some(Drag::Pan { .. }) | Some(Drag::ZoomBar { .. }) | Some(Drag::Volume(_))) {
             let v = &mut app.ui.timeline;
