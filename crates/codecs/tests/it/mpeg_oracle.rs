@@ -34,7 +34,6 @@ fn spec(name: &str) -> Vec<String> {
             NOISE,
             &["-t", "1.2", "-c:v", "libx264", "-bf", "2", "-g", "12", "-pix_fmt", "yuv420p", "-c:a", "aac", "-aac_pns", "0", "-b:a", "128k", "-f", "mpegts"],
         ]),
-        // AVCHD-style BDAV (192-byte packets): H.264 + Blu-ray LPCM
         // open GOPs: after the first picture every I picture is a non-IDR one with a recovery point SEI
         "ts_h264_opengop.ts" => cat(&[
             &["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25"],
@@ -58,6 +57,7 @@ fn spec(name: &str) -> Vec<String> {
             &["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25"],
             &["-t", "2.4", "-c:v", "libx264", "-bf", "0", "-pix_fmt", "yuv420p", "-x264-params", "intra-refresh=1:keyint=12:min-keyint=12", "-f", "mpegts"],
         ]),
+        // AVCHD-style BDAV (192-byte packets): H.264 + Blu-ray LPCM
         "m2ts_h264_lpcm.m2ts" => cat(&[
             &["-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30000/1001"],
             NOISE,
