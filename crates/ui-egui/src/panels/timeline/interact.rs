@@ -3,9 +3,9 @@ use super::layout::{Layout, max_scroll, min_pps, new_track_at};
 use super::menus::{CLIP_MENU, EditPointTarget, edit_point_menu, gap_menu, marker_menu, multicam_menu, ruler_menu};
 use super::snap::{snap, snap_playhead};
 use super::{
-    Align2, ClipId, Color32, CursorIcon, Drag, EdgeKind, FilmcraftApp, Grab, HashMap, Hit, MarkerId, Pos2, Pressed, Rect, Sense, Sequence, Stroke, StrokeKind,
-    Tick, Tokens, Tool, TrackId, TrackItem, TrackKind, Value, edge_geometry, grab_at, hit, json, marker_at, marker_under_pointer, pos2, selection_trim_kind,
-    vec2,
+    Align2, ClipId, Color32, CursorIcon, Drag, EdgeKind, FilmcraftApp, Grab, HashMap, Hit, MarkerId, MarqueeAnchor, Pos2, Pressed, Rect, Sense, Sequence,
+    Stroke, StrokeKind, Tick, Tokens, Tool, TrackId, TrackItem, TrackKind, Value, edge_geometry, grab_at, hit, json, marker_at, marker_under_pointer, pos2,
+    selection_trim_kind, vec2,
 };
 
 pub(super) fn preview_drag(
@@ -118,6 +118,29 @@ pub(super) fn move_transition_preview(app: &FilmcraftApp, seq: &Sequence, trn: &
 }
 
 /// The clips a marquee rectangle touches, on the tracks it crosses.
+impl MarqueeAnchor {
+    pub(super) fn new(layout: &Layout, t: Tick, (v_scroll, a_scroll): (f32, f32), p: Pos2) -> Self {
+        let video = p.y < layout.split_y;
+        MarqueeAnchor { t, y: p.y, scroll: if video { v_scroll } else { a_scroll }, video }
+    }
+
+    /// The box from this corner, wherever it is on screen now, to the pointer at `p`. It follows
+    /// the rows as `layout` placed them, not the view's scroll a wheel turn has already changed.
+    pub(super) fn rect_to(&self, layout: &Layout, p: Pos2) -> Rect {
+        // the video tracks move down as `v_scroll` grows, the audio tracks up as `a_scroll` grows
+        let mut y = if self.video { self.y + (layout.v_scroll - self.scroll) } else { self.y - (layout.a_scroll - self.scroll) };
+        // video scrolling away under a pointer that is still over the video area must not reach into the audio rows
+        if self.video && p.y < layout.split_y {
+            y = y.min(layout.split_y - 1.0);
+        }
+        // nor audio scrolling away under a pointer still below the divider into the video rows
+        if !self.video && p.y >= layout.split_y {
+            y = y.max(layout.split_y + 1.0);
+        }
+        Rect::from_two_pos(pos2(layout.x_of(self.t), y), p)
+    }
+}
+
 fn marquee_clips(seq: &Sequence, layout: &Layout, r: Rect) -> Vec<ClipId> {
     let (a, b) = (layout.tick_at(r.min.x), layout.tick_at(r.max.x));
     layout
@@ -340,7 +363,13 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
             // a press and release in the same frame is never stored: it happened where egui says
             None => {
                 let Some(p) = resp.interact_pointer_pos() else { return true };
-                Pressed { pos: p, tick: layout.tick_at(p.x), grab: grab_at(seq, layout, p, tool, mods, roll_ripple) }
+                Pressed {
+                    pos: p,
+                    tick: layout.tick_at(p.x),
+                    grab: grab_at(seq, layout, p, tool, mods, roll_ripple),
+                    v_scroll: layout.v_scroll,
+                    a_scroll: layout.a_scroll,
+                }
             }
         };
         let (p, t) = (pressed.pos, pressed.tick);
@@ -350,7 +379,7 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
             Grab::Volume { .. } if resp.clicked() && !adding => Grab::Other(pressed.grab.hit()),
             g => g,
         };
-        start_drag(app, ctx, resp, seq, layout, grab, p, t);
+        start_drag(app, ctx, resp, seq, layout, grab, p, t, (pressed.v_scroll, pressed.a_scroll));
     }
 
     false
@@ -359,7 +388,17 @@ fn press_action(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respon
 /// What a press does: the drag it starts (or the tool's click action), the playhead jump a
 /// ruler press makes, and the selection a tool change makes first.
 #[allow(clippy::too_many_arguments)]
-fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response, seq: &Sequence, layout: &Layout, grab: Grab, p: Pos2, t: Tick) {
+fn start_drag(
+    app: &mut FilmcraftApp,
+    ctx: &egui::Context,
+    resp: &egui::Response,
+    seq: &Sequence,
+    layout: &Layout,
+    grab: Grab,
+    p: Pos2,
+    t: Tick,
+    scroll: (f32, f32),
+) {
     let tool = app.ui.tool;
     let mods = ctx.input(|i| i.modifiers);
     let rate = seq.settings.frame_rate;
@@ -499,7 +538,12 @@ fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response
         // the video and audio tracks, #683)
         (_, Grab::Other(hit @ (Hit::Empty { .. } | Hit::None))) if layout.content.contains(p) => {
             if resp.drag_started() {
-                Some(Drag::Marquee { start: p, before: app.session.state.selection.clone(), add: mods.shift || mods.command, individual: mods.alt })
+                Some(Drag::Marquee {
+                    start: MarqueeAnchor::new(layout, t, scroll, p),
+                    before: app.session.state.selection.clone(),
+                    add: mods.shift || mods.command,
+                    individual: mods.alt,
+                })
             } else {
                 app.session.state.selection.clear();
                 app.session.state.edit_points.clear();
@@ -688,7 +732,7 @@ fn drag_update(app: &mut FilmcraftApp, ui: &mut egui::Ui, resp: &egui::Response,
             }
             Drag::Volume(v) => Some(Drag::Volume(crate::panels::timeline_volume::drag(app, ui, seq, layout, v, p.y))),
             Drag::Marquee { start, before, add, individual } => {
-                let r = Rect::from_two_pos(start, p);
+                let r = start.rect_to(layout, p);
                 ui.painter().rect_filled(r, 0.0, Color32::from_white_alpha(18));
                 ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, Color32::from_white_alpha(140)), StrokeKind::Inside);
                 // the clips in the box are selected as it grows and shrinks; only the release runs
@@ -782,7 +826,7 @@ fn commit_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respons
                     // egui ends a drag on Escape: that cancels the box, as in the Project panel
                     match resp.interact_pointer_pos() {
                         Some(end) if !ctx.input(|i| i.key_pressed(egui::Key::Escape)) => {
-                            let ids: Vec<u64> = marquee_clips(seq, layout, Rect::from_two_pos(start, end)).iter().map(|c| c.0).collect();
+                            let ids: Vec<u64> = marquee_clips(seq, layout, start.rect_to(layout, end)).iter().map(|c| c.0).collect();
                             Some(app.session.execute("timeline.select", json!({"clips": ids, "add": add, "linked": !individual})))
                         }
                         _ => None,
@@ -1088,7 +1132,7 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
         if matches!(grab, Grab::Other(Hit::Ruler)) {
             scrub_playhead(app, seq, layout, p, mods.shift);
         }
-        app.tl.pressed = Some(Pressed { pos: p, tick: layout.tick_at(p.x), grab });
+        app.tl.pressed = Some(Pressed { pos: p, tick: layout.tick_at(p.x), grab, v_scroll: layout.v_scroll, a_scroll: layout.a_scroll });
     }
 
     wheel_scroll(app, ui, rect, layout, seq);
@@ -1317,4 +1361,42 @@ pub(super) fn interact(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
     drop_targets(app, ui, seq, layout);
 
     app.auto.add("timeline.tracks", layout.content, "tracks");
+}
+
+#[cfg(test)]
+mod marquee_tests {
+    use super::*;
+
+    fn layout(v_scroll: f32, a_scroll: f32) -> Layout {
+        let content = Rect::from_min_max(pos2(0.0, 0.0), pos2(1000.0, 600.0));
+        let ruler = Rect::from_min_max(pos2(0.0, 0.0), pos2(1000.0, 20.0));
+        Layout { content, ruler, rows: Vec::new(), pps: 100.0, scroll: 0.0, split_y: 300.0, v_scroll, a_scroll }
+    }
+
+    /// Review of #3583: a video corner scrolled down past the divider, with the pointer still over the
+    /// video tracks, must not reach into the audio tracks; once the pointer enters them it does.
+    #[test]
+    fn a_video_corner_scrolled_below_the_divider_stays_out_of_the_audio_tracks() {
+        let anchor = MarqueeAnchor::new(&layout(0.0, 0.0), Tick::ZERO, (0.0, 0.0), pos2(50.0, 100.0));
+        let l = layout(500.0, 0.0);
+        let r = anchor.rect_to(&l, pos2(200.0, 150.0));
+        assert!(r.max.y < l.split_y, "the box ends above the divider: {r:?}");
+        let r = anchor.rect_to(&l, pos2(200.0, 400.0));
+        assert!(r.max.y >= 400.0, "the pointer in the audio tracks reaches them: {r:?}");
+    }
+
+    /// Review of #3583: the audio tracks scroll on their own (`a_scroll` moves them up); a corner
+    /// pressed among them moves with them, and the video scroll does not move it.
+    #[test]
+    fn an_audio_corner_moves_with_the_audio_scroll() {
+        let anchor = MarqueeAnchor::new(&layout(30.0, 10.0), Tick::ZERO, (30.0, 10.0), pos2(0.0, 420.0));
+        let r = anchor.rect_to(&layout(80.0, 60.0), pos2(200.0, 520.0));
+        assert_eq!(r, Rect::from_min_max(pos2(0.0, 370.0), pos2(200.0, 520.0)));
+        // scrolled up past the divider, with the pointer still below it: it stays out of the video tracks
+        let l = layout(0.0, 400.0);
+        let r = anchor.rect_to(&l, pos2(200.0, 350.0));
+        assert!(r.min.y > l.split_y, "the box starts below the divider: {r:?}");
+        let r = anchor.rect_to(&l, pos2(200.0, 100.0));
+        assert!(r.min.y <= 100.0, "the pointer in the video tracks reaches them: {r:?}");
+    }
 }
