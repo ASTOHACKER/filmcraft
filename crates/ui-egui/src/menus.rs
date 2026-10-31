@@ -180,8 +180,27 @@ pub fn targets_source(app: &FilmcraftApp, params: &Value) -> bool {
     }
 }
 
+/// Edit ▸ Select All while a text field has the keyboard (the Project panel's search, a name being
+/// typed) selects that field's text, not the timeline clips: on macOS the native menu takes Cmd+A
+/// before the field sees the key. The selection is set on the field's state, so it holds however
+/// late in the pass the command runs (menu inbox or control channel); the field clamps the end to
+/// its text. False when no text field has the keyboard.
+fn select_all_in_text_field(ctx: &egui::Context) -> bool {
+    use egui::text::{CCursor, CCursorRange};
+    let Some(id) = ctx.memory(|m| m.focused()) else { return false };
+    let Some(mut state) = egui::TextEdit::load_state(ctx, id) else { return false };
+    state.cursor.set_char_range(Some(CCursorRange::two(CCursor::new(0), CCursor::new(usize::MAX))));
+    state.store(ctx, id);
+    true
+}
+
 /// Execute a UI or engine command by id.
 pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params: Value) -> Result<Value, String> {
+    // A focused text field takes Select All before the Project panel redirect below, or the
+    // Project search box would select items.
+    if id == "edit.selectAll" && select_all_in_text_field(ctx) {
+        return Ok(Value::Null);
+    }
     // Select All / Deselect All act on the Project panel's items when it has focus (#168), only
     // what the shown bin lists (#456). Here and not in the key handling: on macOS the native menu
     // takes Cmd+A once Select All is enabled (a sequence is open) and sends the id here (#1752).
