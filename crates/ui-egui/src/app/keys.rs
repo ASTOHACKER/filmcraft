@@ -24,6 +24,8 @@ impl FilmcraftApp {
         // out, so it still reports the previous pass, and it is true for any focused widget, which
         // would leave the editor without its single-key tool shortcuts while a slider has focus.
         let text_focused = ctx.text_edit_focused();
+        // read before `input_mut`: the plugin lock must not be taken inside the input lock
+        let label_selected = ctx.with_plugin(|s: &mut egui::text_selection::LabelSelectionState| s.has_selection()).unwrap_or(false);
         // Esc cancels a dynamic trim in progress
         if self.session.trim_play.dynamic.is_some() && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
             let _ = self.session.execute("trim.cancelDynamic", json!({}));
@@ -105,7 +107,7 @@ impl FilmcraftApp {
                 modifiers: m | egui::Modifiers::COMMAND,
             });
         }
-        clipboard_events_as_keys(&mut i.events, modifiers);
+        clipboard_events_as_keys(&mut i.events, modifiers, label_selected);
         let panel = self.bindings.iter().filter(|b| b.3.as_deref() == Some(focused));
         let app_wide = self.bindings.iter().filter(|b| b.3.is_none());
         let mut candidates: Vec<&menus::KeyBinding> = panel.chain(app_wide).collect();
@@ -181,12 +183,15 @@ impl FilmcraftApp {
 ///
 /// Add the key press each event stands for, with the modifiers held, so the bindings see it. The
 /// original event stays for anything else that reads it. Only called when no text field has
-/// keyboard focus; text fields keep handling the clipboard themselves.
-fn clipboard_events_as_keys(events: &mut Vec<egui::Event>, modifiers: egui::Modifiers) {
+/// keyboard focus; text fields keep handling the clipboard themselves. Selected label text (a
+/// status bar message, #2295) keeps Copy and Cut the same way: Ctrl+C copies the text, not the
+/// selected clips.
+fn clipboard_events_as_keys(events: &mut Vec<egui::Event>, modifiers: egui::Modifiers, label_selected: bool) {
     use egui::{Event, Key};
     let keys: Vec<Key> = events
         .iter()
         .filter_map(|e| match e {
+            Event::Copy | Event::Cut if label_selected => None,
             Event::Copy if modifiers.command => Some(Key::C),
             Event::Copy => Some(Key::Copy),
             Event::Cut if modifiers.command => Some(Key::X),
@@ -217,7 +222,7 @@ mod clipboard_key_tests {
 
     fn keys(events: Vec<Event>, m: Modifiers) -> Vec<(Key, Modifiers)> {
         let mut events = events;
-        super::clipboard_events_as_keys(&mut events, m);
+        super::clipboard_events_as_keys(&mut events, m, false);
         events.into_iter().filter_map(|e| if let Event::Key { key, modifiers, pressed: true, .. } = e { Some((key, modifiers)) } else { None }).collect()
     }
 
@@ -253,10 +258,20 @@ mod clipboard_key_tests {
     #[test]
     fn other_events_are_left_alone() {
         let mut events = vec![Event::Text("a".into()), Event::Copy];
-        super::clipboard_events_as_keys(&mut events, Modifiers::COMMAND);
+        super::clipboard_events_as_keys(&mut events, Modifiers::COMMAND, false);
         assert_eq!(events.len(), 3);
         assert!(matches!(events[0], Event::Text(_)));
         assert!(matches!(events[1], Event::Copy));
+    }
+
+    #[test]
+    fn selected_label_text_keeps_copy_and_cut() {
+        let c = Modifiers::COMMAND;
+        let mut events = vec![Event::Copy, Event::Cut, Event::Paste("x".into())];
+        super::clipboard_events_as_keys(&mut events, c, true);
+        let keys: Vec<Key> = events.iter().filter_map(|e| if let Event::Key { key, .. } = e { Some(*key) } else { None }).collect();
+        assert_eq!(keys, vec![Key::V], "only Paste becomes a key press");
+        assert!(matches!(events[0], Event::Copy), "the selection still gets the Copy event");
     }
 }
 
