@@ -1,4 +1,4 @@
-//! Bake the contributor credits into the binary as static Rust tables Nothing is read at run time.
+//! Bake the contributor credits into the binary as static Rust tables. Nothing is read at run time.
 //!
 //! - contributors/contributors.json: commit stats per GitHub username, with a mark for whose
 //!   people.toml entry is verified.

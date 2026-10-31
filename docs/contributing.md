@@ -279,8 +279,7 @@ In short:
 - **Fonts live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), not here.**
   Don't commit new font files to this repo (the Latin UI fonts already in `assets/fonts/` stay): add
   the font to craft-fonts (file, licence, manifest line, `ATTRIBUTION.md` row) and use it through
-  `filmcraft_text::fonts::CRAFT_FONTS`. See [Building with craft-fonts](#building-with-craft-fonts)
- .
+  `filmcraft_text::fonts::CRAFT_FONTS`. See [Building with craft-fonts](#building-with-craft-fonts).
 
 For each asset file `X`, commit a sidecar `X.attribution`. This is the real one for
 `assets/fonts/Inter-Regular.ttf`:
