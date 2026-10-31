@@ -3572,9 +3572,9 @@ fn build() -> Vec<CommandSpec> {
             "Keyframe Interpolation",
             [],
             None,
-            r#"{"clip":id,"effect":str|index,"param":str,"mediaTime":ticks,"interpolation":"linear|bezier|autoBezier|continuousBezier|hold|easeIn|easeOut"}"#,
+            r#"{"clip":id,"effect":str|index,"param":str,"mediaTime":ticks,"interpolation":"linear|bezier|autoBezier|continuousBezier|hold|easeIn|easeOut"}|{"keyframes":[{"clip":id,"effect":index,"param":str,"mask":n?,"time":mediaTicks}],"interpolation":str}"#,
             has_seq,
-            |s, p| keyframe_op(s, p, "interp")
+            |s, p| if p.get("keyframes").is_some() { crate::keyframe_move::interpolate_many(s, p) } else { keyframe_op(s, p, "interp") }
         ),
         cmd!(
             "effects.setKeyframe",
@@ -3831,6 +3831,19 @@ fn reset_params(e: &mut filmcraft_project::EffectInstance, only: Option<&str>, f
     any
 }
 
+/// The `interpolation` parameter; a missing or unknown name is linear.
+pub(crate) fn interpolation_p(p: &Value) -> filmcraft_project::Interpolation {
+    match str_p(p, "interpolation").unwrap_or("linear").to_ascii_lowercase().as_str() {
+        "bezier" => filmcraft_project::Interpolation::Bezier,
+        "autobezier" => filmcraft_project::Interpolation::AutoBezier,
+        "continuousbezier" => filmcraft_project::Interpolation::ContinuousBezier,
+        "hold" => filmcraft_project::Interpolation::Hold,
+        "easein" => filmcraft_project::Interpolation::EaseIn,
+        "easeout" => filmcraft_project::Interpolation::EaseOut,
+        _ => filmcraft_project::Interpolation::Linear,
+    }
+}
+
 /// `effects.addKeyframe` / `deleteKeyframe` / `moveKeyframe` / `setKeyframe` / `setKeyframeInterpolation`.
 /// An explicit `time` keeps its place, outside the clip too (#1055, as in `effects.setParam`); only
 /// the playhead fallback is pinned to the clip's last tick. `add` replies `{added, mediaTime}`:
@@ -3844,7 +3857,7 @@ fn keyframe_op(s: &mut Session, p: &Value, op: &str) -> Result<Value> {
     let playhead = s.playhead();
     let mtime = p.get("mediaTime").and_then(Value::as_i64).map(Tick);
     let to = p.get("to").and_then(Value::as_i64).map(Tick);
-    let interp = str_p(p, "interpolation").map(str::to_string);
+    let interp = interpolation_p(p);
     let label = match op {
         "add" => "Add Keyframe",
         "delete" => "Delete Keyframe",
@@ -3910,17 +3923,8 @@ fn keyframe_op(s: &mut Session, p: &Value, op: &str) -> Result<Value> {
             }
             _ => {
                 let at = mtime.unwrap_or(mt_now);
-                let kind = match interp.as_deref().unwrap_or("linear").to_ascii_lowercase().as_str() {
-                    "bezier" => filmcraft_project::Interpolation::Bezier,
-                    "autobezier" => filmcraft_project::Interpolation::AutoBezier,
-                    "continuousbezier" => filmcraft_project::Interpolation::ContinuousBezier,
-                    "hold" => filmcraft_project::Interpolation::Hold,
-                    "easein" => filmcraft_project::Interpolation::EaseIn,
-                    "easeout" => filmcraft_project::Interpolation::EaseOut,
-                    _ => filmcraft_project::Interpolation::Linear,
-                };
                 let k = prm.keyframes.iter_mut().find(|k| k.time == at).ok_or_else(|| bad("keyframe", "no keyframe at that time"))?;
-                k.interp = kind;
+                k.interp = interp;
             }
         }
         Ok(reply)

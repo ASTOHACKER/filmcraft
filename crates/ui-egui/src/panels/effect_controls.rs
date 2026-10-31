@@ -866,6 +866,8 @@ fn keyframe_menu(
     if let Some(mask) = target.mask {
         params["mask"] = json!(mask);
     }
+    // A selected keyframe stands for the whole selection, as when dragging it (#1916).
+    let interpolated = if app.ui.keyframe_selection.contains(&target) { json!({"keyframes": app.ui.keyframe_selection}) } else { params.clone() };
     let response = crate::menus::checked_entry(ui, tl!("Clear"), true, None);
     app.auto.add("effectControls.keyframeMenu.clear", response.rect, "Clear");
     if response.clicked() {
@@ -887,7 +889,7 @@ fn keyframe_menu(
             let response = crate::menus::checked_entry(ui, label, true, Some(current == interpolation));
             app.auto.add(&format!("effectControls.keyframeMenu.{key}"), response.rect, label);
             if response.clicked() {
-                let mut params = params.clone();
+                let mut params = interpolated.clone();
                 params["interpolation"] = json!(key);
                 actions.push(("effects.setInterpolation".into(), params));
                 ui.close();
