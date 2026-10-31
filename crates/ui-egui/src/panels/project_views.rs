@@ -438,11 +438,19 @@ fn rename_field(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, item: Option
         "Rename",
     );
     app.auto.add(&format!("{pre}.rename"), r, "Rename");
-    // take keyboard focus the first frame the field is shown
+    // take keyboard focus the first frame the field is shown, then select its current name
     let shown = egui::Id::unique("project-rename-shown");
     if ui.ctx().data(|d| d.get_temp::<egui::Id>(shown)) != Some(id) {
         ui.ctx().data_mut(|d| d.insert_temp(shown, id));
+        ui.ctx().data_mut(|d| d.insert_temp(id.with("select-all"), true));
         resp.request_focus();
+    }
+    let select_all = resp.has_focus() && ui.ctx().data_mut(|d| d.remove_temp::<bool>(id.with("select-all")).is_some());
+    if select_all {
+        let mut state = egui::text_edit::TextEditState::load(ui.ctx(), id).unwrap_or_default();
+        state.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(text.chars().count()))));
+        state.store(ui.ctx(), id);
+        ui.ctx().request_repaint();
     }
     if let Some(rn) = app.ui.project_panel.rename.as_mut() {
         rn.text = text;
