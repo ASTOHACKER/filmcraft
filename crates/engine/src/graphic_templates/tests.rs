@@ -351,6 +351,27 @@ fn upgrade_caption_to_graphic() {
 }
 
 #[test]
+fn caption_font_style_is_upgraded_listed_and_replaced() {
+    let mut s = demo("gt-caption-font");
+    s.execute("captions.add", json!({"text": "Styled", "seconds": 600, "durationSeconds": 2})).unwrap();
+    s.execute("captions.setStyle", json!({"font": "Inter", "fontStyle": "Medium"})).unwrap();
+    let used = s.execute("graphics.fonts.used", json!({})).unwrap().to_string();
+    assert!(used.contains("Medium"), "{used}");
+    // a style-specific replacement skips other styles and moves this one
+    s.execute("file.replaceFonts", json!({"from": {"family": "Inter", "style": "Bold"}, "to": "Noto Serif"})).unwrap();
+    assert_eq!(s.active_sequence().unwrap().caption_tracks[0].style.font, "Inter");
+    // upgrading carries the style onto the graphic's text
+    let r = s.execute("graphics.upgradeCaption", json!({})).unwrap();
+    let it = item(&s, ClipId(r["clips"][0].as_u64().unwrap()));
+    let e = it.effects.iter().find(|e| e.effect == "graphic_text").unwrap();
+    assert_eq!(e.param("font_style").unwrap().value, ParamValue::Text("Medium".into()));
+    s.execute("edit.undo", json!({})).unwrap();
+    s.execute("file.replaceFonts", json!({"from": {"family": "Inter", "style": "Medium"}, "to": {"family": "Noto Serif", "style": "Bold"}})).unwrap();
+    let st = &s.active_sequence().unwrap().caption_tracks[0].style;
+    assert_eq!((st.font.as_str(), st.font_style.as_str()), ("Noto Serif", "Bold"));
+}
+
+#[test]
 fn source_graphics_share_edits() {
     let mut s = demo("gt-source");
     let c = clip_of(&s.execute("graphics.newText", json!({"text": "Shared"})).unwrap());
