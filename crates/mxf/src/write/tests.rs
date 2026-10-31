@@ -407,3 +407,43 @@ fn long_sound_only_push_stays_linear() {
         assert_eq!(got[0][k], (k % 30_000) as f32 / 32768.0, "frame {k}");
     }
 }
+
+/// Opening a file with big pictures must not read most of the file: after a big value the walk
+/// refills its window with a few KiB, not 64 KiB.
+#[test]
+fn open_does_not_read_through_big_pictures() {
+    use std::cell::Cell;
+
+    struct Counting<'a> {
+        data: &'a [u8],
+        bytes: Cell<u64>,
+    }
+    impl crate::ByteSource for Counting<'_> {
+        fn len(&self) -> u64 {
+            self.data.len() as u64
+        }
+        fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<()> {
+            self.bytes.set(self.bytes.get() + buf.len() as u64);
+            self.data.read_at(offset, buf)
+        }
+    }
+
+    let mut cfg = op1a_config(Rational::new(25, 1), PictureCoding::ProRes { profile: 3 });
+    cfg.sound.truncate(1);
+    let mut w = MxfWriter::new(Cursor::new(Vec::new()), cfg).unwrap();
+    let frames = 40;
+    w.push_sound(0, &pcm16(0, frames * 1920)).unwrap();
+    for i in 0..frames {
+        let mut pic = prores_like(i);
+        pic.resize(200_000 + i, i as u8);
+        w.push_picture(&pic, FrameInfo::intra()).unwrap();
+    }
+    let f = w.finish().unwrap().into_inner();
+    let src = Counting { data: &f, bytes: Cell::new(0) };
+    let m = open(&src).unwrap();
+    let v = m.track_of_kind(TrackKind::Picture).unwrap();
+    assert_eq!(m.tracks[v].samples.len(), frames);
+    assert!(m.tracks[v].samples.iter().enumerate().all(|(i, s)| s.size as usize == 200_000 + i));
+    let read = src.bytes.get();
+    assert!(read * 5 < f.len() as u64, "open read {read} of {} bytes", f.len());
+}
