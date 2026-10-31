@@ -48,7 +48,7 @@ pub enum FileDialog {
     /// Save a FilmCraft project, suggesting `name`.
     SaveProject { name: String },
     /// Save a file, suggesting `name`.
-    SaveAs { filter: String, exts: Vec<String>, name: String },
+    SaveAs { filter: String, exts: Vec<String>, name: String, adds_ext: bool },
     /// Choose a folder, starting at `at` when there is one.
     Folder { at: Option<String> },
     /// Choose one file to relink to (Link Media ▸ Locate…, Attach Proxies, Reconnect Full
@@ -98,7 +98,13 @@ impl FileDialog {
         Self::OpenFile { filter: filter.to_string(), exts: strings(exts) }
     }
     pub fn save_as(filter: &str, exts: &[&str], name: &str) -> Self {
-        Self::SaveAs { filter: filter.to_string(), exts: strings(exts), name: name.to_string() }
+        Self::SaveAs { filter: filter.to_string(), exts: strings(exts), name: name.to_string(), adds_ext: true }
+    }
+
+    /// Like [`save_as`](Self::save_as), but the answer keeps the name as chosen: the caller picks
+    /// the format from the extension and asks before replacing a file itself.
+    pub fn save_as_named(filter: &str, exts: &[&str], name: &str) -> Self {
+        Self::SaveAs { filter: filter.to_string(), exts: strings(exts), name: name.to_string(), adds_ext: false }
     }
 
     /// The extensions a file saved through this dialog ends in (see [`with_save_extension`]);
@@ -106,7 +112,7 @@ impl FileDialog {
     fn save_extensions(&self) -> Option<Vec<String>> {
         match self {
             Self::SaveProject { .. } => Some(vec!["fcproj".to_string()]),
-            Self::SaveAs { exts, .. } if exts.iter().any(|e| !e.is_empty() && e != "*") => Some(exts.clone()),
+            Self::SaveAs { exts, adds_ext: true, .. } if exts.iter().any(|e| !e.is_empty() && e != "*") => Some(exts.clone()),
             _ => None,
         }
     }
@@ -133,7 +139,7 @@ impl FileDialog {
             Self::OpenFile { filter, exts } => one(hooks.pick_open_file.as_mut().and_then(|f| f(&filter, &refs(&exts)))),
             Self::OpenProject => one(hooks.pick_open_project.as_mut().and_then(|f| f())),
             Self::SaveProject { name } => one(hooks.pick_save.as_mut().and_then(|f| f(&name))),
-            Self::SaveAs { filter, exts, name } => one(hooks.pick_save_as.as_mut().and_then(|f| f(&filter, &refs(&exts), &name))),
+            Self::SaveAs { filter, exts, name, .. } => one(hooks.pick_save_as.as_mut().and_then(|f| f(&filter, &refs(&exts), &name))),
             Self::Folder { at } => one(match (at, hooks.pick_folder_at.as_mut()) {
                 (Some(dir), Some(f)) => f(&dir),
                 _ => hooks.pick_folder.as_mut().and_then(|f| f()),

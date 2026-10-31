@@ -17,7 +17,6 @@ mod delete_caption_tracks_ui;
 mod deselect_ui;
 mod dialog_buttons_ui;
 mod drop_preview_ui;
-mod edit_marker_ui;
 mod edit_point_menu_ui;
 mod engine_toast_ui;
 mod escape_drag_ui;

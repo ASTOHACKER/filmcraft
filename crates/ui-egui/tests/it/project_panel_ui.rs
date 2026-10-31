@@ -416,16 +416,18 @@ fn icon_view_cuts_long_names_and_shows_them_on_hover() {
     let bin = d.exec("file.newBin", json!({"name": long}))["bin"].as_u64().expect("bin id");
     let card = format!("project.bin.{bin}");
     d.wait_for(&card);
-    assert!(d.harness.query_by_label(long).is_none(), "no tooltip before hovering");
+    // the card names itself in full for assistive technology; the tooltip is a second node
+    let shown = |d: &Driver| d.harness.query_all_by_label(long).count();
+    let before = shown(&d);
     d.ok("ui.move", json!({"id": card, "fx": 0.5, "fy": 0.5}));
     for _ in 0..60 {
-        if d.harness.query_by_label(long).is_some() {
+        if shown(&d) > before {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(10));
         d.frames(1);
     }
-    assert!(d.harness.query_by_label(long).is_some(), "hovering a cut-off name shows it in full");
+    assert!(shown(&d) > before, "hovering a cut-off name shows it in full");
     d.snapshot("project-icon-long-name", Some("panel.Project"));
 }
 

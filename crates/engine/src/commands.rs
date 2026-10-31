@@ -2192,7 +2192,7 @@ fn build() -> Vec<CommandSpec> {
             Ok(Value::Null)
         }),
         // ================= Clip =================
-        cmd!("clip.rename", "Rename…", ["Clip"], None, r#"{"clip":id?,"clips":[id]?,"item":id?,"name":str}"#, always, |s, p| {
+        cmd!("clip.rename", "Rename…", ["Clip"], None, r#"{"clip":id?,"clips":[id]?,"item":id?,"name":str?}"#, always, |s, p| {
             // a blank name is refused, as the Project panel's inline rename keeps the old one
             let name = str_p(p, "name").map(str::trim).filter(|n| !n.is_empty()).ok_or_else(|| bad("clip.rename", "need a non-empty `name`"))?.to_string();
             let item = item_p(p, "item");

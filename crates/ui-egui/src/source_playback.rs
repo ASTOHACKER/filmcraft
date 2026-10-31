@@ -201,7 +201,7 @@ impl FilmcraftApp {
                 fill
             }
             ItemKind::Sequence(seq) => {
-                if seq.audio_tracks.is_empty() {
+                if seq.audio_tracks.iter().all(|t| t.items.is_empty()) {
                     audio.stop();
                     self.source_playback.clock.audio_retry_at = 0.0;
                     return;

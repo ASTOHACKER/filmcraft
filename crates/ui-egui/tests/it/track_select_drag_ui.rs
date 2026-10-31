@@ -210,7 +210,7 @@ fn track_select_forward_skips_a_locked_music_track_and_still_moves_the_rest() {
     // the music on A2 runs under the whole edit; locking it keeps it in place (Premiere)
     let music: Vec<u64> = q.audio_tracks[1].items.iter().map(|i| i.id.0).collect();
     assert!(!music.is_empty(), "the demo project has music on A2");
-    d.ok("timeline.setTrack", json!({"track": "A2", "locked": true}));
+    d.exec("timeline.setTrack", json!({"track": "A2", "locked": true}));
     let before = d.spans();
     d.ok("ui.set", json!({"tool": "TrackSelectForward"}));
     d.ok("ui.drag", json!({"from": {"x": x, "y": y}, "to": {"x": x + 240.0, "y": y}, "steps": 12}));
