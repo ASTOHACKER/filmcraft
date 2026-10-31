@@ -1031,9 +1031,11 @@ impl GpuCompositor {
         wait_mapped(&self.device, &rx)?;
         let data = slice.get_mapped_range().ok()?;
         let mut out = Vec::with_capacity((w * h * 4) as usize);
+        let mut line = Vec::with_capacity((w * 16) as usize);
         for y in 0..h {
             let r = data.get((y * row) as usize..(y * row + w * 16) as usize)?;
-            out.extend(r.as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)));
+            copy_mapped(r, &mut line);
+            out.extend(line.as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)));
         }
         drop(data);
         buf.unmap();
@@ -1108,10 +1110,12 @@ impl GpuCompositor {
         let (width, row) = (w as usize, row as usize);
         let mut out = filmcraft_frame::pool::take_f32_overwritten(width.checked_mul(h as usize)?.checked_mul(4)?);
         let data = slice.get_mapped_range().ok()?;
+        let mut line = Vec::with_capacity(width * 8);
         // every row must be there: the pooled output holds stale values until written
         let converted = out.chunks_exact_mut(width * 4).enumerate().all(|(y, dst)| {
             let Some(src) = data.get(y * row..y * row + width * 8) else { return false };
-            for (d, s) in dst.iter_mut().zip(src.as_chunks::<2>().0) {
+            copy_mapped(src, &mut line);
+            for (d, s) in dst.iter_mut().zip(line.as_chunks::<2>().0) {
                 *d = f16_to_f32_fast(u16::from_le_bytes(*s));
             }
             true
@@ -1180,6 +1184,15 @@ const MAP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
 fn wait_mapped<T>(device: &wgpu::Device, rx: &std::sync::mpsc::Receiver<Result<(), T>>) -> Option<()> {
     device.poll(wgpu::PollType::Wait { submission_index: None, timeout: Some(MAP_TIMEOUT) }).ok()?;
     rx.recv_timeout(MAP_TIMEOUT).ok()?.ok()
+}
+
+/// Copy a row of a mapped read-back buffer into `line` (ordinary memory) in one go, before
+/// anything reads it sample by sample. Mapped staging memory can be uncached (Mesa's Intel driver
+/// maps it so): reading a 1080p half-float frame there two bytes at a time took 650 ms, a bulk copy
+/// of it 85 ms; on cached memory the copy of a row that stays in the CPU cache costs next to nothing.
+pub(crate) fn copy_mapped(src: &[u8], line: &mut Vec<u8>) {
+    line.clear();
+    line.extend_from_slice(src);
 }
 
 /// Shader source: kind (0 RGBA8 sRGB, 1 linear premultiplied RGBA, 2 YUV), sampling scales, dimensions, color.
