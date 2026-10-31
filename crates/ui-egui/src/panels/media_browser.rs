@@ -614,7 +614,7 @@ fn list(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, entries: &[Entry], c
         let dragging = app.ui.media_browser.column_drag.as_ref().is_some_and(|(d, _)| d == c);
         if visible || dragging {
             let resp = ui
-                .interact(if visible { hr.intersect(header) } else { hr }, egui::Id::new(("mb-colsize", c)), Sense::drag())
+                .interact(if visible { hr.intersect(header) } else { hr }, egui::Id::unique(("mb-colsize", c)), Sense::drag())
                 .on_hover_cursor(egui::CursorIcon::ResizeColumn);
             if visible {
                 app.auto.add(&format!("mediaBrowser.resize.{c}"), hr.intersect(header), "Resize column");

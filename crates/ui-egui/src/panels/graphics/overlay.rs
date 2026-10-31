@@ -130,9 +130,9 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
     // ---- presses (the left button only: a middle or right drag leaves the layers alone)
     press(app, ui, &resp, graphics_tool, pic, tool, &views, sel_clip, &sel_layers, &editing, edit_view, drag_id, &mut drag, &mut actions);
     // ---- drag feedback / commit
-    drag_step(app, ui, &painter, &resp, hover, pic, frame, tool, &views, drag, drag_id, &mut actions);
+    drag_step(app, ui, &painter, &resp, hover, pic, frame, tool, &views, sel_clip, &sel_layers, drag, drag_id, &mut actions);
     // ---- clicks
-    click(app, ui, &resp, graphics_tool, drag, pic, frame, tool, &views, &editing, edit_view, &mut actions);
+    click(app, ui, &resp, graphics_tool, drag, pic, frame, tool, &views, sel_clip, &sel_layers, &editing, edit_view, &mut actions);
     // ---- pen path in progress
     pen_path(app, ui, &painter, pic, frame, tool, hover, accent, &mut actions);
     // ---- run accepted actions before drawing the caret
@@ -311,7 +311,7 @@ fn press(
                         // a layer already selected drags every selected layer along (#2186); Shift
                         // adds the pressed one to the selection first, as Shift-click does
                         if !(Some(v.clip) == sel_clip && sel_layers.contains(&v.layer)) {
-                            let mut layers = if shift && Some(v.clip) == sel_clip { sel_layers.clone() } else { Vec::new() };
+                            let mut layers = if shift && Some(v.clip) == sel_clip { sel_layers.to_vec() } else { Vec::new() };
                             layers.push(v.layer);
                             actions.push(("graphics.selectLayer".into(), json!({"clip": v.clip.0, "layers": layers})));
                         }
@@ -347,6 +347,8 @@ fn drag_step(
     frame: (u32, u32),
     tool: Tool,
     views: &[LayerView],
+    sel_clip: Option<ClipId>,
+    sel_layers: &[usize],
     drag: Option<DragState>,
     drag_id: egui::Id,
     actions: &mut Vec<(String, Value)>,
@@ -518,6 +520,8 @@ fn click(
     frame: (u32, u32),
     tool: Tool,
     views: &[LayerView],
+    sel_clip: Option<ClipId>,
+    sel_layers: &[usize],
     editing: &Option<GfxEdit>,
     edit_view: Option<&LayerView>,
     actions: &mut Vec<(String, Value)>,

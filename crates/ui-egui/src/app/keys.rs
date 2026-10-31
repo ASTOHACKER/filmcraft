@@ -31,7 +31,7 @@ impl FilmcraftApp {
             let _ = self.session.execute("trim.cancelDynamic", json!({}));
         }
         panels::masks::pen_take_back(self, ctx, text_focused);
-        let fire = ctx.input_mut(|i| self.match_shortcuts(i, text_focused, divider_focused));
+        let fire = ctx.input_mut(|i| self.match_shortcuts(i, text_focused, divider_focused, label_selected));
         self.fire_shortcuts(ctx, fire);
     }
 
@@ -49,7 +49,7 @@ impl FilmcraftApp {
         if self.session.trim_play.dynamic.is_some() && input.consume_key(egui::Modifiers::NONE, egui::Key::Escape) {
             let _ = self.session.execute("trim.cancelDynamic", json!({}));
         }
-        let fire = self.match_shortcuts(&mut input, false, false);
+        let fire = self.match_shortcuts(&mut input, false, false, false);
         self.fire_shortcuts(ctx, fire);
     }
 
@@ -67,7 +67,7 @@ impl FilmcraftApp {
     }
 
     /// The binding ids the key presses in `i` fire, consuming those presses.
-    fn match_shortcuts(&mut self, i: &mut egui::InputState, text_focused: bool, divider_focused: bool) -> Vec<String> {
+    fn match_shortcuts(&mut self, i: &mut egui::InputState, text_focused: bool, divider_focused: bool, label_selected: bool) -> Vec<String> {
         // Panel shortcuts of the focused panel override application shortcuts on the same chord.
         // egui ignores extra Shift and Alt when matching, so the most specific chords go first
         // across both scopes (the sort is stable, so the panel still wins a tie): otherwise the

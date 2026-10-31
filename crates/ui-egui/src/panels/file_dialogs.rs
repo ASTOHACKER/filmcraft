@@ -144,7 +144,7 @@ pub fn show_overwrite(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let folder = path.parent().and_then(|d| d.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let mut answer = None;
-    let r = egui::Modal::new(egui::Id::new("overwrite-modal")).frame(modal_frame(&t)).show(ctx, |ui| {
+    let r = egui::Modal::new(egui::Id::unique("overwrite-modal")).frame(modal_frame(&t)).show(ctx, |ui| {
         ui.set_width(460.0);
         Frame::new().inner_margin(Margin { left: 28, right: 28, top: 24, bottom: 20 }).show(ui, |ui| {
             ui.label(RichText::new(tl!("Replace File")).size(18.0).strong().color(t.text));

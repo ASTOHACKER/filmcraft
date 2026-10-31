@@ -1093,7 +1093,7 @@ pub fn freeform_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &
     let extent = cards.iter().fold(vec2(rect.width(), rect.height()), |e, c| vec2(e.x.max(c.x + c.size + 40.0), e.y.max(c.y + c.size * 9.0 / 16.0 + 60.0)));
     // a middle-button drag anywhere on the canvas pans it, the content following the pointer, as in
     // the Timeline and the monitors (#579); cards move only with the primary button
-    let (offset_key, pan_key) = (egui::Id::new((&v.prefix, "ff-offset")), egui::Id::new((&v.prefix, "ff-pan")));
+    let (offset_key, pan_key) = (egui::Id::unique((&v.prefix, "ff-offset")), egui::Id::unique((&v.prefix, "ff-pan")));
     let view = ui.max_rect();
     let (middle, origin, pos) = ui.input(|i| (i.pointer.middle_down(), i.pointer.press_origin(), i.pointer.latest_pos()));
     let mut area = egui::ScrollArea::both().id_salt((&v.prefix, "ff-scroll")).auto_shrink([false, false]);
@@ -1219,7 +1219,7 @@ pub fn freeform_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &
         let bin = Some(v.bin.0);
         bg.context_menu(|ui| canvas_menu(app, ui, v, bin, actions));
     });
-    ui.ctx().data_mut(|d| d.insert_temp(offset_key, out.state.offset));
+    ui.ctx().data_mut(|d| d.insert_temp(offset_key, out.state.unclamped_offset()));
 }
 
 fn cards_stack(cards: &[Card], item: u64) -> Option<u64> {

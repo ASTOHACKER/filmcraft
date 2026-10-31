@@ -212,7 +212,7 @@ pub(crate) fn marker_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let mut ok = false;
     let mut elems: Vec<(String, Rect, String)> = Vec::new();
     egui::Window::new(tl!("Marker"))
-        .id(egui::Id::new("Edit Marker"))
+        .id(egui::Id::unique("Edit Marker"))
         .collapsible(false)
         .resizable(false)
         .pivot(Align2::CENTER_CENTER)

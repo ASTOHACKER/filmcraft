@@ -984,6 +984,8 @@ mod waveform_drag_anchor_tests {
             pps: 100.0,
             scroll: 0.0,
             split_y: 0.0,
+            v_scroll: 0.0,
+            a_scroll: 0.0,
         }
     }
 
@@ -1204,6 +1206,8 @@ mod new_track_tests {
             pps: 100.0,
             scroll: 0.0,
             split_y,
+            v_scroll: 0.0,
+            a_scroll: 0.0,
         };
         let at = |y: f32| layout.row_at(y).map(|r| r.track.0);
         assert_eq!(at(260.0), Some(1), "V1 above the divider");

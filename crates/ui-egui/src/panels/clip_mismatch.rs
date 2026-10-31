@@ -64,7 +64,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) -> bool {
     };
     let t = app.tokens;
     let mut answer = None;
-    let r = egui::Modal::new(egui::Id::new("clip-mismatch-modal")).frame(super::file_dialogs::modal_frame(&t)).show(ctx, |ui| {
+    let r = egui::Modal::new(egui::Id::unique("clip-mismatch-modal")).frame(super::file_dialogs::modal_frame(&t)).show(ctx, |ui| {
         ui.set_width(500.0);
         Frame::new().inner_margin(Margin { left: 28, right: 28, top: 24, bottom: 20 }).show(ui, |ui| {
             ui.label(RichText::new(tl!("Clip Mismatch Warning")).size(18.0).strong().color(t.text));

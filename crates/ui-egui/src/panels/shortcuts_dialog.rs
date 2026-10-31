@@ -619,7 +619,7 @@ struct KeyLabel {
 /// trial layouts (about 60 µs), and the keyboard draws some seventy names every frame.
 fn remembered_key_label(ui: &egui::Ui, label: &str, space: egui::Vec2, max_fs: f32) -> KeyLabel {
     type Fits = std::collections::HashMap<(String, [u32; 4]), KeyLabel>;
-    let id = egui::Id::new("shortcuts.keyLabels");
+    let id = egui::Id::unique("shortcuts.keyLabels");
     let key = (label.to_owned(), [space.x.to_bits(), space.y.to_bits(), max_fs.to_bits(), ui.ctx().pixels_per_point().to_bits()]);
     if let Some(fit) = ui.data_mut(|d| d.get_temp_mut_or_default::<Fits>(id).get(&key).cloned()) {
         return fit;

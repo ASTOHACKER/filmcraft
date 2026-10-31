@@ -1298,8 +1298,8 @@ fn menu_entry(ui: &mut egui::Ui, it: &MenuItem, auto: &mut crate::automation::Re
 pub fn checked_entry(ui: &mut egui::Ui, label: &str, enabled: bool, checked: Option<bool>) -> egui::Response {
     let r = ui.add_enabled(enabled, egui::Button::new(format!("{GUTTER}{label}")));
     r.widget_info(|| match checked {
-        Some(checked) => egui::WidgetInfo::selected(egui::WidgetType::Button, enabled, checked, label),
-        None => egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label),
+        Some(checked) => egui::WidgetInfo::selected(egui::Role::Button, enabled, checked, label),
+        None => egui::WidgetInfo::labeled(egui::Role::Button, enabled, label),
     });
     if checked == Some(true) {
         paint_check(ui, r.rect);

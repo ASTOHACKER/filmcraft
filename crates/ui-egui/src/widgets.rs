@@ -603,8 +603,8 @@ mod tests {
             for _ in 0..2 {
                 let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
                     let r = Rect::from_min_size(pos2(20.0, y), vec2(14.0, 14.0));
-                    letter_toggle_clipped(ui, r, clip, "M", false, Color32::WHITE, &t, egui::Id::new("m"));
-                    letter_toggle_clipped(ui, r.translate(vec2(20.0, 0.0)), clip, "S", true, Color32::YELLOW, &t, egui::Id::new("s"));
+                    letter_toggle_clipped(ui, r, clip, "M", false, Color32::WHITE, &t, egui::Id::unique("m"));
+                    letter_toggle_clipped(ui, r.translate(vec2(20.0, 0.0)), clip, "S", true, Color32::YELLOW, &t, egui::Id::unique("s"));
                 });
                 out.textures_delta.clear();
                 assert_eq!(!out.shapes.is_empty(), shows, "button at y {y}");

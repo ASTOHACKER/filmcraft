@@ -1102,7 +1102,7 @@ fn effect_drop_preview(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence
                         let x = layout.x_of(cut);
                         painter.line_segment([pos2(x, r.top()), pos2(x, r.bottom())], Stroke::new(3.0, app.tokens.accent));
                         // Keep the alignment label readable even when the transition is only a few pixels wide.
-                        let label = filmcraft_edit::transitions::alignment(&tr, cut, rate.frame_duration()).label();
+                        let label = filmcraft_edit::transitions::alignment(&tr, cut, seq.settings.frame_rate.frame_duration()).label();
                         let shown = crate::i18n::t(label);
                         let label_width = painter.layout_no_wrap(shown.to_string(), Tokens::ui(11.0), app.tokens.accent).size().x + 8.0;
                         let label_rect = Rect::from_center_size(pos2(p.x, row.rect.top() + 10.0), vec2(label_width, 15.0));
