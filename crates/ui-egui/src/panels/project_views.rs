@@ -241,12 +241,6 @@ pub(super) fn item_interactions(app: &mut FilmcraftApp, ui: &egui::Ui, actions: 
     }
 }
 
-/// What Interpret Footage… acts on (#1910): the whole Project selection when the item
-/// right-clicked is part of it, else just that item.
-fn interpret_targets(selection: &[ItemId], id: ItemId) -> Vec<ItemId> {
-    if selection.contains(&id) { selection.to_vec() } else { vec![id] }
-}
-
 fn item_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, id: ItemId, kind: &ItemKind, actions: &mut Actions) {
     let sel = || json!({"items": [id.0]});
     if ui.button(tl!("Rename")).clicked() {
@@ -280,7 +274,7 @@ fn item_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, id: ItemId, kind: &ItemK
     let b = ui.button(tl!("Interpret Footage…"));
     app.auto.add("project.itemMenu.interpretFootage", b.rect, tl!("Interpret Footage…"));
     if b.clicked() {
-        let items = interpret_targets(&app.session.state.project_selection, id);
+        let items = menu_targets(&app.session.state.project_selection, id);
         actions.push(("clip.interpretFootage".into(), json!({"items": items.iter().map(|i| i.0).collect::<Vec<_>>()})));
         ui.close();
     }
