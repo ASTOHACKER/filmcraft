@@ -827,3 +827,13 @@ fn swedish_renders_with_bundled_fonts() {
     let letters = entries.iter().flat_map(|(_, _, sv)| sv.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
     assert_bundled_fonts_cover(alphabet.chars().chain(Language::Sv.name().chars()).chain(letters));
 }
+
+#[test]
+fn russian_renders_with_bundled_fonts() {
+    let (entries, _) = catalog::parse_entries(include_str!("ru.tsv"));
+    // the whole alphabet including «ё», even letters no entry uses yet, and every letter, quote,
+    // dash and ellipsis the entries use
+    let alphabet = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»";
+    let letters = entries.iter().flat_map(|(_, _, ru)| ru.chars()).filter(|ch| ch.is_alphabetic() || "«»“”‘’–—…".contains(*ch));
+    assert_bundled_fonts_cover(alphabet.chars().chain(Language::Ru.name().chars()).chain(letters));
+}

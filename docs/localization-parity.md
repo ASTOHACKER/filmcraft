@@ -1,6 +1,6 @@
 # Localization parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (German covers the whole interface; Czech and Polish interface catalogs; Swedish covers the whole interface) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (German covers the whole interface; Czech and Polish interface catalogs; Swedish and Russian cover the whole interface) · **Target:** Adobe Premiere Pro 2026 (26.5.2)
 
 Per-language status of FilmCraft's interface. Premiere 26.5.2 ships 10 interface languages (the
 installed bundle's `.lproj` folders): German, English, Spanish, French, Italian, Japanese, Korean,
@@ -34,16 +34,16 @@ right to left, but Arabic titles are reported broken (#395).
 
 ## Status
 
-Measured 2026-10-10 by counting entries in each catalog. The denominator is the union of all
-catalogs' sources (**3,498 strings**); strings not yet wrapped in `tl!` and engine messages are
+Measured 2026-10-19 by counting entries in each catalog. The denominator is the union of all
+catalogs' sources (**3,593 strings**); strings not yet wrapped in `tl!` and engine messages are
 not in it, so real coverage is somewhat lower than shown. Estimates calibrated from #449 (Japanese,
 whole interface, one PR) at ~4–8 h per language for the catalog plus tests.
 
 | Language | Code | UI strings | Dialogs / tooltips / help | Script support | Native review | Status | To `full` |
 |---|---|---|---|---|---|---|---|
-| English | en | 3,498 (100%, source) | yes; no help docs in-app | Latin | n/a | **full** | — |
+| English | en | 3,593 (100%, source) | yes; no help docs in-app | Latin | n/a | **full** | — |
 | Simplified Chinese | zh-cn | 3,485 (99.6%) | dialogs, Settings, effects, shortcuts, status; engine errors English | CJK font fallback; system IME via winit | not recorded | partial | 6–10 h + review |
-| Spanish | es | 3,496 (99.9%) | as above | Latin | not recorded | partial | 4–8 h + review |
+| Spanish | es | 3,592 (the reference catalog) | as above | Latin | not recorded | partial | 4–8 h + review |
 | Hindi | hi | 0 (0%) | — | **no Devanagari shaping in the interface** | — | none | 30–50 h (shaping in UI + catalog + fonts) |
 | Arabic | ar | 0 (0%) | — | **no RTL interface layout**; fallback fonts and shaping in the interface, captions in reading order, other text in egui's left-to-right run order; titles broken (#395) | — | none | 40–70 h |
 | French | fr | 3,526 (same entries as Spanish, plus the macOS Settings item) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial (#498) | review |
@@ -52,6 +52,7 @@ whole interface, one PR) at ~4–8 h per language for the catalog plus tests.
 | Japanese | ja | 3,487 (99.7%) | as zh-cn; system-font kanji may pick the Chinese fallback (#547) | CJK fonts, vertical title text | not recorded | partial | 4–8 h + review |
 | German | de | 3,590 (same entries as Spanish) | as Spanish | Latin (bundled fonts) | menus yes (#630); the rest not recorded, welcome | partial | review |
 | Korean | ko | 3,573 (same entries as Spanish, plus the macOS Settings item) | as Spanish | installed system Hangul font (Malgun Gothic, Apple SD Gothic Neo, Noto Sans CJK KR…); refused without one | not recorded; welcome | partial (#508) | review; Hangul in craft-fonts for the web |
+| Russian | ru | 3,592 (100%; every Spanish entry) | dialogs, Settings, effects, shortcuts, status; engine errors English | Cyrillic (bundled fonts), «ё» | not recorded; welcome | partial | native review |
 | Vietnamese | vi | 0 (0%) | — | Latin with stacked diacritics (font coverage to check) | — | none | 6–12 h + review |
 | *Other shipped:* Italian | it | 3,573 (same entries as Spanish, plus the macOS Settings item) | as Spanish | Latin (bundled fonts) | not recorded; welcome | partial | review |
 | Czech | cs | 3,617 (all Spanish source keys, plus the playback-resolution label `1/2` the two Work Area Bar commands and the seven audio-output and update strings Spanish lacks) | dialogs, Settings, effects, shortcuts, status; engine errors English | Latin (bundled fonts) | not reviewed | partial | native review |
@@ -65,12 +66,14 @@ Spanish and German catalogs both have 3,590 entries, German every Spanish one. A
 lacks shows in English; no test or build requires a translation. `cargo xtask i18n-report` (also
 printed by `cargo xtask ci`) lists each language's missing strings.
 
-Premiere also ships Italian, which we now cover like Spanish, and Russian (6–10 h).
+Premiere also ships Italian, which we cover like Spanish, and Russian, which now covers the whole
+interface (native review welcome).
 
 **Localization dimension:** 9 of the 12 key languages near-complete (English, Spanish, Japanese,
 Simplified Chinese, French, Portuguese (Brazil), Indonesian, Korean, German), 3 none (Hindi, Arabic,
-Vietnamese); against Premiere's 10 languages we cover 9 well and Russian partly. **~35%, 150–230 h** for all twelve to `full` plus Italian and Russian, of which the script
-work (RTL and complex shaping in the egui interface) is the largest and least parallel part.
+Vietnamese); against Premiere's 10 languages we cover 10 at catalog level, Russian pending native
+review. **~35%, 150–230 h** for the twelve key languages to `full` plus Russian review, of which the
+script work (RTL and complex shaping in the egui interface) is the largest and least parallel part.
 Every language needs native-speaker review (human).
 
 ## Czech catalog quality
@@ -99,6 +102,7 @@ creative effect names, and the shared `Subtitle` key (caption format and graphic
 | 2026-10-26 | minor | Swedish (sv) covers the whole interface (all 3,581 strings); System Language picks it for `sv-*` locales |
 | 2026-10-23 | minor | Missing translations never fail a test or build (they show in English); `cargo xtask i18n-report`, also run by `cargo xtask ci`, lists them per language |
 | 2026-10-19 | minor | Added Czech (`cs`) interface catalog and locale detection; rewrote all catalog rows with a binding glossary; AI-assisted, not yet proofread by a native speaker |
+| 2026-10-19 | major | Russian (ru) covers the whole interface: 3,592 entries (100% of the Spanish catalog), `ru.tsv` translated from the English sources with Premiere-style Russian vocabulary; a font test covers the Russian alphabet including «ё», System Language maps `ru-*`; native review welcome |
 | 2026-10-13 | minor | German (de) covers the whole interface: every entry of the Spanish catalog (3,590); the tests require the core menus and the macOS app menu and reject entries without a Spanish one |
 | 2026-10-11 | minor | German (de) ships the menus (#630): 371 of 3,498 strings (10.6%), native-reviewed; dimension now 2 menus-only, 5 none |
 | 2026-10-10 | major | Created from ROADMAP.md's "Interface localization" section; catalog coverage measured (es 3,496, ja 3,487, zh-cn 3,485, pt-br 348, uk 351 of 3,498); the 12-language table and script-support gaps added |
