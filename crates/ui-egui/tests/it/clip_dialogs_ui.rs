@@ -289,6 +289,31 @@ fn speed_duration_from_the_clip_menu_opens_the_dialog() {
     assert_eq!(got.time_interpolation, filmcraft_project::TimeInterpolation::FrameBlending);
 }
 
+#[test]
+fn speed_duration_reopens_with_the_clips_reverse_state() {
+    let mut d = Driver::new();
+    let c = d.v1(0);
+    d.exec("timeline.select", json!({"clips": [c.id.0]}));
+    d.exec("clip.speedDuration", json!({"speed": 200, "reverse": true}));
+    assert!(d.v1(0).reverse);
+
+    d.menu("clip.speedDuration");
+    let draft = d.app().ui.clip_dialog.as_ref().expect("the dialog opened");
+    assert_eq!(draft.params["reverse"], true, "uses the stored direction, not the positive speed magnitude");
+    assert_eq!(draft.params["speed"], 200.0);
+    d.click("speedDuration.cancel");
+    assert!(d.v1(0).reverse, "Cancel retains reverse playback");
+
+    d.menu("clip.speedDuration");
+    d.click("speedDuration.ok");
+    assert!(d.v1(0).reverse, "accepting unchanged settings retains reverse playback");
+    assert_eq!(d.v1(0).speed, 2.0);
+    d.menu("clip.speedDuration");
+    d.click("speedDuration.reverse");
+    d.click("speedDuration.ok");
+    assert!(!d.v1(0).reverse, "the checkbox can explicitly restore forward playback");
+}
+
 /// #786: the clip's right-click Label menu lists the labels by the user's names (with their
 /// colours, as Edit ▸ Label does) and each choice labels the clip.
 #[test]
