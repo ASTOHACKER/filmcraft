@@ -187,9 +187,6 @@ fn mp4_durations(ts: u32, durations: &[u32]) -> Arc<[u8]> {
     w.finish().unwrap().into_inner().into()
 }
 
-/// Files that are not a constant rate gone slightly off its grid keep their own times: whatever is
-/// asked (each frame's start, the unit before it, every 30 fps grid point), the frame shown is the
-/// last one starting at or before it.
 ///
 /// A clip whose frame times were rounded to whole milliseconds inside a 90 kHz track (#1700). A
 /// 30 fps clip's durations are 2970 and 3060 units in turn, and a 60 fps clip's 1440 and 1530; the
@@ -222,6 +219,9 @@ fn mp4_ms_rounded_frame_times_get_back_to_a_standard_rate() {
     assert!(failures.is_empty(), "mov:\n{}", failures.join("\n"));
 }
 
+/// Files that are not a constant rate gone slightly off its grid keep their own times: whatever is
+/// asked (each frame's start, the unit before it, every 30 fps grid point), the frame shown is the
+/// last one starting at or before it.
 #[test]
 fn mp4_variable_rate_and_on_grid_frame_times_stay_put() {
     let cases: [(&str, Vec<u32>); 5] = [
