@@ -68,10 +68,8 @@ Frame has no default key; the Premiere preset moves Shift+E to Export Frame and 
 
 FilmCraft's shortcut engine runs on egui, which maps numpad digits to the same `Key::Num*` variants as the main keyboard row. This means **numpad digits cannot currently be bound independently** of their main-keyboard equivalents — binding `0` on the numpad binds `0` everywhere, and vice versa.
 
-This is a known upstream egui limitation (egui does not yet expose distinct `Key::Numpad*` variants). Until that is resolved:
+This is because egui reports numpad digits as the main-row digit keys (it does not expose distinct `Key::Numpad*` variants).
 
-- Prefer letter keys or function keys for shortcuts that should fire on the numpad only.
-- The **JKL shuttle** (`J` = reverse, `K` = pause, `L` = forward) is the recommended scrubbing shortcut set and does not conflict with numpad use.
 - `0` is bound to **Multi-Camera Record On/Off Toggle** in the Premiere-compatible preset; rebind it if you rely on numpad `0` for something else (Edit ▸ Keyboard Shortcuts…).
 
 See [#2645](https://github.com/storytold/filmcraft/issues/2645) for upstream egui tracking.
