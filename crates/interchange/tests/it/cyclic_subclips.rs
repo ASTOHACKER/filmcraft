@@ -65,17 +65,17 @@ fn cyclic_subclips_do_not_stack_overflow_on_any_interchange_export() {
 
     // Place all items on timeline sequences (both video and audio)
     let seq = sequence(&mut p, "Timeline with cyclic clips", r, false);
-    clip(&mut p, seq, TrackKind::Video, 0, sub2, 0, 50, 0);
-    clip(&mut p, seq, TrackKind::Video, 0, self_cycle, 50, 50, 0);
-    clip(&mut p, seq, TrackKind::Video, 0, cycle_a, 100, 50, 0);
-    clip(&mut p, seq, TrackKind::Video, 0, cycle_b, 150, 50, 0);
-    clip(&mut p, seq, TrackKind::Video, 0, too_deep, 200, 50, 0);
-    clip(&mut p, seq, TrackKind::Video, 0, missing_parent, 250, 50, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, sub2, 0..50, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, self_cycle, 50..100, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, cycle_a, 100..150, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, cycle_b, 150..200, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, too_deep, 200..250, 0);
+    clip(&mut p, seq, TrackKind::Video, 0, missing_parent, 250..300, 0);
 
-    clip(&mut p, seq, TrackKind::Audio, 0, sub2, 0, 50, 0);
-    clip(&mut p, seq, TrackKind::Audio, 0, self_cycle, 50, 50, 0);
-    clip(&mut p, seq, TrackKind::Audio, 0, cycle_a, 100, 50, 0);
-    clip(&mut p, seq, TrackKind::Audio, 0, too_deep, 200, 50, 0);
+    clip(&mut p, seq, TrackKind::Audio, 0, sub2, 0..50, 0);
+    clip(&mut p, seq, TrackKind::Audio, 0, self_cycle, 50..100, 0);
+    clip(&mut p, seq, TrackKind::Audio, 0, cycle_a, 100..150, 0);
+    clip(&mut p, seq, TrackKind::Audio, 0, too_deep, 200..250, 0);
 
     // Verify ALE export skips cyclic items without hanging
     let ale_doc = export_items(&p, &[media_id, sub1, sub2, self_cycle, cycle_a, cycle_b, too_deep, missing_parent]);

@@ -238,6 +238,7 @@ fn transition_duration_is_clamped_to_what_the_cut_supports() {
     // zero-length transition.
     let items = &mut std::sync::Arc::make_mut(&mut s.project).sequence_mut(sid).unwrap().track_mut(track).unwrap().items;
     items[1].duration = Tick(0);
-    let err = preview_transition(&s, &json!({"effect": "cross_dissolve", "clip": clips[1].0, "edge": "in", "frames": 5}), TrackKind::Video).unwrap_err().to_string();
+    let err =
+        preview_transition(&s, &json!({"effect": "cross_dissolve", "clip": clips[1].0, "edge": "in", "frames": 5}), TrackKind::Video).unwrap_err().to_string();
     assert!(err.contains("no room for a transition"), "{err}");
 }

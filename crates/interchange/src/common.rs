@@ -818,7 +818,7 @@ mod tests {
         let media_id = p.add_item(
             "Clip",
             Label::Iris,
-            ItemKind::Media(MediaClip {
+            ItemKind::Media(Box::new(MediaClip {
                 media: MediaRef::File { path: "/path/to/clip.mp4".into() },
                 info,
                 interpret: Default::default(),
@@ -828,7 +828,7 @@ mod tests {
                 offline: false,
                 proxy: None,
                 identity: None,
-            }),
+            })),
             None,
         );
 
