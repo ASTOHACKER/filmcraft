@@ -56,6 +56,7 @@ mod scripted;
 mod selection_highlight_ui;
 mod sequence_tabs_ui;
 mod sequence_ui;
+mod settings_menus_ui;
 mod settings_ui;
 mod shared_docking_ui;
 mod source_drag_ui;

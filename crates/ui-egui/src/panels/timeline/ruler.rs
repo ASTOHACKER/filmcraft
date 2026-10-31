@@ -73,7 +73,8 @@ pub(super) fn draw_top(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, se
             };
         }
         if key == "settings" {
-            egui::Popup::menu(&resp).show(|ui| timeline_settings(app, ui));
+            // stays open while options are toggled: only a click outside it (or an action) closes it
+            egui::Popup::menu(&resp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| timeline_settings(app, ui));
         }
         x += 30.0;
     }
@@ -235,9 +236,11 @@ fn timeline_settings(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
     if ui.button(tl!("Expand All Tracks")).clicked() {
         app.ui.timeline.video_track_h = 64.0;
         app.ui.timeline.audio_track_h = 64.0;
+        ui.close();
     }
     if ui.button(tl!("Minimize All Tracks")).clicked() {
         app.ui.timeline.video_track_h = 26.0;
         app.ui.timeline.audio_track_h = 26.0;
+        ui.close();
     }
 }
