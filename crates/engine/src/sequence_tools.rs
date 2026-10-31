@@ -618,7 +618,6 @@ fn make_subsequence(s: &mut Session, p: &Value) -> Result<Value> {
         }
         for tr in nq.all_tracks_mut() {
             tr.sort();
-            edit::remove_orphan_transitions(tr);
         }
         nq.check().map_err(EngineError::Other)?;
         st.project_selection = vec![nid];
@@ -737,7 +736,6 @@ pub(crate) fn place_sequence_clips(s: &mut Session, placement: crate::commands::
         }
         for tr in seq.all_tracks_mut() {
             tr.sort();
-            edit::remove_orphan_transitions(tr);
         }
         seq.check().map_err(EngineError::Other)?;
         if insert
