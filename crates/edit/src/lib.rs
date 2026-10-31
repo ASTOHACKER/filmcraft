@@ -696,6 +696,13 @@ fn media_len(ctx: &EditCtx, item: &TrackItem) -> Option<Tick> {
 
 /// Media available before a clip's source In (its head handle, media ticks).
 fn head(ctx: &EditCtx, item: &TrackItem) -> Tick {
+    // media with no length (an image, graphic, or adjustment layer, ..) has no set time,
+    // therefore head limit does not apply, like its tail.
+    // its source_in may go below 0, which keeps its keyframes true to timeline position (#3367).
+    // checked before frame hold, so a held one with a negative source_in still has no limit.
+    if (ctx.media_duration)(item.item).is_none() {
+        return Tick::MAX;
+    }
     if item.frame_hold.is_some() {
         return item.source_in;
     }
@@ -1010,7 +1017,15 @@ pub fn slip(seq: &mut Sequence, clip: ClipId, delta_media: Tick, ctx: &mut EditC
     let (_, it) = seq.find_item(clip).ok_or(EditError::NoItem(clip))?;
     let used = src_of(it.duration, it.speed);
     let max_in = media_len(ctx, it).map(|m| m - used).unwrap_or(Tick::MAX);
-    let lo = if it.frame_hold.is_some() { Tick::ZERO } else { (ctx.media_start)(it.item) };
+    let lo = if (ctx.media_duration)(it.item).is_none() {
+        // media with no length has no set time, therefore no floor either.
+        // its source_in can already be below 0 from a left extension (#3367).
+        Tick::MIN
+    } else if it.frame_hold.is_some() {
+        Tick::ZERO
+    } else {
+        (ctx.media_start)(it.item)
+    };
     let new_in = (it.source_in + delta_media).clamp(lo, max_in.max(lo));
     let d = new_in - it.source_in;
     let (_, it) = seq.find_item_mut(clip).ok_or(EditError::NoItem(clip))?;
