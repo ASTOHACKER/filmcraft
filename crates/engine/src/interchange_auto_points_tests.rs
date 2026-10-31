@@ -310,7 +310,7 @@ fn fcpxml_video_still_can_be_relinked_after_save_and_reopen() {
     for frame in [0, 150, 299] {
         let (w, h, rgba) = crate::media_test_util::frame_rgba(&mut reopened, frame, 1.0);
         assert_eq!((w, h), (16, 16));
-        assert!(rgba.chunks_exact(4).all(|p| p == [255, 0, 0, 255]), "the relinked still must render for the whole clip");
+        assert!(rgba.as_chunks::<4>().0.iter().all(|p| *p == [255, 0, 0, 255]), "the relinked still must render for the whole clip");
     }
 
     // When the original path exists, normal import links it without a separate relink step.

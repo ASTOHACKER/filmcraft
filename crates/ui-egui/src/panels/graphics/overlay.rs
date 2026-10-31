@@ -334,6 +334,17 @@ fn press(
     }
 }
 
+/// The layers a move takes along: every selected layer when the pressed one is selected.
+fn move_group<'a>(views: &'a [LayerView], pressed: Option<&'a LayerView>, d: DragState, sel_clip: Option<ClipId>, sel_layers: &[usize]) -> Vec<&'a LayerView> {
+    match pressed {
+        Some(_) if Some(d.clip) == sel_clip && sel_layers.contains(&d.layer) => {
+            views.iter().filter(|x| x.clip == d.clip && sel_layers.contains(&x.layer)).collect()
+        }
+        Some(v) => vec![v],
+        None => Vec::new(),
+    }
+}
+
 /// Draw the in-flight drag (a ghost box, the moved outline, snap lines) and, when the button
 /// comes up, commit it as actions.
 #[allow(clippy::too_many_arguments)]
@@ -358,14 +369,7 @@ fn drag_step(
     if let Some(d) = drag {
         let cur = resp.interact_pointer_pos().or(hover).unwrap_or(d.start);
         let v = views.iter().find(|v| v.clip == d.clip && v.layer == d.layer);
-        // the layers a move takes along: every selected layer when the pressed one is selected
-        let group: Vec<&LayerView> = match v {
-            Some(_) if Some(d.clip) == sel_clip && sel_layers.contains(&d.layer) => {
-                views.iter().filter(|x| x.clip == d.clip && sel_layers.contains(&x.layer)).collect()
-            }
-            Some(v) => vec![v],
-            None => Vec::new(),
-        };
+        let group = move_group(views, v, d, sel_clip, sel_layers);
         // Snap in Program Monitor (hold ⌘/Ctrl to move freely); a group snaps by its outline
         let snap_off = match (d.kind, group.first()) {
             (DragKind::Move, Some(_)) if !ui.input(|i| i.modifiers.command) => {

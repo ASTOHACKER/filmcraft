@@ -84,7 +84,7 @@ fn draw_picture(app: &mut FilmcraftApp, ui: &mut egui::Ui, which: Which, mv: &cr
     let project = app.session.project.clone();
     let speed = if which == Which::Program { app.playback.speed } else { app.source_playback.clock.speed };
     // while playing, which way: frames on the other side of the playhead are not due yet
-    let dir = playing.then_some(if speed < 0.0 { -1 } else { 1 });
+    let dir = playing.then(|| play_direction(speed));
     if playing {
         let preroll = which == Which::Program && app.playback.preroll.is_some();
         app.frames.schedule_playback(key, rate, scale, &project, speed, preroll);
@@ -569,6 +569,11 @@ fn asked_before(app: &mut FilmcraftApp, prefix: &str, key: FrameKey, playing: bo
         asked.pop_front();
     }
     before
+}
+
+/// 1 when playing forward, -1 backward.
+fn play_direction(speed: f64) -> i64 {
+    if speed < 0.0 { -1 } else { 1 }
 }
 
 /// While playing, a frame to show when the one due is not ready at the project's revision: the
