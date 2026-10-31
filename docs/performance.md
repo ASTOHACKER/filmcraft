@@ -447,6 +447,34 @@ the encoder's hand-off). Only NVENC, whose encode is light on the CPU, comes clo
 encoder waits for the renderer), as expected. 1080p exports use 70-160 MB more (the second batch of 16
 frames); 4K exports use less than before because the batch is smaller (8 for SDR, 2 for HDR instead of 16).
 
+## Results (playback while an export of the same file runs, shared → own decoders)
+
+An export, Render Previews and proxy jobs read the media pool's sources, the ones the monitors
+read. Each source has one GOP cache, so one decoder, behind a lock: playing a clip while it was
+exported made the monitor and the export take turns on that decoder, which seeked from the
+export's frame to the playhead's and back for every request. Background jobs now open their own
+copy of each file they can stream (`MediaPool::own_source`, `PoolProvider::own_sources`) and drop
+it when they end; generators, image sequences, offline media and files a host can only read whole
+still share the pool's source.
+
+Release builds of the same commit, 2026-10-30, Apple M4 Max (16 cores), a 90 s 3840×2160 60 fps
+H.264 High clip at 78 Mbit/s (VideoToolbox hardware decoding), driven over the control channel:
+12 s of Program-monitor playback while an H.264 export of the same clip runs (hardware encoding),
+two runs each.
+
+| | shared | **own** |
+|---|---|---|
+| frames shown / dropped | 46/669, 45/670 | **550/165, 715/1** |
+| monitor decode p95 | 282, 288 ms | **30, 24 ms** |
+| decoder seeks in the 12 s | 121, 114 | **0, 0** |
+| decoder time in the 12 s | 10.7, 10.5 s | **6.2, 5.0 s** |
+| hardware decoding sessions | 1 | **2** |
+| export, with the playback | 94.8, 97.6 s | **90.3, 89.7 s** |
+| export alone | 89.3, 91.5 s | **88.4, 82.0 s** |
+
+The export's copy costs a second decoder and up to one more GOP cache of frames (384 MB at most)
+while it runs. A monitor playing a different file than the export dropped no frames either way.
+
 ## Results (CPU H.264 export: encoder work and colour conversion, before → after)
 
 `cargo run --release -p filmcraft-engine --example bench_export -- --runs 1`: 10 s of 1080p23.976

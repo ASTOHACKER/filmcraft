@@ -65,6 +65,23 @@ fn export_without_wait_says_where_to_poll() {
     assert!(r.get("poll").is_none() && r["result"].is_object(), "{r}");
 }
 
+/// An export reads its own copy of each file, not the source the monitors read: the two would
+/// otherwise take turns on one decoder, seeking it between the export's frame and the playhead's
+/// (93 % of a 4K60 playback's frames dropped while an export of the same file ran).
+#[test]
+fn an_export_does_not_read_the_monitors_source() {
+    let movie = crate::media_test_util::tmp_dir("export-own-source").join("a.mp4");
+    crate::media_test_util::make_movie(&movie, filmcraft_media::DemoScene::Dunes, 64, 36, 12);
+    let (mut s, items, seq) = crate::media_test_util::session_with(&[&movie]);
+    s.media.clear();
+    let dir = Scratch::new("own-source");
+    let out = dir.path("a.mp4");
+    let r = s.execute("file.exportMedia", json!({"sequence": seq.0, "path": out, "format": "h264", "wait": true})).unwrap();
+    assert!(r["result"].is_object(), "{r}");
+    assert!(std::fs::metadata(&out).is_ok_and(|m| m.len() > 0));
+    assert!(s.media.cached(items[0]).is_none(), "the export opened the monitors' source");
+}
+
 /// A scratch directory under the workspace `target/`, removed when dropped.
 struct Scratch(PathBuf);
 

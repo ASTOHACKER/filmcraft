@@ -284,6 +284,7 @@ fn start_job(s: &mut Session, label: String, work: Vec<(ItemId, ReservedOutput, 
         }
         crate::media_queue::MEDIA_JOBS.ticket()
     };
+    let (pool, project, services) = (s.media.clone(), s.project.clone(), s.services.clone());
     let run = move || {
         // a job cancelled while it waits raises the same flag the loop below checks
         #[cfg(not(target_arch = "wasm32"))]
@@ -299,6 +300,9 @@ fn start_job(s: &mut Session, label: String, work: Vec<(ItemId, ReservedOutput, 
             }
             *prog.status.lock().unwrap_or_else(|e| e.into_inner()) = format!("{name} ({} of {n})", k + 1);
             let out = output.path().to_string_lossy().into_owned();
+            // its own copy of the file, opened here rather than on the main thread, so the
+            // monitors keep their decoder
+            let src = pool.own_source(&project, item, &*services).unwrap_or(src);
             match transcode_with_file(&clip, &name, src, None, Dest { path: &out, file: output.file() }, pr, &prog) {
                 Ok(r) => {
                     bytes += r.bytes;
