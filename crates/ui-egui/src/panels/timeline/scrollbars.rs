@@ -1,5 +1,6 @@
 use super::layout::{min_pps, timeline_extent};
 use super::{Drag, FilmcraftApp, Rect, Sense, Stroke, Tokens, pos2, vec2};
+use crate::widgets::ZoomThumbPart;
 
 /// The narrowest the zoom scroll bar's thumb gets: room for its two handles and a part between
 /// them to grab.
@@ -57,15 +58,14 @@ pub(super) fn zoom_scrollbar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rec
     if resp.drag_started()
         && let Some(pos) = ui.input(|i| i.pointer.press_origin()).or(resp.interact_pointer_pos())
     {
-        let mode = if !thumb.expand2(vec2(0.0, 4.0)).contains(pos) {
+        let part = ZoomThumbPart::at(thumb, pos);
+        if part == ZoomThumbPart::Beside {
             jump(&mut app.ui.timeline, pos.x);
-            0
-        } else if (pos.x - thumb.min.x).abs() < 9.0 {
-            1
-        } else if (pos.x - thumb.max.x).abs() < 9.0 {
-            2
-        } else {
-            0
+        }
+        let mode = match part {
+            ZoomThumbPart::Left => 1,
+            ZoomThumbPart::Right => 2,
+            ZoomThumbPart::Beside | ZoomThumbPart::Middle => 0,
         };
         app.tl.drag = Some(Drag::ZoomBar { grab: pos.x, start: app.ui.timeline.target_scroll, start_pps: app.ui.timeline.target_pps, mode });
     }
@@ -112,6 +112,7 @@ pub(super) fn zoom_scrollbar(app: &mut FilmcraftApp, ui: &mut egui::Ui, bar: Rec
     if resp.drag_stopped() {
         app.tl.drag = None;
     }
+    crate::widgets::zoom_thumb_cursor(ui, &resp, thumb, matches!(app.tl.drag, Some(Drag::ZoomBar { mode: 1 | 2, .. })));
 }
 
 pub(super) fn vertical_scrollbar(ui: &mut egui::Ui, bar: Rect, value: &mut f32, max: f32, invert: bool, t: &Tokens, id: &str) {
