@@ -8,6 +8,7 @@ mod media_marker_export;
 mod nested_sequence_markers;
 mod otio;
 mod point_markers;
+mod rates;
 mod support;
 mod uncarried_clips;
 mod wav_extensible;

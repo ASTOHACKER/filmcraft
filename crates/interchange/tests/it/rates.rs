@@ -1,5 +1,5 @@
 //! Frame rates and start timecodes a hostile document carries are bounded on import, so no export
-//! overflows its frame arithmetic. (FCP7 `timebase` and start-timecode cases: `tests/fcp7.rs`.)
+//! overflows its frame arithmetic. (FCP7 `timebase` and start-timecode cases: `tests/it/fcp7.rs`.)
 
 use filmcraft_interchange::{ExportOptions, Format, export, import};
 
@@ -59,8 +59,7 @@ fn aaf_and_omf_start_timecodes_are_bounded() {
     use filmcraft_interchange::{ImportOptions, aaf, omf};
     use filmcraft_project::{Project, TrackKind};
     use filmcraft_time::FrameRate;
-    #[path = "support/mod.rs"]
-    mod support;
+    use super::support;
     let r = FrameRate::FPS_25;
     let mut p = Project::new("t");
     let a = support::media(&mut p, "/media/A.mov", true, true, r);

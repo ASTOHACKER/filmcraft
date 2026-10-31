@@ -37,7 +37,7 @@ the default rate and reported). Also, a sequence
 or media rate beyond it (an FCPXML `frameDuration` of `1/9223372036854775807s`) is reset to the
 default with a warning: such a rate overflowed the frame arithmetic of every export. Sequence and
 media start timecodes beyond 360 000 000 000 frames are reset the same way. Covered by
-`tests/rates.rs` (including the warnings), `src/common.rs` (`rates`) and `tests/fcp7.rs` (`absurd_start_timecode_is_bounded`).
+`tests/it/rates.rs` (including the warnings), `src/common.rs` (`rates`) and `tests/it/fcp7.rs` (`absurd_start_timecode_is_bounded`).
 
 ## AAF and OMF
 
