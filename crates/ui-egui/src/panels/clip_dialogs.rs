@@ -1,6 +1,6 @@
 //! Edit / Clip / File menu dialogs (M3.10): Paste Attributes, Remove Attributes, Offline File,
 //! Make Subclip, Edit Subclip, Modify ▸ Audio Channels, Modify ▸ Timecode, Frame Hold Options,
-//! Field Options, Clip Speed / Duration, Nest… (Nested Sequence Name), and the Close Project and
+//! Field Options, Clip Speed / Duration, Nest… (Nested Sequence Name), Rename…, and the Close Project and
 //! Quit "save changes?" prompts.
 //!
 //! The open dialog lives in `UiState::clip_dialog` (serde): the engine command it runs and the
@@ -16,6 +16,7 @@
 //! - Offline File `offlineFile.*`: `fileName`, `name`, `tapeName`, `video`, `audio`, `width`,
 //!   `height`, `fps`, `timecode`, `seconds`, `description`;
 //! - Nested Sequence Name `nest.*`: `name`;
+//! - Rename `rename.*`: `name` (the selected clip, its linked partners, or Project item);
 //! - Make Subclip `makeSubclip.*`: `name`, `startFrame`, `endFrame`, `restrictTrims`;
 //! - Edit Subclip `editSubclip.*`: `startFrame`, `endFrame`, `restrictTrims`, `convertToMaster`;
 //! - Audio Channels `audioChannels.*`: `format.<mono|stereo|5.1|adaptive>`, `count`,
@@ -24,7 +25,7 @@
 //! - Frame Hold Options `frameHold.*`: `enabled`, `holdOn.<in|out|playhead|sourceTimecode|sequenceTime>`,
 //!   `timecode`, `holdFilters`;
 //! - Field Options `fieldOptions.*`: `reverseFieldDominance`, `processing.<none|alwaysDeinterlace|flickerRemoval>`;
-//! - Clip Speed / Duration `speedDuration.*`: `speed`, `reverse`, `ripple`,
+//! - Clip Speed / Duration `speedDuration.*`: `speed`, `duration`, `reverse`, `ripple`,
 //!   `interpolation.<frameSampling|frameBlending|opticalFlow>`;
 //! - Close Project `closeProject.save`, `closeProject.dontSave`, `closeProject.cancel`;
 //! - Quit (asked when the window is closed with unsaved changes, see [`intercept_quit`])
@@ -60,6 +61,7 @@ fn meta(command: &str) -> Option<(&'static str, &'static str)> {
         "clip.frameHoldOptions" => (tl!("Frame Hold Options"), "frameHold"),
         "clip.fieldOptions" => (tl!("Field Options"), "fieldOptions"),
         "clip.speedDuration" => (tl!("Clip Speed / Duration"), "speedDuration"),
+        "clip.rename" => (tl!("Rename"), "rename"),
         "file.closeProject" => (tl!("Save Project"), "closeProject"),
         "app.quit" => (tl!("Save Project"), "quit"),
         _ => return None,
@@ -85,6 +87,27 @@ fn hold_on() -> [(&'static str, &'static str); 5] {
     ]
 }
 
+/// What Clip ▸ Rename… renames, with its current name: the selected Project item when the Project
+/// panel has focus, else the selected Timeline clip (with its linked partners when they are
+/// selected too), else the one selected Project item. None when that is ambiguous or empty.
+fn rename_target(app: &FilmcraftApp) -> Option<Value> {
+    let s = &app.session;
+    let item = || match s.state.project_selection[..] {
+        [i] => s.project.item(i).map(|it| json!({"item": i.0, "name": it.name})),
+        _ => None,
+    };
+    if app.ui.focused == crate::dock::PanelKind::Project {
+        return item();
+    }
+    let sel = &s.state.selection;
+    let Some(&first) = sel.first() else { return item() };
+    let q = s.active_sequence()?;
+    let (_, it) = q.find_item(first)?;
+    // one clip, or one linked picture and its sound
+    let one = sel.len() == 1 || (it.link.is_some() && sel.iter().all(|c| q.find_item(*c).is_some_and(|(_, o)| o.link == it.link)));
+    one.then(|| json!({"clips": sel.iter().map(|c| c.0).collect::<Vec<_>>(), "name": it.name}))
+}
+
 /// Menu / shortcut entry points without params open a dialog. Returns None for other ids.
 pub fn route(app: &mut FilmcraftApp, id: &str, params: &Value) -> Option<Result<Value, String>> {
     let empty = params.as_object().is_none_or(|m| m.is_empty());
@@ -104,6 +127,11 @@ pub fn route(app: &mut FilmcraftApp, id: &str, params: &Value) -> Option<Result<
         return None;
     }
     meta(id)?;
+    if id == "clip.rename" && rename_target(app).is_none() {
+        let e = tl!("Select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename").to_string();
+        app.ui.status = e.clone();
+        return Some(Err(e));
+    }
     if let Err(e) = filmcraft_engine::find_command(id).map_or(Ok(()), |c| (c.enabled)(&app.session)) {
         app.ui.status = e.clone();
         return Some(Err(e));
@@ -174,6 +202,7 @@ fn defaults(app: &FilmcraftApp, id: &str) -> (Value, Value) {
             )
         }
         "clip.nest" => (json!({"name": filmcraft_engine::commands::next_nested_name(s)}), Value::Null),
+        "clip.rename" => (rename_target(app).unwrap_or(Value::Null), Value::Null),
         "clip.makeSubclip" => {
             let d = filmcraft_engine::clip_ops::subclip_defaults(s, &json!({})).unwrap_or_else(|| json!({}));
             (json!({"name": d["name"], "startFrame": d["startFrame"], "endFrame": d["endFrame"], "restrictTrims": true}), json!({"fps": d["fps"]}))
@@ -326,6 +355,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let id = egui::Id::unique(("clip-dialog", pre));
     egui::Window::new(title).id(id).collapsible(false).resizable(false).default_width(360.0).centered(ctx).show(ctx, |ui| {
         let p = &mut d.params;
+        let mut valid = true;
         match d.command.as_str() {
             "edit.pasteAttributes" | "edit.removeAttributes" => {
                 let (v, a) = (d.info["video"].as_bool().unwrap_or(true), d.info["audio"].as_bool().unwrap_or(true));
@@ -397,6 +427,27 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
                         action = Some("ok");
                     }
                     let first = egui::Id::unique("nest-name-focused");
+                    if !ui.data(|d| d.get_temp::<bool>(first).unwrap_or(false)) {
+                        ui.data_mut(|d| d.insert_temp(first, true));
+                        r.request_focus();
+                    }
+                });
+            }
+            "clip.rename" => {
+                // the current name is ready to type over, and Enter accepts it
+                let mut v = p["name"].as_str().unwrap_or_default().to_string();
+                ui.horizontal(|ui| {
+                    ui.label(tl!("Name:"));
+                    let id = egui::Id::unique("rename-name");
+                    let r = ui.add(egui::TextEdit::singleline(&mut v).desired_width(240.0).id(id));
+                    push(&mut elems, format!("{pre}.name"), &r, "Name:");
+                    if r.changed() {
+                        p["name"] = json!(v);
+                    }
+                    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        action = Some("ok");
+                    }
+                    let first = egui::Id::unique("rename-name-focused");
                     if !ui.data(|d| d.get_temp::<bool>(first).unwrap_or(false)) {
                         ui.data_mut(|d| d.insert_temp(first, true));
                         r.request_focus();
@@ -528,17 +579,32 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
             }
             "clip.speedDuration" => {
                 number(ui, &mut elems, pre, p, "speed", tl!("Speed:"), NumberOptions { range: 0.01..=100_000.0, suffix: " %" });
-                // Duration follows the speed: the media shown stays the same
+                // Both fields describe the same source span. Keep typed text until the speed
+                // changes, so incomplete input survives frames and cannot accidentally apply.
                 let (dur, was, fps) =
                     (d.info["duration"].as_i64().unwrap_or(0), d.info["speed"].as_f64().unwrap_or(1.0), d.info["fps"].as_f64().unwrap_or(24.0));
+                let rate = filmcraft_time::FrameRate::from_f64(if fps.is_finite() && fps > 0.0 { fps } else { 24.0 });
                 let now = p["speed"].as_f64().unwrap_or(100.0) / 100.0;
-                if dur > 0 && now > 0.0 {
-                    let rate = filmcraft_time::FrameRate::from_f64(if fps > 0.0 { fps } else { 24.0 });
-                    let ticks = filmcraft_time::Tick((dur as f64 * was / now).round() as i64);
-                    ui.horizontal(|ui| {
-                        ui.label(tl!("Duration:"));
-                        ui.label(RichText::new(filmcraft_time::format_timecode_frames(rate.frame_at(ticks), rate, false)).monospace());
-                    });
+                let refresh_duration = p["duration"].is_null() || d.info["durationSpeed"] != p["speed"];
+                if refresh_duration {
+                    let ticks =
+                        if now.is_finite() && now > 0.0 { filmcraft_time::Tick((dur as f64 * was / now).round() as i64) } else { filmcraft_time::Tick::ZERO };
+                    // Match the speed command's minimum applied duration of one frame.
+                    p["duration"] = json!(filmcraft_time::format_timecode_frames(rate.frame_at(ticks).max(1), rate, false));
+                }
+                let before = if refresh_duration { p["duration"].clone() } else { d.info["durationText"].clone() };
+                text(ui, &mut elems, pre, p, "duration", tl!("Duration:"), 120.0);
+                let frames = filmcraft_time::parse_timecode(p["duration"].as_str().unwrap_or_default(), rate, false, 0);
+                let speed =
+                    frames.ok().filter(|f| *f > 0).map(|f| rate.tick_of(f)).filter(|ticks| ticks.0 > 0).map(|ticks| dur as f64 * was * 100.0 / ticks.0 as f64);
+                valid = speed.is_some_and(|speed| speed.is_finite() && (0.01..=100_000.0).contains(&speed));
+                if valid && before != p["duration"] {
+                    p["speed"] = json!(speed);
+                }
+                d.info["durationSpeed"] = p["speed"].clone();
+                d.info["durationText"] = p["duration"].clone();
+                if !valid {
+                    ui.colored_label(egui::Color32::from_rgb(0xe0, 0x60, 0x60), tl!("Enter a positive duration within the supported speed range."));
                 }
                 check(ui, &mut elems, pre, p, "reverse", tl!("Reverse Speed"), true);
                 check(ui, &mut elems, pre, p, "ripple", tl!("Ripple Edit, Shifting Trailing Clips"), true);
@@ -585,7 +651,7 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
             if r.clicked() {
                 action = Some("cancel");
             }
-            let r = ui.button(tl!("OK"));
+            let r = ui.add_enabled(valid, egui::Button::new(tl!("OK")));
             push(&mut elems, format!("{pre}.ok"), &r, "OK");
             if r.clicked() {
                 action = Some("ok");
@@ -599,7 +665,10 @@ pub fn show(app: &mut FilmcraftApp, ctx: &egui::Context) {
         action = Some("cancel");
     }
     if action.is_some() {
-        ctx.data_mut(|d| d.remove::<bool>(egui::Id::unique("nest-name-focused")));
+        ctx.data_mut(|d| {
+            d.remove::<bool>(egui::Id::unique("nest-name-focused"));
+            d.remove::<bool>(egui::Id::unique("rename-name-focused"));
+        });
     }
     match action {
         Some("cancel") => {
@@ -697,6 +766,9 @@ fn leave(app: &mut FilmcraftApp, ctx: &egui::Context, command: &str) {
 fn finish(d: &ClipDialogDraft) -> Value {
     let mut p = d.params.clone();
     match d.command.as_str() {
+        "clip.speedDuration" => {
+            p.as_object_mut().map(|m| m.remove("duration"));
+        }
         "file.newOfflineFile" if p["name"].as_str().is_some_and(str::is_empty) => {
             p.as_object_mut().map(|m| m.remove("name"));
         }

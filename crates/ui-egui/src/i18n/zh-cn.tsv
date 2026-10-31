@@ -1179,7 +1179,7 @@
 	New Bin	新建素材箱
 	Find	查找
 	Automate to Sequence	自动适配到序列
-	Select items to clear	选择要清除的项目
+	Select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename	在时间轴中选择一个剪辑（或一个链接的剪辑），或在项目面板中选择一个项目，以进行重命名
 	User Order	用户顺序
 	Descending	降序
 	Refresh Project	刷新项目
@@ -3592,7 +3592,6 @@
 	Export the labels to a preset file…	将标签导出为预设文件…
 	Show the presets folder	显示预设文件夹
 	Delete this preset	删除此预设
-	Opens in your web browser: {url}	在网页浏览器中打开：{url}
 	Saves this session's log and shows it in your file manager.	保存本次会话的日志并在文件管理器中显示。
 	Shows a report on this computer.	显示本机的报告。
 	Shows the version, community links and credits in a FilmCraft window.	在 FilmCraft 窗口中显示版本、社区链接和致谢。
@@ -3606,6 +3605,11 @@
 	No matching text.	没有匹配的文本。
 	H.265 (HEVC) needs a hardware encoder (NVENC on NVIDIA GPUs, VideoToolbox on macOS); none was found on this machine, and FilmCraft has no software H.265 encoder yet. Choose H.264 or ProRes instead.	H.265 (HEVC) 需要硬件编码器（NVIDIA GPU 上的 NVENC、macOS 上的 VideoToolbox）；本机未找到，且 FilmCraft 尚无软件 H.265 编码器。请改选 H.264 或 ProRes。
 	AV1 needs a hardware encoder; none was found on this machine, and FilmCraft has no software AV1 encoder yet.	AV1 需要硬件编码器；本机未找到，且 FilmCraft 尚无软件 AV1 编码器。
+	Enter a positive duration within the supported speed range.	请输入支持的速度范围内的正时长。
+	Show Video Names	显示视频名称
+	Show Audio Names	显示音频名称
+	Video Names	视频名称
+	Audio Names	音频名称
 
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	控制服务器已禁用：FILMCRAFT_CONTROL_TOKEN 必须包含 64 个随机十六进制字符（参见 docs/control-protocol.md）

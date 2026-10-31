@@ -29,6 +29,7 @@ pub mod misc;
 pub mod mixer;
 pub mod monitor;
 pub mod monitor_view;
+pub mod motion_path;
 pub mod multicam;
 pub mod notes;
 pub mod panel_state;
@@ -363,8 +364,14 @@ pub(crate) fn panel_items(app: &mut FilmcraftApp, ui: &mut egui::Ui, p: PanelKin
             let _ = app.session.execute("sequence.revealInProject", serde_json::json!({}));
             close = true;
         }
-        ui.checkbox(&mut app.ui.timeline.show_thumbnails, tl!("Video Thumbnails"));
-        ui.checkbox(&mut app.ui.timeline.show_waveforms, tl!("Audio Waveforms"));
+        let r = ui.checkbox(&mut app.ui.timeline.show_thumbnails, tl!("Video Thumbnails"));
+        app.auto.add("panel.menu.Timeline.videoThumbnails", r.rect, "Video Thumbnails");
+        let r = ui.checkbox(&mut app.ui.timeline.show_waveforms, tl!("Audio Waveforms"));
+        app.auto.add("panel.menu.Timeline.audioWaveforms", r.rect, "Audio Waveforms");
+        let r = ui.checkbox(&mut app.ui.timeline.show_video_names, tl!("Video Names"));
+        app.auto.add("panel.menu.Timeline.videoNames", r.rect, "Video Names");
+        let r = ui.checkbox(&mut app.ui.timeline.show_audio_names, tl!("Audio Names"));
+        app.auto.add("panel.menu.Timeline.audioNames", r.rect, "Audio Names");
         let mut work_area = app.session.active_sequence().is_some_and(|q| q.work_area.is_some());
         let r = ui.add_enabled(app.session.state.active_sequence.is_some(), egui::Checkbox::new(&mut work_area, tl!("Work Area Bar")));
         app.auto.add("panel.menu.Timeline.workAreaBar", r.rect, "Work Area Bar");

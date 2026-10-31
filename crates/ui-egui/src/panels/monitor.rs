@@ -365,6 +365,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, which: Which)
         } else {
             crate::panels::graphics::monitor_overlay(app, ui, pic, frame_size);
             crate::panels::masks::monitor_overlay(app, ui, pic, frame_size);
+            crate::panels::motion_path::monitor_overlay(app, ui, pic, frame_size);
             crate::panels::transform_handles::monitor_overlay(app, ui, pic, frame_size);
         }
     }
@@ -481,7 +482,9 @@ fn controls_row(
     let wresp = ui.interact(wr, egui::Id::unique((prefix, "wrench")), Sense::click());
     icons::paint(ui.painter(), wr.shrink(4.0), Icon::Wrench, if wresp.hovered() { t.tab_text_active } else { t.icon });
     app.auto.add(&format!("{prefix}.settings"), wr, "Settings");
-    egui::Popup::menu(&wresp).show(|ui| {
+    // stays open while options are toggled; a choice (a display mode, a resolution, an action) or a
+    // click outside closes it
+    egui::Popup::menu(&wresp).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside).show(|ui| {
         ui.set_min_width(240.0);
         monitor_view::wrench_items(app, ui, which);
         let mv = monitor_view::view_mut(app, which);
@@ -523,6 +526,7 @@ fn controls_row(
                 for (k, label) in [("auto", tl!("Automatic")), ("2x2", "2 × 2"), ("3x3", "3 × 3"), ("4x4", "4 × 4")] {
                     if ui.selectable_label(v.layout_name() == k, label).clicked() {
                         let _ = app.session.execute("multicam.gridLayout", json!({"layout": k}));
+                        ui.close();
                     }
                 }
             });
@@ -1039,9 +1043,11 @@ fn transport(app: &mut FilmcraftApp, ui: &mut egui::Ui, row: Rect, which: Which)
             (Icon::MarkIn, "markers.markIn", tl!("Mark In (I)")),
             (Icon::MarkOut, "markers.markOut", tl!("Mark Out (O)")),
             (Icon::GoToIn, "markers.goToIn", tl!("Go to In (Shift+I)")),
+            (Icon::PrevEdit, "playhead.prevEdit", tl!("Go to Previous Edit Point")),
             (Icon::StepBack, "playhead.stepBack", tl!("Step Back 1 Frame (Left)")),
             (if app.playback.playing { Icon::Pause } else { Icon::Play }, "playback.toggle", tl!("Play-Stop Toggle (Space)")),
             (Icon::StepFwd, "playhead.stepForward", tl!("Step Forward 1 Frame (Right)")),
+            (Icon::NextEdit, "playhead.nextEdit", tl!("Go to Next Edit Point")),
             (Icon::GoToOut, "markers.goToOut", tl!("Go to Out (Shift+O)")),
             (Icon::Lift, "sequence.lift", tl!("Lift (;)")),
             (Icon::Extract, "sequence.extract", tl!("Extract (')")),
@@ -1260,10 +1266,10 @@ mod tests {
         set_transport_visible(&mut program, "playback.loop", true);
         set_transport_visible(&mut program, "playback.loop", true);
         assert!(transport_visible(&program, "playback.loop"));
-        assert!(program.is_empty(), "enabling twice must not leave hidden entries");
+        assert!(!program.iter().any(|id| id == "playback.loop"), "enabling twice must not leave hidden entries");
         set_transport_visible(&mut program, "playhead.stepForward", false);
         set_transport_visible(&mut program, "playhead.stepForward", false);
-        assert_eq!(program, vec!["playhead.stepForward"]);
+        assert_eq!(program.iter().filter(|id| *id == "playhead.stepForward").count(), 1);
         assert!(transport_visible(&source, "playhead.stepForward"));
     }
 

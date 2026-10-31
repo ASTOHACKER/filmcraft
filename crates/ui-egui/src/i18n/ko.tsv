@@ -2722,7 +2722,7 @@
 	Select Camera 9	카메라 9 선택
 	Select Clip at Playhead	재생 헤드 위치 클립 선택
 	Select Find Box	찾기 상자 선택
-	Select items to clear	지울 항목 선택
+	Select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename	이름을 바꾸려면 타임라인에서 클립(또는 연결된 클립) 하나나 프로젝트 패널에서 항목 하나를 선택하세요
 	Select Label Group	레이블 그룹 선택
 	Select Next Clip	다음 클립 선택
 	Select Next Graphic	다음 그래픽 선택
@@ -3595,7 +3595,6 @@
 	32 bit float	32비트 부동 소수점
 	FLAC stores whole-number samples only	FLAC은 정수 샘플만 저장합니다
 	MXF export writes integer PCM only	MXF 내보내기는 정수 PCM만 기록합니다
-	Opens in your web browser: {url}	웹 브라우저에서 엽니다: {url}
 	Saves this session's log and shows it in your file manager.	이 세션의 로그를 저장하고 파일 관리자에서 보여 줍니다.
 	Shows a report on this computer.	이 컴퓨터에 대한 보고서를 보여 줍니다.
 	Shows the version, community links and credits in a FilmCraft window.	FilmCraft 창에 버전, 커뮤니티 링크, 제작진을 보여 줍니다.
@@ -3607,6 +3606,11 @@
 	Open a sequence to search its graphics	그래픽을 검색하려면 시퀀스를 여세요
 	No text graphics in this sequence. Add text with the Type tool.	이 시퀀스에는 텍스트 그래픽이 없습니다. 문자 도구로 텍스트를 추가하세요.
 	No matching text.	일치하는 텍스트가 없습니다.
+	Enter a positive duration within the supported speed range.	지원되는 속도 범위 내에서 양수인 길이를 입력하세요.
+	Show Video Names	비디오 이름 표시
+	Show Audio Names	오디오 이름 표시
+	Video Names	비디오 이름
+	Audio Names	오디오 이름
 
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	제어 서버가 비활성화되었습니다: FILMCRAFT_CONTROL_TOKEN에는 64자리 무작위 16진수 문자가 필요합니다(docs/control-protocol.md 참조)

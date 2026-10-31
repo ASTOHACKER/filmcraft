@@ -1216,3 +1216,28 @@ fn video_effect_on_only_an_audio_clip_is_refused_without_an_undo_step() {
     assert!(r.is_err(), "{r:?}");
     assert_eq!(s.history.undo.len(), undo0, "no undo step");
 }
+
+/// `clip.rename` with `clips` renames every one of them (a linked picture and sound) in one step.
+#[test]
+fn rename_takes_several_clips() {
+    let mut s = demo();
+    let ids: Vec<u64> = v1(&s).iter().take(2).map(|c| c.id.0).collect();
+    let undo = s.history.undo.len();
+    s.execute("clip.rename", json!({"clips": ids, "name": "Both"})).unwrap();
+    for id in &ids {
+        assert_eq!(clip(&s, *id).name, "Both");
+    }
+    assert_eq!(s.history.undo.len(), undo + 1);
+    assert!(s.execute("clip.rename", json!({"clips": [ids[0], 999_999], "name": "x"})).is_err(), "an unknown clip renames nothing");
+    assert_eq!(clip(&s, ids[0]).name, "Both");
+    // nothing to rename and a blank name are refused without an undo step
+    let undo = s.history.undo.len();
+    assert!(s.execute("clip.rename", json!({"clips": [], "name": "x"})).is_err());
+    assert!(s.execute("clip.rename", json!({"clips": ids, "name": "  "})).is_err());
+    // a list with one entry that is not an id renames nothing
+    assert!(s.execute("clip.rename", json!({"clips": [ids[0], "x"], "name": "y"})).is_err());
+    assert_eq!(clip(&s, ids[0]).name, "Both");
+    // the same name again changes nothing and records nothing
+    s.execute("clip.rename", json!({"clips": ids, "name": "Both"})).unwrap();
+    assert_eq!(s.history.undo.len(), undo);
+}

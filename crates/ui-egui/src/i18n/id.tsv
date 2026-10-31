@@ -1188,7 +1188,7 @@
 	New Bin	Bin Baru
 	Find	Cari
 	Automate to Sequence	Otomatiskan ke Sekuens
-	Select items to clear	Pilih item yang akan dihapus
+	Select one clip (or a linked clip) in the Timeline, or one item in the Project panel, to rename	Pilih satu klip (atau klip yang ditautkan) di Linimasa, atau satu item di panel Proyek, untuk mengganti namanya
 	User Order	Urutan Pengguna
 	Descending	Menurun
 	Refresh Project	Segarkan Proyek
@@ -3586,6 +3586,11 @@
 	Open a sequence to search its graphics	Buka sekuens untuk mencari di grafisnya
 	No text graphics in this sequence. Add text with the Type tool.	Tidak ada grafis teks di sekuens ini. Tambahkan teks dengan alat Teks.
 	No matching text.	Tidak ada teks yang cocok.
+	Enter a positive duration within the supported speed range.	Masukkan durasi positif dalam rentang kecepatan yang didukung.
+	Show Video Names	Tampilkan Nama Video
+	Show Audio Names	Tampilkan Nama Audio
+	Video Names	Nama Video
+	Audio Names	Nama Audio
 
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	Server kontrol dinonaktifkan: FILMCRAFT_CONTROL_TOKEN harus berisi 64 karakter heksadesimal acak (lihat docs/control-protocol.md)
