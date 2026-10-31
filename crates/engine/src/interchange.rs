@@ -7,10 +7,14 @@ use filmcraft_project::{ItemId, ItemKind, MediaRef};
 
 use crate::{EngineError, Result, Session};
 
+/// File extensions of the interchange documents `file.import` reads (lower case). The Media
+/// Browser lists the same set.
+pub const EXTENSIONS: [&str; 7] = ["edl", "xml", "fcpxml", "otio", "aaf", "omf", "omfi"];
+
 /// The interchange format of a file, if it is one (by content, with the extension as a hint).
 pub fn detect(path: &str, bytes: &[u8]) -> Option<Format> {
     let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase);
-    if !matches!(ext.as_deref(), Some("edl" | "xml" | "fcpxml" | "otio" | "aaf" | "omf" | "omfi")) {
+    if !ext.as_deref().is_some_and(|e| EXTENSIONS.contains(&e)) {
         return None;
     }
     filmcraft_interchange::detect(bytes, ext.as_deref())

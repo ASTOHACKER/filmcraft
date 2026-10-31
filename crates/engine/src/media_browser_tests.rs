@@ -327,3 +327,22 @@ fn ale_logs_are_not_offered_for_import() {
     assert!(!media_browser::extensions().contains(&"ale"));
     assert_eq!(media_browser::kind_of("cut.edl"), Some("project"));
 }
+
+/// AAF and OMF documents import through `file.import` like EDL, FCP7 XML, FCPXML and OTIO, so the
+/// browser lists them as projects too, including the `.omfi` spelling the importer accepts.
+#[test]
+fn every_interchange_document_the_importer_reads_is_listed() {
+    for ext in crate::interchange::EXTENSIONS {
+        let name = format!("cut.{ext}");
+        assert_eq!(media_browser::kind_of(&name), Some("project"), "{name}");
+        assert_eq!(media_browser::kind_of(&name.to_ascii_uppercase()), Some("project"), "{name}");
+        assert!(media_browser::extensions().contains(&ext), "{ext}");
+    }
+    let mut s = session();
+    s.services.write_file("/home/me/Movies/cut.aaf", &[0; 16]).unwrap();
+    s.services.write_file("/home/me/Movies/mix.omf", &[0; 16]).unwrap();
+    let l = s.execute("mediaBrowser.list", json!({"path": "/home/me/Movies", "fileTypes": "project"})).unwrap();
+    assert_eq!(names(&l), ["Selects", "cut.aaf", "edit.edl", "mix.omf"]);
+    let l = s.execute("mediaBrowser.list", json!({"path": "/home/me/Movies", "fileTypes": "aaf"})).unwrap();
+    assert_eq!(names(&l), ["Selects", "cut.aaf"]);
+}
