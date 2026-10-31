@@ -598,7 +598,7 @@ mod throughput_tests {
             for (i, kind) in kinds.iter().enumerate() {
                 let gain = if flat { 0.0 } else { 3.0 * i as f32 - 7.0 };
                 let kind = if flat { FilterType::Peaking } else { *kind };
-                fast.set_band(i, i != 2, kind, 40.0 * 3.1f32.powi(i as i32), gain, 0.5 + 0.4 * i as f32, true);
+                fast.set_band(i, BandSettings::new(i != 2, kind, 40.0 * 3.1f32.powi(i as i32), gain, 0.5 + 0.4 * i as f32, true));
             }
             fast.reset();
             let mut reference = fast.clone();
