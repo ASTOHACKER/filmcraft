@@ -214,6 +214,10 @@ fn timeline_settings(app: &mut FilmcraftApp, ui: &mut egui::Ui) {
         }
     });
     ui.checkbox(&mut app.ui.timeline.show_waveforms, tl!("Show Audio Waveform"));
+    let c = ui.checkbox(&mut app.ui.timeline.show_video_names, tl!("Show Video Names"));
+    app.auto.add("timeline.settings.showVideoNames", c.rect, "Show Video Names");
+    let c = ui.checkbox(&mut app.ui.timeline.show_audio_names, tl!("Show Audio Names"));
+    app.auto.add("timeline.settings.showAudioNames", c.rect, "Show Audio Names");
     ui.separator();
     let mut te = app.session.state.show_through_edits;
     let c = ui.checkbox(&mut te, tl!("Show Through Edits"));
