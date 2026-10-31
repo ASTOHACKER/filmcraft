@@ -88,19 +88,21 @@ pub fn parse(text: &str) -> Result<Document> {
     let mut seen_cue = false;
     for b in blocks {
         let first = b[0].trim();
-        if !b.iter().any(|l| l.contains("-->")) && (first == "NOTE" || first.starts_with("NOTE ") || first.starts_with("NOTE\t")) {
+        let timing_idx = b.iter().position(|line| parse_timing_line(line).is_some());
+        if timing_idx.is_none() && (first == "NOTE" || first.starts_with("NOTE ") || first.starts_with("NOTE\t")) {
             doc.blocks.push(b.join("\n"));
             continue;
         }
-        if !seen_cue && !b.iter().any(|l| l.contains("-->")) && (first == "STYLE" || first == "REGION") {
+        if !seen_cue && timing_idx.is_none() && (first == "STYLE" || first == "REGION") {
             doc.blocks.push(b.join("\n"));
             continue;
         }
-        let (id, timing_idx) = if b[0].contains("-->") { (None, 0) } else { (Some(b[0].trim().to_string()), 1) };
-        let Some(timing) = b.get(timing_idx) else {
+        let Some(timing_idx) = timing_idx else {
             doc.warnings.push(format!("ignored block \"{first}\""));
             continue;
         };
+        let id = (timing_idx > 0).then(|| b[..timing_idx].join("\n").trim().to_string());
+        let timing = &b[timing_idx];
         let Some((start, end, settings)) = parse_timing_line(timing) else {
             doc.warnings.push(format!("bad timing line \"{}\"", timing.trim()));
             continue;
@@ -131,7 +133,7 @@ pub fn write(doc: &Document) -> String {
     }
     for c in &doc.cues {
         if let Some(id) = c.id.as_deref().map(str::trim).filter(|i| !i.is_empty() && !i.contains("-->")) {
-            out.push_str(id);
+            out.push_str(&id.replace(['\r', '\n'], " "));
             out.push('\n');
         }
         out.push_str(&format!("{} --> {}", format_clock(c.start, '.'), format_clock(c.end, '.')));
@@ -187,6 +189,24 @@ mod tests {
         let w = write(&d);
         assert!(w.starts_with("WEBVTT\n\nSTYLE\n::cue { color: yellow }\n\nNOTE a comment\nspanning lines\n\nintro\n00:00:01.000 --> 00:00:03.500 line:90% align:start\n<v Ann Smith>Hello there\n"));
         assert_eq!(parse(&w).unwrap().cues, d.cues);
+    }
+
+    #[test]
+    fn newline_in_cue_id_round_trips() {
+        let mut doc = Document::default();
+        doc.cues.push(Cue {
+            start: crate::Tick(0),
+            end: crate::Tick(254_016_000),
+            text: "x".into(),
+            speaker: None,
+            id: Some("first\nsecond".into()),
+            settings: String::new(),
+        });
+
+        let output = write(&doc);
+        assert!(output.contains("first second\n00:00:00.000 --> 00:00:00.001\n"), "{output:?}");
+        assert!(!output.contains("first\nsecond"));
+        assert_eq!(parse(&output).unwrap().cues[0].id.as_deref(), Some("first second"));
     }
 
     #[test]
