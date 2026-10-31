@@ -152,7 +152,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                 ("curve_blue", Color32::from_rgb(80, 130, 250)),
             ][ch];
             let r = curve_editor(ui, &e, id, false, col, &t, &mut actions, clip, idx);
-            auto_rows.push((format!("lumetri.curve.{id}"), r, id));
+            auto_rows.push((format!("lumetri.curve.{id}"), r, "Curve"));
             if hdr {
                 let r = slider(ui, &e, mt, "curves_hdr_range", tl!("HDR Range"), None, &t, &mut actions, clip, idx);
                 auto_rows.push(("lumetri.param.curves_hdr_range".into(), r, "HDR Range"));
@@ -167,7 +167,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             ] {
                 ui.label(egui::RichText::new(label).color(t.text_dim));
                 let r = curve_editor(ui, &e, id, true, Color32::WHITE, &t, &mut actions, clip, idx);
-                auto_rows.push((format!("lumetri.curve.{id}"), r, id));
+                auto_rows.push((format!("lumetri.curve.{id}"), r, label));
             }
         }
         if open_section(ui, app, &e, "Color Wheels & Match", "wheels_on", "wheels", &mut sections) {
@@ -496,7 +496,8 @@ fn lerp_col(a: Color32, b: Color32, f: f32) -> Color32 {
     Color32::from_rgb(l(a.r(), b.r()), l(a.g(), b.g()), l(a.b(), b.b()))
 }
 
-/// Curve editor: drag points, click the curve to add, double-click a point to remove.
+/// Curve editor: drag points, click the curve to add, double-click a point to remove. Returns its
+/// rectangle (its automation element, `lumetri.curve.<param>`).
 #[allow(clippy::too_many_arguments)]
 fn curve_editor(ui: &mut egui::Ui, e: &EffectInstance, id: &str, hue: bool, col: Color32, t: &Tokens, actions: &mut Actions, clip: ClipId, idx: usize) -> Rect {
     let pts: Vec<[f32; 2]> = e.param(id).and_then(|p| p.value.as_curve().map(|c| c.to_vec())).unwrap_or_default();
