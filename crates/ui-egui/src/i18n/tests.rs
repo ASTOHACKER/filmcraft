@@ -750,3 +750,31 @@ fn japanese_needs_an_installed_font() {
         }
     });
 }
+
+/// Edit ▸ Language and Settings ▸ Interface Language list the same languages in the same order.
+#[test]
+fn language_menu_and_settings_choices_are_in_the_same_order() {
+    use filmcraft_engine::settings::{Kind, Row};
+    fn choices(rows: &[Row], out: &mut Vec<&'static str>) {
+        for r in rows {
+            match r {
+                Row::Field(f) if f.key == "general.interfaceLanguage" => {
+                    if let Kind::Choice(opts) = f.kind {
+                        out.extend(opts.iter().filter(|(code, _)| *code != "system").map(|(_, label)| *label));
+                    }
+                }
+                Row::Group(_, inner) => choices(inner, out),
+                _ => {}
+            }
+        }
+    }
+    let mut settings = Vec::new();
+    for c in filmcraft_engine::settings::categories() {
+        choices(c.rows, &mut settings);
+    }
+    let app = crate::FilmcraftApp::new(filmcraft_engine::Session::default());
+    let menu: Vec<String> =
+        crate::menus::menu_items(&app).into_iter().filter(|it| it.id.starts_with("app.language.")).map(|it| it.label).collect();
+    assert!(!settings.is_empty());
+    assert_eq!(menu, settings);
+}
