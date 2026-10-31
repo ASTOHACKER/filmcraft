@@ -832,6 +832,7 @@ fn param_value_widget(
             let mut buf = vui.data_mut(|d| d.get_temp::<String>(id)).unwrap_or_else(|| s.clone());
             let r = crate::widgets::accessible_name(vui.add(egui::TextEdit::singleline(&mut buf).desired_width(160.0)), crate::i18n::t(pd.label));
             app.auto.add(&format!("effectControls.text.{}.{}", idx, pd.id), r.rect, pd.label);
+            crate::widgets::select_all_on_focus(vui, &r, &buf);
             if r.lost_focus() {
                 if buf != *s {
                     set = Some(json!(buf));

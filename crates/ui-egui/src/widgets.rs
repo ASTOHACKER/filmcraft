@@ -121,6 +121,28 @@ fn arrows_start_from_the_end(ui: &Ui, edit_id: egui::Id, text: &str) {
     }
 }
 
+/// Select the whole text of a single-line field when a click or Tab focuses it, so typing replaces the value as in Premiere.
+/// A drag that focuses the field still selects from where it started.
+pub fn select_all_on_focus(ui: &Ui, r: &Response, text: &str) {
+    let pending_id = r.id.with("select-all-on-click");
+    if r.gained_focus() && r.is_pointer_button_down_on() {
+        // wait for the release: only a click (not a drag) selects everything
+        ui.data_mut(|d| d.insert_temp(pending_id, true));
+        return;
+    }
+    let pending = ui.data(|d| d.get_temp::<bool>(pending_id)).is_some();
+    if pending && (r.clicked() || r.dragged() || !r.is_pointer_button_down_on()) {
+        ui.data_mut(|d| d.remove_temp::<bool>(pending_id));
+    }
+    let select = if pending { r.clicked() } else { r.gained_focus() };
+    if select {
+        let mut st = egui::text_edit::TextEditState::load(ui.ctx(), r.id).unwrap_or_default();
+        st.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(text.chars().count()))));
+        st.store(ui.ctx(), r.id);
+        ui.ctx().request_repaint();
+    }
+}
+
 /// The painted, draggable value shown while the field is not in text-edit mode.
 fn hot_number_display(ui: &mut Ui, id: egui::Id, value: f64, options: HotNumberOptions<'_>) -> (Response, Option<f64>) {
     let HotNumberOptions { speed, range, decimals, suffix, tokens: t } = options;
@@ -491,6 +513,52 @@ mod tests {
         let st = egui::text_edit::TextEditState::load(&ctx, id.with("edit")).unwrap_or_default();
         let range = st.cursor.char_range().map(|c| c.sorted_cursors());
         assert_eq!(range, Some([egui::text::CCursor::new(0), egui::text::CCursor::new(5)]));
+    }
+
+    /// Runs one frame per entry of `frames` over a "Hello" field using [`select_all_on_focus`] and returns its sorted selection.
+    fn text_field_selection(frames: Vec<Vec<egui::Event>>) -> Option<[egui::text::CCursor; 2]> {
+        let ctx = egui::Context::default();
+        let mut buf = "Hello".to_string();
+        let mut field_id = egui::Id::NULL;
+        for events in frames.into_iter().chain(std::iter::repeat_with(Vec::new).take(3)) {
+            ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut buf).desired_width(160.0));
+                select_all_on_focus(ui, &r, &buf);
+                field_id = r.id;
+            })
+            .textures_delta
+            .clear();
+        }
+        let st = egui::text_edit::TextEditState::load(&ctx, field_id).unwrap_or_default();
+        st.cursor.char_range().map(|c| c.sorted_cursors())
+    }
+
+    fn primary_button(pos: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE }
+    }
+
+    #[test]
+    fn clicking_a_single_line_text_field_selects_its_whole_text() {
+        let pos = egui::pos2(14.0, 12.0);
+        let range = text_field_selection(vec![vec![egui::Event::PointerMoved(pos)], vec![primary_button(pos, true)], vec![primary_button(pos, false)]]);
+        assert_eq!(range, Some([egui::text::CCursor::new(0), egui::text::CCursor::new(5)]));
+    }
+
+    /// A drag that focuses the field selects from where it started, not from the start of the text.
+    #[test]
+    fn dragging_into_a_single_line_text_field_keeps_drag_selection() {
+        let start = egui::pos2(34.0, 12.0);
+        let end = egui::pos2(150.0, 12.0);
+        let range = text_field_selection(vec![
+            vec![egui::Event::PointerMoved(start)],
+            vec![primary_button(start, true)],
+            vec![egui::Event::PointerMoved(egui::pos2(80.0, 12.0))],
+            vec![egui::Event::PointerMoved(end)],
+            vec![primary_button(end, false)],
+        ]);
+        let Some([from, to]) = range else { panic!("the drag leaves a selection") };
+        assert_ne!(from, egui::text::CCursor::new(0), "the selection starts where the drag began");
+        assert_eq!(to, egui::text::CCursor::new(5));
     }
 
     /// Dialogs open centred and can be dragged by their title bar (anchored ones could not).
