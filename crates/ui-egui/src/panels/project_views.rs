@@ -233,7 +233,7 @@ pub(super) fn item_interactions(app: &mut FilmcraftApp, ui: &egui::Ui, actions: 
             actions.push((cmd.into(), json!({"item": id.0})));
         }
     }
-    if drag && resp.drag_started() {
+    if drag && resp.drag_started_by(egui::PointerButton::Primary) {
         crate::panels::start_drag_item(ui, id);
     }
     if menu {
@@ -254,6 +254,16 @@ fn item_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, id: ItemId, kind: &ItemK
     if matches!(kind, ItemKind::Sequence(_)) && ui.button(tl!("Open in Timeline")).clicked() {
         actions.push(("sequence.open".into(), json!({"item": id.0})));
         ui.close();
+    }
+    if matches!(kind, ItemKind::Sequence(_)) {
+        let b = ui.button(tl!("Sequence Settings…"));
+        app.auto.add("project.itemMenu.sequenceSettings", b.rect, "Sequence Settings…");
+        if b.clicked() {
+            // the dialog edits the active sequence: open the clicked one first, as Premiere does
+            actions.push(("sequence.open".into(), json!({"item": id.0})));
+            actions.push(("sequence.settings".into(), json!({})));
+            ui.close();
+        }
     }
     if ui.button(tl!("New Sequence From Clip")).clicked() {
         actions.push(("file.newSequence".into(), json!({"fromItem": id.0})));
@@ -443,11 +453,19 @@ fn rename_field(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, item: Option
         "Rename",
     );
     app.auto.add(&format!("{pre}.rename"), r, "Rename");
-    // take keyboard focus the first frame the field is shown
+    // take keyboard focus the first frame the field is shown, then select its current name
     let shown = egui::Id::unique("project-rename-shown");
     if ui.ctx().data(|d| d.get_temp::<egui::Id>(shown)) != Some(id) {
         ui.ctx().data_mut(|d| d.insert_temp(shown, id));
+        ui.ctx().data_mut(|d| d.insert_temp(id.with("select-all"), true));
         resp.request_focus();
+    }
+    let select_all = resp.has_focus() && ui.ctx().data_mut(|d| d.remove_temp::<bool>(id.with("select-all")).is_some());
+    if select_all {
+        let mut state = egui::text_edit::TextEditState::load(ui.ctx(), id).unwrap_or_default();
+        state.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(0), egui::text::CCursor::new(text.chars().count()))));
+        state.store(ui.ctx(), id);
+        ui.ctx().request_repaint();
     }
     if let Some(rn) = app.ui.project_panel.rename.as_mut() {
         rn.text = text;
@@ -513,7 +531,12 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
     let t = app.tokens;
     let f = font(app);
     let thumbs = app.session.prefs.project_panel.thumbnails;
-    let cols = app.session.prefs.project_panel.view.columns.clone();
+    let mut cols = app.session.prefs.project_panel.view.columns.clone();
+    if let Some((name, w)) = &app.ui.project_panel.column_drag
+        && let Some(c) = cols.iter_mut().find(|c| c.name == *name)
+    {
+        c.width = *w;
+    }
     let width = LEAD + cols.iter().map(|c| c.width).sum::<f32>() + 8.0;
     let lc = ListCtx { row_h: if thumbs { (f * 3.6).max(44.0) } else { (f * 2.0).max(22.0) }, font: f, thumbs, width: width.max(rect.width()), cols };
     let header_h = (f * 1.8).max(20.0);
@@ -541,7 +564,7 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
     hp.line_segment([hr.left_bottom(), hr.right_bottom()], Stroke::new(1.0, t.separator));
     let mut x = rect.min.x + LEAD - out.state.clamped_offset().x;
     let sort = app.session.prefs.project_panel.view.sort.clone();
-    for (i, c) in lc.cols.iter().enumerate() {
+    for c in &lc.cols {
         let cr = Rect::from_min_size(pos2(x, hr.min.y), vec2(c.width, header_h));
         let vis = cr.intersect(hr);
         if vis.width() > 1.0 {
@@ -576,19 +599,23 @@ pub fn list_view(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, v: &View
         }
         // resize handle on the column's right edge
         let hr2 = Rect::from_center_size(pos2(cr.max.x, hr.center().y), vec2(8.0, header_h));
-        if hr2.intersects(hr) {
+        let visible = hr2.intersects(hr);
+        // a handle dragged past the header's end stays registered, or its release would be missed
+        let dragging = app.ui.project_panel.column_drag.as_ref().is_some_and(|(d, _)| *d == c.name);
+        if visible || dragging {
             let id = egui::Id::unique((&v.prefix, "colsize", &c.name));
-            let resp = ui.interact(hr2.intersect(hr), id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
-            app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
-            hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
-            if resp.dragged() {
-                let w = (c.width + resp.drag_delta().x).clamp(30.0, 800.0);
-                if let Some(col) = app.session.prefs.project_panel.view.columns.get_mut(i) {
-                    col.width = w;
-                }
+            let resp = ui.interact(if visible { hr2.intersect(hr) } else { hr2 }, id, Sense::drag()).on_hover_cursor(egui::CursorIcon::ResizeColumn);
+            if visible {
+                app.auto.add(&format!("{}.list.resize.{}", v.prefix, c.name), hr2.intersect(hr), "Resize column");
+                hp.line_segment([pos2(cr.max.x, hr.min.y + 4.0), pos2(cr.max.x, hr.max.y - 4.0)], Stroke::new(1.0, t.separator));
             }
-            if resp.drag_stopped() {
-                let w = app.session.prefs.project_panel.view.columns.get(i).map(|c| c.width).unwrap_or(c.width);
+            // the width lives in UI state while dragging: had the drag changed the preferences
+            // already, the command would see nothing new and not write preferences.json
+            if resp.dragged_by(egui::PointerButton::Primary) {
+                app.ui.project_panel.column_drag = Some((c.name.clone(), (c.width + resp.drag_delta().x).clamp(30.0, 800.0)));
+            }
+            if resp.drag_stopped_by(egui::PointerButton::Primary) {
+                let w = app.ui.project_panel.column_drag.take().filter(|(d, _)| *d == c.name).map_or(c.width, |(_, w)| w);
                 actions.push(("project.columns.resize".into(), json!({"column": c.name, "width": w})));
             }
         }
@@ -724,7 +751,7 @@ fn list_bin(app: &mut FilmcraftApp, ui: &mut egui::Ui, bin: &Bin, depth: usize, 
         app.auto.add(&format!("{}.bin.{}", v.prefix, b.id.0), r.intersect(ui.clip_rect()), &b.name);
         app.auto.add(&format!("{}.bin.{}.toggle", v.prefix, b.id.0), tri, "Expand");
         accept_bin_drop(app, ui, r, b.id.0, actions);
-        if resp.drag_started() {
+        if resp.drag_started_by(egui::PointerButton::Primary) {
             crate::panels::start_drag_bin(ui, b.id.0);
         }
         if resp.clicked() {
@@ -854,7 +881,7 @@ fn hover_time(app: &mut FilmcraftApp, ui: &egui::Ui, resp: &egui::Response, r: R
 fn card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, id: ItemId, pre: &str, show_name: bool, show_dur: bool, sense: Sense) -> Option<egui::Response> {
     let t = app.tokens;
     let it = app.session.project.item(id).cloned()?;
-    let resp = ui.interact(r.expand(2.0), egui::Id::unique((pre, "card", id.0)), sense);
+    let mut resp = ui.interact(r.expand(2.0), egui::Id::unique((pre, "card", id.0)), sense);
     let th = Rect::from_min_size(r.min, vec2(r.width(), r.width() * 9.0 / 16.0));
     let selected = app.session.state.project_selection.contains(&id);
     let card_bg = Rect::from_min_max(th.min - vec2(6.0, 6.0), pos2(th.max.x + 6.0, r.max.y + 2.0));
@@ -928,22 +955,32 @@ fn card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, id: ItemId, pre: &st
     let nr = Rect::from_min_max(pos2(th.min.x, th.max.y + 2.0), pos2(th.max.x - dw - 6.0, th.max.y + 20.0));
     if show_name && !rename_field(app, ui, nr, Some(id.0), None, pre) {
         ui.painter().rect_filled(Rect::from_min_size(pos2(th.min.x, ty - 5.0), vec2(8.0, 10.0)), 1.5, label_color(app, it.label));
-        ui.painter().with_clip_rect(nr).text(
-            pos2(th.min.x + 12.0, ty),
-            Align2::LEFT_CENTER,
-            &it.name,
-            Tokens::ui(f - 0.5),
-            if badge.offline { OFFLINE } else { t.text },
-        );
+        let g = elided_name(ui, &it.name, Tokens::ui(f - 0.5), if badge.offline { OFFLINE } else { t.text }, nr.max.x - th.min.x - 12.0);
+        let elided = g.elided;
+        ui.painter().galley(pos2(th.min.x + 12.0, ty - g.size().y / 2.0), g, t.text);
+        if elided {
+            resp = resp.on_hover_text(&it.name);
+        }
     }
     app.auto.add(&format!("{pre}.item.{}", id.0), th, &it.name);
     Some(resp)
 }
 
+/// A one-line tile name cut to `max_width` with a trailing "…"; `elided` says whether it was cut,
+/// so the caller can show the full name on hover.
+fn elided_name(ui: &egui::Ui, name: &str, font: egui::FontId, color: Color32, max_width: f32) -> std::sync::Arc<egui::Galley> {
+    let mut job = egui::text::LayoutJob::single_section(name.to_owned(), egui::TextFormat::simple(font, color));
+    job.wrap.max_width = max_width.max(0.0);
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    job.wrap.overflow_character = Some('…');
+    ui.fonts_mut(|f| f.layout_job(job))
+}
+
 fn bin_card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, b: &Bin, v: &View, actions: &mut Actions) {
     let t = app.tokens;
     let th = Rect::from_min_size(r.min, vec2(r.width(), r.width() * 9.0 / 16.0));
-    let resp = ui.interact(r.expand(2.0), egui::Id::unique((&v.prefix, "bincard", b.id.0)), Sense::click_and_drag());
+    let mut resp = ui.interact(r.expand(2.0), egui::Id::unique((&v.prefix, "bincard", b.id.0)), Sense::click_and_drag());
     let selected = app.ui.project_panel.selected_bin == Some(b.id.0);
     let bg = Rect::from_min_max(th.min - vec2(6.0, 6.0), pos2(th.max.x + 6.0, r.max.y + 2.0));
     ui.painter().rect_filled(bg, 4.0, if selected { t.row_selected } else { t.panel_bg });
@@ -957,12 +994,19 @@ fn bin_card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, b: &Bin, v: &Vie
     let f = font(app);
     let nr = Rect::from_min_max(pos2(th.min.x, th.max.y + 2.0), pos2(th.max.x, th.max.y + 20.0));
     if !rename_field(app, ui, nr, None, Some(b.id.0), &v.prefix) {
-        ui.painter().with_clip_rect(nr).text(pos2(th.min.x, th.max.y + 11.0), Align2::LEFT_CENTER, &b.name, Tokens::ui(f - 0.5), t.text);
-        ui.painter().text(pos2(th.max.x, th.max.y + 11.0), Align2::RIGHT_CENTER, tlf!("{n} items", n = n.len()), Tokens::ui(f - 1.5), t.text_dim);
+        let cg = ui.painter().layout_no_wrap(tlf!("{n} items", n = n.len()), Tokens::ui(f - 1.5), t.text_dim);
+        let cw = cg.size().x;
+        ui.painter().galley(pos2(th.max.x - cw, th.max.y + 11.0 - cg.size().y / 2.0), cg, t.text_dim);
+        let g = elided_name(ui, &b.name, Tokens::ui(f - 0.5), t.text, nr.width() - cw - 6.0);
+        let elided = g.elided;
+        ui.painter().galley(pos2(th.min.x, th.max.y + 11.0 - g.size().y / 2.0), g, t.text);
+        if elided {
+            resp = resp.on_hover_text(&b.name);
+        }
     }
     app.auto.add(&format!("{}.bin.{}", v.prefix, b.id.0), th, &b.name);
     accept_bin_drop(app, ui, th, b.id.0, actions);
-    if resp.drag_started() {
+    if resp.drag_started_by(egui::PointerButton::Primary) {
         crate::panels::start_drag_bin(ui, b.id.0);
     }
     if resp.clicked() {

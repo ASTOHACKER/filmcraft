@@ -718,6 +718,7 @@ fn match_controls(ui: &mut egui::Ui, app: &mut FilmcraftApp, out: &mut Vec<(&'st
         ui.add_sized(vec2(110.0, 20.0), egui::Label::new(egui::RichText::new(tl!("Reference")).color(t.text_dim)));
         let r = crate::widgets::accessible_name(ui.add(egui::TextEdit::singleline(&mut tc).desired_width(96.0)), "Reference timecode");
         app.auto.add("lumetri.match.reference", r.rect, "Reference timecode");
+        crate::widgets::select_all_on_focus(ui, &r, &tc);
     });
     let r = ui.checkbox(&mut face, tl!("Face Detection (protect skin tones)"));
     app.auto.add("lumetri.match.faceDetection", r.rect, "Face Detection");

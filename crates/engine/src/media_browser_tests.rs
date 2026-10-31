@@ -367,3 +367,22 @@ fn probe_background_returns_the_blocking_probe_result() {
     assert_eq!(media_browser::probe_background(&mut s, &notes.to_string_lossy()), Some(None));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// AAF and OMF documents import through `file.import` like EDL, FCP7 XML, FCPXML and OTIO, so the
+/// browser lists them as projects too, including the `.omfi` spelling the importer accepts.
+#[test]
+fn every_interchange_document_the_importer_reads_is_listed() {
+    for ext in crate::interchange::EXTENSIONS {
+        let name = format!("cut.{ext}");
+        assert_eq!(media_browser::kind_of(&name), Some("project"), "{name}");
+        assert_eq!(media_browser::kind_of(&name.to_ascii_uppercase()), Some("project"), "{name}");
+        assert!(media_browser::extensions().contains(&ext), "{ext}");
+    }
+    let mut s = session();
+    s.services.write_file("/home/me/Movies/cut.aaf", &[0; 16]).unwrap();
+    s.services.write_file("/home/me/Movies/mix.omf", &[0; 16]).unwrap();
+    let l = s.execute("mediaBrowser.list", json!({"path": "/home/me/Movies", "fileTypes": "project"})).unwrap();
+    assert_eq!(names(&l), ["Selects", "cut.aaf", "edit.edl", "mix.omf"]);
+    let l = s.execute("mediaBrowser.list", json!({"path": "/home/me/Movies", "fileTypes": "aaf"})).unwrap();
+    assert_eq!(names(&l), ["Selects", "cut.aaf"]);
+}

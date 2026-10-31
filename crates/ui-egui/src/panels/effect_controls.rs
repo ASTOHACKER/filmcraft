@@ -44,7 +44,7 @@ fn timeline_time_of(it: &TrackItem, m: Tick) -> Tick {
 // The press frame can include movement before the button went down. Start from the press
 // origin so that only gesture motion enters the preview, including same-frame movement.
 fn graph_drag_offset(ui: &egui::Ui, response: &egui::Response, previous: egui::Vec2) -> egui::Vec2 {
-    if response.drag_started() {
+    if response.drag_started_by(egui::PointerButton::Primary) {
         response
             .interact_pointer_pos()
             .zip(ui.input(|i| i.pointer.press_origin()))
@@ -849,6 +849,7 @@ fn param_value_widget(
             let mut buf = vui.data_mut(|d| d.get_temp::<String>(id)).unwrap_or_else(|| s.clone());
             let r = crate::widgets::accessible_name(vui.add(egui::TextEdit::singleline(&mut buf).desired_width(160.0)), crate::i18n::t(pd.label));
             app.auto.add(&format!("effectControls.text.{}.{}", idx, pd.id), r.rect, pd.label);
+            crate::widgets::select_all_on_focus(vui, &r, &buf);
             if r.lost_focus() {
                 if buf != *s {
                     set = Some(json!(buf));

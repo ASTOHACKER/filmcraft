@@ -704,12 +704,12 @@ pub fn sequence_tabs(ui: &mut egui::Ui, strip: Rect, seqs: &SeqTabs, t: &Tokens,
         });
         paint_widget_focus(&painter, &resp, t);
         seq_rects.push((*id, tab_rect));
-        if resp.dragged() {
+        if resp.dragged_by(egui::PointerButton::Primary) {
             dragged = Some(*id);
         }
         // Escape puts a dragged tab back where it was (egui ends the drag on Escape, #580)
         let home = egui::Id::unique(("tab-seq-home", *id));
-        if resp.drag_started() {
+        if resp.drag_started_by(egui::PointerButton::Primary) {
             ui.data_mut(|d| d.insert_temp(home, i));
         }
         if resp.drag_stopped()
@@ -741,7 +741,7 @@ pub fn sequence_tabs(ui: &mut egui::Ui, strip: Rect, seqs: &SeqTabs, t: &Tokens,
             let uy = strip.max.y - 2.0;
             painter.line_segment([pos2(label_x, uy), pos2(label_x + label_w, uy)], Stroke::new(1.0, t.tab_text_active));
         }
-        if (resp.clicked() || resp.drag_started()) && !closed && !is_active {
+        if (resp.clicked() || resp.drag_started_by(egui::PointerButton::Primary)) && !closed && !is_active {
             actions.push(SeqAction::Open(*id));
         }
         if resp.middle_clicked() {

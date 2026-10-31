@@ -12,6 +12,7 @@
 use std::sync::mpsc::{Sender, channel};
 
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use filmcraft_engine::Session;
 use filmcraft_engine::project_panel::{FREEFORM_POS, FREEFORM_STACK, ViewMode};
 use filmcraft_project::{BinEntry, ItemId};
@@ -225,7 +226,6 @@ fn list_view_columns_sort_resize_and_rename() {
     d.ok("ui.menu.invoke", json!({"id": "projectPanel.rename"}));
     d.frames(3);
     assert!(d.has("project.rename"));
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Hero shot"}));
     d.frames(2);
     d.key("Enter");
@@ -234,6 +234,30 @@ fn list_view_columns_sort_resize_and_rename() {
     assert!(d.app().ui.project_panel.rename.is_none());
     d.exec("edit.undo", json!({}));
     assert_ne!(d.app().session.project.item(ItemId(items[0])).unwrap().name, "Hero shot");
+}
+
+#[test]
+fn a_right_button_drag_does_not_resize_a_list_column() {
+    let mut d = project_driver();
+    d.exec("project.view.set", json!({"view": "list"}));
+    d.frames(3);
+    let width = |d: &mut Driver| d.app().session.prefs.project_panel.view.columns.iter().find(|c| c.name == "Frame Rate").unwrap().width;
+    let w0 = width(&mut d);
+    let r = d.rect("project.list.resize.Frame Rate");
+    let from = egui::pos2(r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
+    let button = egui::PointerButton::Secondary;
+    let to = from + egui::vec2(60.0, 0.0);
+    let send = |d: &mut Driver, event| {
+        d.harness.input_mut().events.push(event);
+        d.frames(1);
+    };
+    send(&mut d, egui::Event::PointerMoved(from));
+    send(&mut d, egui::Event::PointerButton { pos: from, button, pressed: true, modifiers: egui::Modifiers::NONE });
+    send(&mut d, egui::Event::PointerMoved(from + egui::vec2(20.0, 0.0)));
+    send(&mut d, egui::Event::PointerMoved(to));
+    send(&mut d, egui::Event::PointerButton { pos: to, button, pressed: false, modifiers: egui::Modifiers::NONE });
+    d.frames(3);
+    assert_eq!(width(&mut d), w0);
 }
 
 // Regression test for #1295: in a narrow List-view column the sort arrow was painted over the end of
@@ -335,7 +359,9 @@ fn icon_view_hover_scrub_sets_in_and_out() {
     d.frames(4);
     d.key("I");
     assert!(d.app().session.active_sequence().unwrap().mark_in.is_some());
-    // up one level
+    // up one level: a full-size button, not a 16 px glyph
+    let [_, _, w, h] = d.rect("project.up");
+    assert!(w >= 24.0 && h >= 22.0, "Up one level is {w}×{h}");
     d.click("project.up");
     assert_eq!(d.app().ui.project_panel.bin, None);
 }
@@ -379,6 +405,28 @@ fn freeform_middle_drag_pans_and_never_moves_a_card() {
     assert!((canvas[0] - moved[0] - 120.0).abs() < 4.0 && (canvas[1] - moved[1] - 80.0).abs() < 4.0, "panned {canvas:?} -> {moved:?}");
     assert_eq!(pos(&mut d), before, "the card stayed put");
     assert_eq!(d.app().session.state.project_selection, selection);
+}
+
+#[test]
+fn icon_view_cuts_long_names_and_shows_them_on_hover() {
+    // a bin name too long for its card ends in "…" before the item count and is shown in full on hover
+    let mut d = project_driver();
+    d.exec("project.view.set", json!({"view": "icon"}));
+    let long = "Home Video Editing Summer 2026 — Family Trip to the Coast";
+    let bin = d.exec("file.newBin", json!({"name": long}))["bin"].as_u64().expect("bin id");
+    let card = format!("project.bin.{bin}");
+    d.wait_for(&card);
+    assert!(d.harness.query_by_label(long).is_none(), "no tooltip before hovering");
+    d.ok("ui.move", json!({"id": card, "fx": 0.5, "fy": 0.5}));
+    for _ in 0..60 {
+        if d.harness.query_by_label(long).is_some() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        d.frames(1);
+    }
+    assert!(d.harness.query_by_label(long).is_some(), "hovering a cut-off name shows it in full");
+    d.snapshot("project-icon-long-name", Some("panel.Project"));
 }
 
 #[test]
@@ -550,7 +598,6 @@ fn bins_open_in_place_in_a_tab_or_in_a_window() {
     // inline rename of a bin
     d.ok("ui.menu.invoke", json!({"id": "projectPanel.rename", "params": {"bin": bin}}));
     d.frames(3);
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Camera A"}));
     d.key("Enter");
     let name = d.app().session.project.root.find_bin(filmcraft_project::BinId(bin)).unwrap().name.clone();
@@ -593,6 +640,67 @@ fn select_all_takes_only_the_shown_bin() {
     assert_eq!(d.app().ui.project_panel.active_tab, Some(0));
     d.key("Cmd+A");
     assert_eq!(sorted(&d.app().session.state.project_selection), footage);
+}
+
+/// With a sequence open, the native macOS menu has Select All enabled and takes Cmd+A (and
+/// Cmd+Shift+A) before the window sees the key: with the Project panel focused they still act on
+/// its items, not on the Timeline's clips (#1752).
+#[test]
+fn native_menu_select_all_acts_on_the_focused_project_panel() {
+    let mut d = Driver::demo();
+    assert!(d.app().session.active_sequence().is_some());
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.exec("project.view.set", json!({"view": "list"}));
+    let (bin, shown) = d.footage();
+    d.app().ui.expanded_bins = vec![bin];
+    d.frames(2);
+    let clip = d.app().session.active_sequence().and_then(|q| q.all_tracks().find_map(|t| t.items.first().map(|i| i.id))).unwrap();
+    d.exec("timeline.select", json!({"clips": [clip.0]}));
+    let timeline = d.app().session.state.selection.clone();
+    assert!(shown.len() > 1, "{shown:?}");
+    let item = shown[0];
+    d.wait_for(&format!("project.item.{item}"));
+    d.click(&format!("project.item.{item}"));
+    assert_eq!(d.app().ui.focused, filmcraft_ui_egui::dock::PanelKind::Project);
+    assert_eq!(selection(&mut d), vec![item]);
+    let (tx, rx) = channel();
+    d.app().command_inbox = Some(rx);
+    tx.send("edit.selectAll".to_string()).unwrap();
+    d.frames(2);
+    assert_eq!(selection(&mut d), sorted(shown), "Select All selects the panel's items");
+    assert_eq!(d.app().session.state.selection, timeline, "and leaves the timeline selection alone");
+    tx.send("edit.deselectAll".to_string()).unwrap();
+    d.frames(2);
+    assert!(selection(&mut d).is_empty(), "Deselect All clears the panel's selection");
+    assert_eq!(d.app().session.state.selection, timeline, "and leaves the timeline selection alone");
+}
+
+/// Select All while typing in the Project panel's search selects the typed text, not the clips: on
+/// macOS the native menu takes Cmd+A before the field sees the key and sent Edit ▸ Select All,
+/// which selected every clip on the timeline. Typing after it replaces the search.
+#[test]
+fn select_all_in_the_search_box_selects_its_text() {
+    let mut d = project_driver();
+    d.click("project.search");
+    d.ok("ui.type", json!({"text": "comedy manager"}));
+    d.frames(2);
+    let (timeline, items) = (d.app().session.state.selection.clone(), d.app().session.state.project_selection.clone());
+    let (tx, rx) = channel();
+    d.app().command_inbox = Some(rx);
+    tx.send("edit.selectAll".to_string()).unwrap();
+    d.frames(2);
+    assert_eq!(d.app().session.state.selection, timeline, "the timeline selection is left alone");
+    assert_eq!(d.app().session.state.project_selection, items, "and so are the Project panel's items");
+    d.ok("ui.type", json!({"text": "club"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.project_search, "club", "the typed text replaced the selected search");
+    // the same from the control channel, which runs after the field has been laid out
+    d.ok("ui.menu.invoke", json!({"id": "edit.selectAll"}));
+    d.frames(2);
+    assert_eq!(d.app().session.state.selection, timeline);
+    d.ok("ui.type", json!({"text": "stool"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.project_search, "stool");
 }
 
 #[test]
@@ -669,7 +777,6 @@ fn new_bin_asks_for_its_name() {
     d.frames(2);
     let bin = d.app().ui.project_panel.rename.as_ref().and_then(|r| r.bin).expect("the new bin's name is being edited");
     assert!(d.has("project.rename"), "the name field is shown");
-    d.key("Cmd+A");
     d.ok("ui.type", json!({"text": "Interviews"}));
     d.key("Enter");
     let name = d.app().session.project.root.find_bin(filmcraft_project::BinId(bin)).unwrap().name.clone();
@@ -1394,4 +1501,99 @@ fn dragging_clips_onto_new_item_makes_a_matching_sequence() {
     d.frames(4);
     assert_eq!(sequences(&mut d), n0 + 2);
     assert_eq!(clips(&mut d), 2, "the whole selection is placed");
+}
+
+// ---- a dragged size or width is written to preferences.json on release
+
+/// A session that saves its preferences in a fresh temporary directory, and that file's path.
+fn session_saving_prefs(tag: &str, demo: bool) -> (Session, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("fc-prefs-drag-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut session = Session::default();
+    if demo {
+        session.execute("file.openDemoProject", json!({})).unwrap();
+    }
+    session.prefs_path = Some(dir.join("preferences.json"));
+    (session, dir.join("preferences.json"))
+}
+
+fn saved_prefs(path: &std::path::Path) -> filmcraft_engine::autosave::Preferences {
+    filmcraft_engine::autosave::Preferences::load(path)
+}
+
+#[test]
+fn a_dragged_list_column_width_is_written_to_preferences() {
+    let (session, path) = session_saving_prefs("column", true);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.ok("ui.set", json!({"focused": "Project"}));
+    d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
+    footage_in(&mut d, "list");
+    let width = |p: &filmcraft_engine::autosave::Preferences| p.project_panel.view.columns.iter().find(|c| c.name == "Frame Rate").map(|c| c.width);
+    let w0 = width(&d.app().session.prefs).unwrap();
+    let r = d.rect("project.list.resize.Frame Rate");
+    let (cx, cy) = centre(r);
+    d.ok("ui.drag", json!({"from": {"x": cx, "y": cy}, "to": {"x": cx + 60.0, "y": cy}}));
+    d.frames(3);
+    let w1 = width(&d.app().session.prefs).unwrap();
+    assert!(w1 > w0 + 30.0, "{w0} → {w1}");
+    assert_eq!(width(&saved_prefs(&path)), Some(w1), "preferences.json");
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn a_list_column_dragged_past_the_header_is_still_written_to_preferences() {
+    let (session, path) = session_saving_prefs("column-out", true);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.ok("ui.set", json!({"focused": "Project"}));
+    footage_in(&mut d, "list");
+    // in the docked panel, 800 points of drag take the edge (and its handle) past the header's end
+    let r = d.rect("project.list.resize.Frame Rate");
+    let (cx, cy) = centre(r);
+    d.ok("ui.drag", json!({"from": {"x": cx, "y": cy}, "to": {"x": cx + 800.0, "y": cy}}));
+    d.frames(3);
+    assert_eq!(d.app().ui.project_panel.column_drag, None, "the drag ended");
+    let width = saved_prefs(&path).project_panel.view.columns.iter().find(|c| c.name == "Frame Rate").map(|c| c.width);
+    assert_eq!(width, Some(800.0), "preferences.json");
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn a_dragged_icon_size_is_written_to_preferences() {
+    let (session, path) = session_saving_prefs("icon-size", true);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    footage_in(&mut d, "icon");
+    let s0 = d.app().session.prefs.project_panel.view.icon_size;
+    let r = d.rect("project.iconSize");
+    let y = r[1] + r[3] / 2.0;
+    d.ok("ui.drag", json!({"from": {"x": r[0] + r[2] * 0.3, "y": y}, "to": {"x": r[0] + r[2] * 0.9, "y": y}}));
+    d.frames(3);
+    let s1 = d.app().session.prefs.project_panel.view.icon_size;
+    assert!(s1 > s0 + 20.0, "{s0} → {s1}");
+    assert_eq!(saved_prefs(&path).project_panel.view.icon_size, s1, "preferences.json");
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn a_dragged_media_browser_thumbnail_size_is_written_to_preferences() {
+    let dir = media_dir("thumbnail-size");
+    let (session, path) = session_saving_prefs("thumbnail-size", false);
+    let mut d = Driver::with(session);
+    d.ok("ui.panel.show", json!({"panel": "MediaBrowser"}));
+    d.ok("ui.set", json!({"focused": "MediaBrowser"}));
+    d.ok("ui.menu.invoke", json!({"id": "window.maximizeFrame"}));
+    d.exec("mediaBrowser.navigate", json!({"path": dir.to_string_lossy()}));
+    d.exec("mediaBrowser.settings", json!({"view": "thumbnails", "thumbnailSize": 100.0}));
+    d.wait_for("mediaBrowser.thumbnailSize");
+    let r = d.rect("mediaBrowser.thumbnailSize");
+    let y = r[1] + r[3] / 2.0;
+    d.ok("ui.drag", json!({"from": {"x": r[0] + r[2] * 0.2, "y": y}, "to": {"x": r[0] + r[2] * 0.9, "y": y}}));
+    d.frames(3);
+    let s1 = d.app().session.prefs.media_browser.thumbnail_size;
+    assert!(s1 > 150.0, "100 → {s1}");
+    assert_eq!(saved_prefs(&path).media_browser.thumbnail_size, s1, "preferences.json");
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    let _ = std::fs::remove_dir_all(&dir);
 }
