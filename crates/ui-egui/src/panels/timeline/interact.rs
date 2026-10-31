@@ -787,9 +787,6 @@ fn commit_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respons
     }
 }
 
-/// Project items, graphics templates, effects and OS files dragged over the Timeline: the
-/// preview of where they would land while hovering, and the command that places them on
-/// release.
 /// #1887: the rows a Project drop fills, with their automation ids: the picture from the video
 /// destination up, the sound from the audio destination down (one track per audio clip the item
 /// places), as `timeline.place` lays them out. `row` is the track under the pointer, `new_track`
@@ -828,6 +825,9 @@ fn drop_preview_bands(
     bands
 }
 
+/// Project items, graphics templates, effects and OS files dragged over the Timeline: the
+/// preview of where they would land while hovering, and the command that places them on
+/// release.
 fn drop_targets(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, layout: &Layout) {
     let ctx = ui.ctx().clone();
     let rate = seq.settings.frame_rate;
