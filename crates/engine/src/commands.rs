@@ -3302,10 +3302,11 @@ fn build() -> Vec<CommandSpec> {
                         // intrinsic effects (Motion) are laid out in the sequence frame, as `reset_params` does
                         let frame = if def.intrinsic { (fw, fh) } else { size };
                         resolve_auto_points(&mut inst, frame, size);
-                        // standard effects go before the intrinsic ones (render order)
-                        let pos = i.effects.iter().position(|e| e.def().is_some_and(|d| d.intrinsic)).unwrap_or(i.effects.len());
-                        let pos = if is_audio { i.effects.len() } else { pos };
-                        i.effects.insert(pos, inst);
+                        // at the end of the stack, as in Premiere, so the indices already
+                        // handed out (graphics.list effectIndex…) stay valid (#1879); the
+                        // renderer applies the intrinsic ones after the standard ones anyway
+                        i.effects.push(inst);
+                        let pos = i.effects.len() - 1;
                         applied.push(json!({"clip": i.id.0, "index": pos, "effect": def.id}));
                     }
                 }
