@@ -549,6 +549,10 @@ impl VideoFrame {
                                 (0.0 + q(yy + cb_b * u) * a) * inv,
                                 (0.0 + a) * inv,
                             ];
+                        }
+                    });
+                    return;
+                }
                 out.par_chunks_mut(r.w * 4).enumerate().for_each(|(ry, row)| {
                     let oy = r.y + ry;
                     for rx in 0..r.w {
