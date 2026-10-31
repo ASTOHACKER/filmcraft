@@ -1754,7 +1754,7 @@ fn build() -> Vec<CommandSpec> {
         query!("file.autoSaveStatus", "Auto Save Status", "{}", |s, _| {
             let Some(per) = s.persistence.as_ref() else { return Ok(json!({"running": false, "prefs": s.prefs.auto_save})) };
             Ok(json!({
-                "running": true,
+                "running": per.is_running(),
                 "prefs": s.prefs.auto_save,
                 "dataDir": per.data_dir,
                 "sessionDir": per.session_dir,
@@ -4916,7 +4916,7 @@ fn recover(s: &mut Session, id: Option<&str>) -> Result<Value> {
         Some(id) => per.candidates.iter().position(|c| c.id == id).ok_or_else(|| bad("file.recover", format!("no recovery session `{id}`")))?,
         None => 0,
     };
-    let c = per.candidates[idx].clone();
+    let c = per.candidates.get(idx).cloned().ok_or_else(|| bad("file.recover", "no recovery session"))?;
     let saved_at = per.local_time(c.meta.saved_unix);
     let loaded = crate::autosave::load_candidate(&c).map_err(EngineError::Other)?;
     install_project(s, loaded.project, c.meta.project_path.clone(), false);
@@ -4926,11 +4926,21 @@ fn recover(s: &mut Session, id: Option<&str>) -> Result<Value> {
     crate::relink::on_open(s);
     // Our own journal must hold the recovered state before the old one is deleted.
     s.sync_persistence();
-    if let Some(per) = s.persistence.as_mut() {
-        per.flush();
-        per.candidates.remove(idx);
+    let per = s.persistence.as_mut().ok_or_else(|| EngineError::Other("recovery is not running".into()))?;
+    let preserve = |reason: String| {
+        EngineError::Other(format!(
+            "Recovered project is open, but its new recovery copy was not confirmed: {reason}. The original recovery copy is retained; save the project or use Save As."
+        ))
+    };
+    if per.flush().map_err(preserve)? != Some(s.revision) {
+        return Err(preserve("journal revision does not match the recovered project".into()));
     }
-    crate::autosave::discard_candidate(&c).map_err(|e| EngineError::Other(e.to_string()))?;
+    crate::autosave::discard_candidate(&c).map_err(|e| {
+        EngineError::Other(format!(
+            "Recovered project is open and its new recovery copy is confirmed, but the old recovery folder could not be fully removed: {e}. The recovery candidate remains listed; some old files may already be gone. Save the project or use Save As before retrying; if the original recovery copy remains intact, running recovery again can overwrite unsaved edits."
+        ))
+    })?;
+    per.candidates.remove(idx);
     s.toast(format!("Recovered unsaved changes to {} from {saved_at}", c.meta.project_name));
     Ok(json!({"id": c.id, "name": c.meta.project_name, "path": c.meta.project_path, "savedAt": saved_at, "revision": c.meta.revision}))
 }
