@@ -176,6 +176,18 @@ fn sync_sequence(app: &mut FilmcraftApp) {
     }
 }
 
+pub(super) fn active_export_job(app: &FilmcraftApp) -> Option<filmcraft_engine::Job> {
+    app.session
+        .jobs
+        .iter()
+        .find(|j| !j.progress.finished.load(std::sync::atomic::Ordering::Relaxed) && (j.label.starts_with("Export") || j.label.starts_with("Quick Export")))
+        .cloned()
+}
+
+pub(super) fn is_export_busy(app: &FilmcraftApp) -> bool {
+    active_export_job(app).is_some() || app.session.export_queue.is_active()
+}
+
 pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let t = app.tokens;
     let left = Rect::from_min_size(rect.min, vec2(300.0, rect.height()));
