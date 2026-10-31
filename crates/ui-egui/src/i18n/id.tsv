@@ -76,6 +76,10 @@
 	Captions and Graphics	Takarir dan Grafis
 	Captions…	Takarir…
 	Caribbean	Karibia
+	Center at Cut	Tengah di Titik Potong
+	Start at Cut	Mulai di Titik Potong
+	End at Cut	Akhir di Titik Potong
+	Custom Start	Awal Kustom
 	Center Horizontally	Tengahkan Secara Horizontal
 	Center Vertically	Tengahkan Secara Vertikal
 	Cerulean	Biru Langit
@@ -3595,4 +3599,15 @@
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	Server kontrol dinonaktifkan: FILMCRAFT_CONTROL_TOKEN harus berisi 64 karakter heksadesimal acak (lihat docs/control-protocol.md)
 
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	Edit Penanda…
+	In:	Masuk:
+	Marker Color:	Warna Penanda:
+	Options:	Opsi:
+	Comment Marker	Penanda Komentar
+	Chapter Marker	Penanda Bab
+	Segmentation Marker	Penanda Segmentasi
+	Web Link	Tautan Web
+	Flash Cue Point	Titik Isyarat Flash
+	Invalid duration: {error}	Durasi tidak valid: {error}
 # Control server: the bind-failure notice (port collisions; #3318 may show it too).

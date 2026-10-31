@@ -222,6 +222,10 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
     if id == "edit.selectAll" && (crate::panels::graphics::select_all_edited_text(app) || crate::panels::effect_controls::select_all_keyframes(app)) {
         return Ok(Value::Null);
     }
+    // Insert / Overwrite of a first clip that doesn't match the empty sequence: the Clip Mismatch Warning asks first
+    if matches!(id, "source.insert" | "source.overwrite") && crate::panels::clip_mismatch::ask(app, id, &params) {
+        return Ok(json!({"dialog": "clipMismatch"}));
+    }
     if filmcraft_engine::source_monitor::source_command(id) && targets_source(app, &params) && params.get("target").is_none() {
         let object = params.as_object_mut().ok_or("command parameters must be an object")?;
         object.insert("target".into(), json!("source"));
@@ -467,7 +471,8 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
         "view.zoomIn" | "view.zoomOut" => {
             let f = if id == "view.zoomIn" { 1.6 } else { 1.0 / 1.6 };
             let ph = app.session.playhead().seconds();
-            crate::panels::timeline::zoom_about(&mut app.ui.timeline, f, ph, app.last_timeline_width);
+            let seconds = app.session.active_sequence().map_or(0.0, |s| s.duration().seconds());
+            crate::panels::timeline::zoom_about(&mut app.ui.timeline, f, ph, app.last_timeline_width, seconds);
             return Ok(Value::Null);
         }
         "view.zoomToSequence" => {

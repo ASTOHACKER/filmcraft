@@ -163,6 +163,35 @@ pub(super) fn track_column_menu(app: &mut FilmcraftApp, ui: &mut egui::Ui, picke
     }
 }
 
+/// The menu of a right-clicked ruler (not on a marker): the In and Out points and the marker, at
+/// the playhead. Groups of (label, command id); automation ids `timeline.rulerMenu.<command>`.
+const RULER_MENU: &[&[(&str, &str)]] = &[
+    &[("Mark In", "markers.markIn"), ("Mark Out", "markers.markOut"), ("Mark Clip", "markers.markClip"), ("Mark Selection", "markers.markSelection")],
+    &[("Go to In", "markers.goToIn"), ("Go to Out", "markers.goToOut")],
+    &[("Clear In", "markers.clearIn"), ("Clear Out", "markers.clearOut"), ("Clear In and Out", "markers.clearInOut")],
+    &[("Add Marker", "markers.add")],
+];
+
+pub(super) fn ruler_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &mut egui::Ui) {
+    for (i, group) in RULER_MENU.iter().enumerate() {
+        if i > 0 {
+            ui.separator();
+        }
+        for &(label, cmd) in *group {
+            let label = crate::i18n::t(label);
+            let r = ui.add_enabled(app.session.is_enabled(cmd), egui::Button::new(label));
+            app.auto.add(&format!("timeline.rulerMenu.{cmd}"), r.rect, label);
+            if r.clicked() {
+                if let Err(e) = crate::menus::invoke(app, ctx, cmd, json!({})) {
+                    app.ui.status = e;
+                }
+                ui.close();
+            }
+            }
+        }
+    }
+}
+
 /// The menu of a right-clicked track header: add or delete tracks here, or through the dialogs of
 /// Sequence ▸ Add Tracks… / Delete Tracks… (#1117). The command picked goes to `picked`; automation
 /// ids `timeline.track.<V1|A1…>.menu.<item>`.

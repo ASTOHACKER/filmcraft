@@ -874,7 +874,11 @@ fn timeline_clip_label_is_disabled_without_a_selected_clip() {
     let mut d = Driver::demo();
     d.exec("markers.clearAll", json!({}));
     d.exec("timeline.select", json!({"clips":[]}));
-    d.ok("ui.click", json!({"id":"timeline.ruler","fx":0.8,"fy":0.5,"button":"right"}));
+    // empty space above the top video track, where no track row is (the ruler has a menu of its
+    // own, #1535, and an empty spot in a row opens the gap menu)
+    d.ok("ui.set", json!({"timeline": {"videoTrackHeight": 30.0}}));
+    d.frames(3);
+    d.ok("ui.click", json!({"id":"timeline.tracks","fx":0.5,"fy":0.02,"button":"right"}));
     d.frames(3);
     let enabled = |d: &mut Driver| {
         let elements = d.ok("ui.elements", json!({"prefix":"timeline.clipMenu.edit.label"}));

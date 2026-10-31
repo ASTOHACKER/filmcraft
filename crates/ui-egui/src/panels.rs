@@ -4,6 +4,7 @@
 pub mod audio_fx_editor;
 pub mod caption_export;
 pub mod clip_dialogs;
+pub mod clip_mismatch;
 pub mod color_dialogs;
 pub mod dialogs;
 pub mod effect_controls;

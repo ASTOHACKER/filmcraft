@@ -513,6 +513,10 @@
 	Center align text	텍스트 가운데 정렬
 	Center Channel Pan	센터 채널 팬
 	Center Gradient	중앙 그레이디언트
+	Center at Cut	컷 중앙
+	Start at Cut	컷 시작
+	End at Cut	컷 끝
+	Custom Start	사용자 정의 시작
 	Center Horizontally	가로 중앙
 	Center Input	센터 입력
 	Center Left	중앙 왼쪽
@@ -3615,4 +3619,15 @@
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	제어 서버가 비활성화되었습니다: FILMCRAFT_CONTROL_TOKEN에는 64자리 무작위 16진수 문자가 필요합니다(docs/control-protocol.md 참조)
 
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	마커 편집…
+	In:	시작:
+	Marker Color:	마커 색상:
+	Options:	옵션:
+	Comment Marker	주석 마커
+	Chapter Marker	챕터 마커
+	Segmentation Marker	세그먼트 마커
+	Web Link	웹 링크
+	Flash Cue Point	Flash 큐 포인트
+	Invalid duration: {error}	잘못된 지속 시간: {error}
 # Control server: the bind-failure notice (port collisions; #3318 may show it too).

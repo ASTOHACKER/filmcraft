@@ -100,7 +100,12 @@ fn groups() -> Vec<(&'static str, Vec<CommandSpec>)> {
             "sequence.linkedSelection",
             vec![
                 spec("sequence.selectionFollowsPlayhead", "Selection Follows Playhead", &["Sequence"], None, r#"{"on":bool?}"#, always, |s, p| {
-                    s.state.selection_follows_playhead = bool_p(p, "on").unwrap_or(!s.state.selection_follows_playhead);
+                    // the preference is the source of truth (#3089: it persists across sessions);
+                    // the session flag mirrors it through set_prefs
+                    let on = bool_p(p, "on").unwrap_or(!s.prefs.timeline.selection_follows_playhead);
+                    let mut next = s.prefs.clone();
+                    next.timeline.selection_follows_playhead = on;
+                    s.set_prefs(next).map_err(|e| EngineError::Other(format!("saving preferences: {e}")))?;
                     if s.state.selection_follows_playhead {
                         select_under_playhead(s);
                     }
@@ -628,7 +633,6 @@ fn make_subsequence(s: &mut Session, p: &Value) -> Result<Value> {
         }
         for tr in nq.all_tracks_mut() {
             tr.sort();
-            edit::remove_orphan_transitions(tr);
         }
         nq.check().map_err(EngineError::Other)?;
         st.project_selection = vec![nid];
@@ -747,7 +751,6 @@ pub(crate) fn place_sequence_clips(s: &mut Session, placement: crate::commands::
         }
         for tr in seq.all_tracks_mut() {
             tr.sort();
-            edit::remove_orphan_transitions(tr);
         }
         seq.check().map_err(EngineError::Other)?;
         if insert

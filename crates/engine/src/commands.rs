@@ -9,7 +9,7 @@ use filmcraft_media::Generator;
 use filmcraft_media::generators::GeneratorSource;
 use filmcraft_project::{
     ClipId, ItemId, ItemKind, Label, Marker, MarkerId, MarkerKind, MediaClip, MediaRef, ParamValue, Project, SequenceSettings, Track, TrackId, TrackKind,
-    Transition, TransitionId, resolve_auto_points,
+    Transition, TransitionAlign, TransitionId, resolve_auto_points,
 };
 use filmcraft_time::{FrameRate, TICKS_PER_SECOND, Tick, TimeRange, parse_timecode};
 use serde_json::{Value, json};
@@ -189,6 +189,44 @@ pub(crate) fn named_items(s: &Session, spec: &CommandSpec, p: &Value) -> Option<
 }
 
 // ---------- param helpers ----------
+
+/// The longest marker `markers.edit` takes, in frames (over 46 hours at 60 fps).
+const MAX_MARKER_FRAMES: i64 = 10_000_000;
+
+/// `markers.edit`'s `durationFrames`: absent or null is `None`; anything but a whole number from 0
+/// to [`MAX_MARKER_FRAMES`] is an error.
+fn marker_frames_p(p: &Value) -> Result<Option<i64>> {
+    match p.get("durationFrames").filter(|v| !v.is_null()) {
+        None => Ok(None),
+        Some(v) => match v.as_i64() {
+            Some(f @ 0..=MAX_MARKER_FRAMES) => Ok(Some(f)),
+            _ => Err(bad("markers.edit", "`durationFrames` must be a whole number from 0 to 10000000")),
+        },
+    }
+}
+
+/// `markers.edit`'s `kind`: absent or null is `None`; anything but one of the kind names is an
+/// error.
+pub(crate) fn marker_kind_p(p: &Value) -> Result<Option<MarkerKind>> {
+    match p.get("kind").filter(|v| !v.is_null()) {
+        None => Ok(None),
+        Some(v) => {
+            v.as_str().and_then(marker_kind).map(Some).ok_or_else(|| bad("markers.edit", "`kind` must be comment, chapter, segmentation, webLink or flashCue"))
+        }
+    }
+}
+
+/// A marker type by its `markers.edit` name.
+fn marker_kind(name: &str) -> Option<MarkerKind> {
+    Some(match name {
+        "comment" => MarkerKind::Comment,
+        "chapter" => MarkerKind::Chapter,
+        "segmentation" => MarkerKind::Segmentation,
+        "webLink" => MarkerKind::WebLink,
+        "flashCue" => MarkerKind::FlashCue,
+        _ => return None,
+    })
+}
 
 pub(crate) fn bad(cmd: &str, msg: impl Into<String>) -> EngineError {
     EngineError::BadParams { cmd: cmd.into(), msg: msg.into() }
@@ -429,6 +467,13 @@ fn move_clips(s: &mut Session, p: &Value) -> Result<Value> {
     if listed.is_empty() {
         return Err(bad(CMD, "need `moves`"));
     }
+    // One destination per clip: a clip listed twice would end up on both tracks under one id
+    // (#1903). Copies may repeat a source, each copy getting its own id.
+    if !bool_p(p, "copy").unwrap_or(false)
+        && let Some(dup) = listed.iter().enumerate().find_map(|(i, m)| listed[..i].iter().any(|o| o.0 == m.0).then_some(m.0))
+    {
+        return Err(bad(CMD, format!("clip {} is listed more than once; a move takes one destination per clip (copies may repeat a source)", dup.0)));
+    }
     let follow = bool_p(p, "linked").unwrap_or(s.state.linked_selection);
     let q = s.active_sequence().ok_or(EngineError::NoSequence)?;
     // (clip, destination track, new start, where a partner starts now, new track requested).
@@ -596,7 +641,8 @@ pub(crate) fn slip_together(q: &mut filmcraft_project::Sequence, ctx: &mut edit:
             Err(e) => return Err(e.into()),
             Ok(x) => {
                 any = true;
-                scale = scale.min(x.0.abs() as f64 / d.0.abs() as f64);
+                // unsigned: `abs` of i64::MIN (a hostile `delta`) overflows
+                scale = scale.min(x.0.unsigned_abs() as f64 / d.0.unsigned_abs() as f64);
             }
         }
     }
@@ -843,6 +889,44 @@ pub(crate) fn default_seq_settings_for(media: &MediaClip) -> SequenceSettings {
         st.sample_rate = a.sample_rate.max(8000);
     }
     st
+}
+
+/// Settings ▸ Timeline ▸ Show Clip Mismatch Warning dialog: the settings the active sequence takes
+/// to match `item` when that is the first clip put in it, its frame size, frame rate and pixel
+/// aspect ratio (Interpret Footage's, else the file's), the sequence's other settings kept. `None`
+/// when the sequence already holds clips, the item has no moving picture (sound alone, a still, a
+/// sequence) or nothing differs. `matchSequence` on `timeline.place`, `source.insert` and
+/// `source.overwrite` applies it.
+pub fn clip_mismatch(s: &Session, item: ItemId) -> Option<SequenceSettings> {
+    let q = s.active_sequence()?;
+    if q.all_tracks().any(|t| !t.items.is_empty()) {
+        return None;
+    }
+    let (_, m, _) = s.project.resolve_media(item)?;
+    let v = m.info.video.as_ref().filter(|_| m.info.kind != filmcraft_media::MediaKind::Still)?;
+    let mut st = q.settings.clone();
+    (st.width, st.height, st.frame_rate, st.par) = (v.width, v.height, m.frame_rate(), m.pixel_aspect());
+    if (st.width, st.height, st.frame_rate, st.par) == (q.settings.width, q.settings.height, q.settings.frame_rate, q.settings.par) {
+        return None;
+    }
+    st.drop_frame &= st.frame_rate.supports_drop_frame();
+    st.preset = format!("{}x{} {}", st.width, st.height, st.frame_rate.label());
+    // a damaged file's size or rate must not reach the sequence
+    st.validate().ok().map(|()| st)
+}
+
+/// `matchSequence`: before the edit, the active (still empty) sequence takes the clip's settings
+/// ([`clip_mismatch`]), in the same undo step as the edit.
+fn edit_matching_sequence(s: &mut Session, p: &Value, item: Option<ItemId>, label: &str, f: impl FnOnce(&mut Session) -> Result<Value>) -> Result<Value> {
+    let Some(st) = item.filter(|_| bool_p(p, "matchSequence") == Some(true)).and_then(|i| clip_mismatch(s, i)) else { return f(s) };
+    let id = s.state.active_sequence.ok_or(EngineError::NoSequence)?;
+    s.edit_group(label, |s| {
+        s.edit("Sequence Settings", |pr, _| {
+            pr.sequence_mut(id).ok_or(EngineError::NoSequence)?.settings = st;
+            Ok(())
+        })?;
+        f(s)
+    })
 }
 
 /// Import bytes as a media item (engine-level; the UI reads files through services).
@@ -1191,6 +1275,34 @@ fn place_items(s: &mut Session, p: &Value, items: &Value) -> Result<Value> {
         }
         Ok(json!({"clips": placed.iter().flat_map(|c| c.as_array().cloned().unwrap_or_default()).collect::<Vec<_>>(), "placed": placed}))
     })
+}
+
+impl Session {
+    /// How many video and audio tracks placing `item` (its `range`) fills, counted from the
+    /// destination tracks: video lanes go up from the video destination, audio lanes down from the
+    /// audio destination. It follows [`place_item`]: one lane per stream the item carries, one
+    /// audio lane per Modify ▸ Audio Channels clip and further container stream, and with the nest
+    /// toggle off one lane per source-sequence track that has clips in `range`. `video` / `audio`
+    /// off leave that kind out. Used by the Timeline's drop preview (#1887).
+    pub fn placement_lanes(&self, item: ItemId, range: TimeRange, video: bool, audio: bool) -> (usize, usize) {
+        let Some(pi) = self.project.item(item) else { return (0, 0) };
+        if self.state.sequences_as_clips
+            && let Some(q) = pi.as_sequence().filter(|q| q.multicam.is_none())
+        {
+            let lanes = |tracks: &[Track]| tracks.iter().filter(|t| t.items.iter().any(|it| edit::through::clip_item_to(it, range).is_some())).count();
+            return (if video { lanes(&q.video_tracks) } else { 0 }, if audio { lanes(&q.audio_tracks) } else { 0 });
+        }
+        let (has_video, has_audio) = self.project.source_streams(item);
+        let audio_lanes = if audio && has_audio {
+            let media = self.project.resolve_media(item);
+            let clips = media.and_then(|(_, m, _)| m.interpret.audio_channels.as_ref()).map(|m| m.clips.clone()).unwrap_or_default();
+            let streams = media.map_or(1, |(_, m, _)| m.info.audio_streams.len());
+            audio_placement_specs(&clips, streams).len()
+        } else {
+            0
+        };
+        (usize::from(video && has_video), audio_lanes)
+    }
 }
 
 /// Place a project item on the timeline (drag from Project, or Insert/Overwrite from source).
@@ -2445,7 +2557,7 @@ fn build() -> Vec<CommandSpec> {
             "Apply Video Transition",
             ["Sequence"],
             Some("Cmd+D"),
-            r#"{"clip":id?,"effect":"cross_dissolve|Cross Dissolve|…"?,"frames":i64?,"edge":"in"|"out"?,"params":{param:value}?,"reverse":bool?}"#,
+            r#"{"clip":id?,"effect":"cross_dissolve|Cross Dissolve|…"?,"frames":i64?,"edge":"in"|"out"?,"align":"center"|"start"|"end"?,"params":{param:value}?,"reverse":bool?}"#,
             has_seq,
             |s, p| apply_transition(s, p, TrackKind::Video)
         ),
@@ -2454,7 +2566,7 @@ fn build() -> Vec<CommandSpec> {
             "Apply Audio Transition",
             ["Sequence"],
             Some("Cmd+Shift+D"),
-            r#"{"clip":id?,"effect":"constant_power|Constant Power|…"?,"frames":i64?,"edge":"in"|"out"?,"params":{param:value}?,"reverse":bool?}"#,
+            r#"{"clip":id?,"effect":"constant_power|Constant Power|…"?,"frames":i64?,"edge":"in"|"out"?,"align":"center"|"start"|"end"?,"params":{param:value}?,"reverse":bool?}"#,
             has_seq,
             |s, p| apply_transition(s, p, TrackKind::Audio)
         ),
@@ -2867,9 +2979,12 @@ fn build() -> Vec<CommandSpec> {
             "Edit Marker…",
             [],
             None,
-            r#"{"target":"program|source","marker":id,"name":str?,"comment":str?,"color":label?,"durationFrames":i64?}"#,
+            r#"{"target":"program|source","marker":id,"name":str?,"comment":str?,"color":label?,"durationFrames":i64?,"kind":"comment|chapter|segmentation|webLink|flashCue"?}"#,
             always,
             |s, p| {
+                // checked before routing, so Source markers are held to the same limits
+                let frames = marker_frames_p(p)?;
+                let kind = marker_kind_p(p)?;
                 if let Some(v) = crate::source_monitor::route(s, "markers.edit", p)? {
                     return Ok(v);
                 }
@@ -2888,8 +3003,11 @@ fn build() -> Vec<CommandSpec> {
                     if let Some(c) = color {
                         m.color = c;
                     }
-                    if let Some(f) = p.get("durationFrames").and_then(Value::as_i64) {
+                    if let Some(f) = frames {
                         m.duration = rate.tick_of(f);
+                    }
+                    if let Some(k) = kind {
+                        m.kind = k;
                     }
                     Ok(())
                 })?;
@@ -2974,19 +3092,29 @@ fn build() -> Vec<CommandSpec> {
             let v = crate::clip_ops::source_view(s, item).ok_or_else(|| bad("source.inspect", "the source item is gone"))?;
             Ok(v.to_json(s.state.source_playhead))
         }),
-        cmd!("source.insert", "Insert", ["Clip"], Some(","), "{}", has_source, |s, _| edit_at_source(s, true)),
-        cmd!("source.overwrite", "Overwrite", ["Clip"], Some("."), "{}", has_source, |s, _| edit_at_source(s, false)),
+        cmd!("source.insert", "Insert", ["Clip"], Some(","), r#"{"matchSequence":bool=false}"#, has_source, |s, p| {
+            let item = s.state.source_item;
+            edit_matching_sequence(s, p, item, "Insert", |s| edit_at_source(s, true))
+        }),
+        cmd!("source.overwrite", "Overwrite", ["Clip"], Some("."), r#"{"matchSequence":bool=false}"#, has_source, |s, p| {
+            let item = s.state.source_item;
+            edit_matching_sequence(s, p, item, "Overwrite", |s| edit_at_source(s, false))
+        }),
         // ================= Timeline gestures =================
         cmd!(
             "timeline.place",
             "Place Clip",
             [],
             None,
-            r#"{"item":id|"items":[id] (back to back, one undo step),"track":"V1"|id|"A1" (sound only)|"new" (a video track after the last)?,"audioTrack":"A1"|id|"new"?,"time":ticks|"frame":i64|"seconds":f64,"insert":bool,"sourceIn":ticks|{"frame"|"seconds"|"timecode"}?,"duration":ticks|{"frame"|"seconds"|"timecode"}?,"video":bool=true,"audio":bool=true}"#,
+            r#"{"item":id|"items":[id] (back to back, one undo step),"track":"V1"|id|"A1" (sound only)|"new" (a video track after the last)?,"audioTrack":"A1"|id|"new"?,"time":ticks|"frame":i64|"seconds":f64,"insert":bool,"sourceIn":ticks|{"frame"|"seconds"|"timecode"}?,"duration":ticks|{"frame"|"seconds"|"timecode"}?,"video":bool=true,"audio":bool=true,"matchSequence":bool=false (an empty sequence first takes the clip's frame size and rate)}"#,
             has_seq,
-            |s, p| match p.get("items") {
-                Some(items) => place_items(s, p, items),
-                None => place_one(s, p),
+            |s, p| {
+                let first = item_p(p, "item").or_else(|| p.get("items").and_then(Value::as_array).and_then(|a| a.first()).and_then(Value::as_u64).map(ItemId));
+                let label = if p.get("items").is_some() { "Place Clips" } else { "Place Clip" };
+                edit_matching_sequence(s, p, first, label, |s| match p.get("items") {
+                    Some(items) => place_items(s, p, items),
+                    None => place_one(s, p),
+                })
             }
         ),
         cmd!(
@@ -3765,7 +3893,6 @@ fn build() -> Vec<CommandSpec> {
                     if let Some(q) = pr.sequence_mut(sid) {
                         for t in q.all_tracks_mut() {
                             t.items.retain(|x| !gone.contains(&x.item));
-                            filmcraft_edit::remove_orphan_transitions(t);
                         }
                     }
                 }
@@ -4147,6 +4274,9 @@ fn copy_selection(s: &mut Session) {
         Vec::new()
     };
     let mut clip = Vec::new();
+    // transitions go along with their clips: those whose every clip is copied (#3450)
+    let mut transitions = Vec::new();
+    let copied = |c: Option<ClipId>| c.is_none_or(|c| sel.contains(&c));
     for (kind, tracks) in [(TrackKind::Video, &q.video_tracks), (TrackKind::Audio, &q.audio_tracks)] {
         for (ti, t) in tracks.iter().enumerate() {
             for i in t.items.iter().filter(|i| sel.contains(&i.id)) {
@@ -4154,9 +4284,13 @@ fn copy_selection(s: &mut Session) {
                 c.start -= min;
                 clip.push((kind, ti, c));
             }
+            for x in t.transitions.iter().filter(|x| (x.from.is_some() || x.to.is_some()) && copied(x.from) && copied(x.to)) {
+                transitions.push((kind, ti, Transition { start: x.start - min, ..x.clone() }));
+            }
         }
     }
     set_clipboard(&mut s.state, (clip, markers));
+    s.state.clipboard_transitions = transitions;
 }
 
 /// Timeline clips (track kind, track index, item) and the sequence markers that go with them.
@@ -4165,6 +4299,7 @@ type Clipboard = (Vec<(TrackKind, usize, filmcraft_project::TrackItem)>, Vec<Mar
 fn set_clipboard(st: &mut crate::EditorState, (clips, markers): Clipboard) {
     st.clipboard = clips;
     st.clipboard_markers = markers;
+    st.clipboard_transitions.clear();
     st.caption_clipboard.clear();
 }
 
@@ -4215,17 +4350,20 @@ fn paste(s: &mut Session, insert: bool) -> Result<Value> {
     let at = s.playhead();
     let clip = s.state.clipboard.clone();
     let markers = if s.state.copy_paste_sequence_markers { s.state.clipboard_markers.clone() } else { Vec::new() };
+    let transitions = s.state.clipboard_transitions.clone();
     let end = s.edit_sequence(if insert { "Paste Insert" } else { "Paste" }, |q, ctx, st| {
         let mut placements = Vec::new();
         let mut links = std::collections::HashMap::new();
         // pasted clips get groups of their own, as their links: sharing the originals' group
         // would select (and so drag or delete) the originals with them
         let mut groups = std::collections::HashMap::new();
+        let mut new_ids = std::collections::HashMap::new();
         for (kind, ti, item) in clip {
             let tracks = q.tracks(kind);
             let Some(t) = tracks.get(ti).or(tracks.last()) else { continue };
             let mut it = item.clone();
             it.id = ClipId(ctx.alloc());
+            new_ids.insert(item.id, it.id);
             it.start += at;
             if let Some(l) = it.link {
                 it.link = Some(*links.entry(l).or_insert_with(|| ctx.alloc()));
@@ -4237,6 +4375,19 @@ fn paste(s: &mut Session, insert: bool) -> Result<Value> {
         }
         let end = placements.iter().map(|p| p.1.end()).max().unwrap_or(at);
         let ids = if insert { edit::insert(q, placements, ctx)? } else { edit::overwrite(q, placements, ctx)? };
+        // the copied transitions go onto the pasted clips, on the track those clips landed on
+        for (_, _, x) in &transitions {
+            let from = x.from.and_then(|c| new_ids.get(&c).copied());
+            let to = x.to.and_then(|c| new_ids.get(&c).copied());
+            let tracks: Vec<TrackId> = [from, to].into_iter().flatten().filter_map(|c| q.find_item(c).map(|(t, _)| t)).collect();
+            let Some(&track) = tracks.first() else { continue };
+            if tracks.len() != [x.from, x.to].into_iter().flatten().count() || tracks.iter().any(|t| *t != track) {
+                continue;
+            }
+            let Some(t) = q.track_mut(track) else { continue };
+            t.transitions.push(Transition { id: TransitionId(ctx.alloc()), start: x.start + at, from, to, ..x.clone() });
+            t.sort();
+        }
         if insert && st.ripple_sequence_markers {
             crate::sequence_tools::ripple_markers(&mut q.markers, at, end - at);
         }
@@ -4355,7 +4506,6 @@ fn nest(s: &mut Session, p: &Value) -> Result<Value> {
             }
             for t in nq.all_tracks_mut() {
                 t.sort();
-                edit::remove_orphan_transitions(t);
             }
             nq.check().map_err(EngineError::Other)?;
         }
@@ -4761,8 +4911,8 @@ fn apply_transition(s: &mut Session, p: &Value, kind: TrackKind) -> Result<Value
 }
 
 /// Plan an applied transition without editing the project or allocating an id.
-/// Uses the same `effect`, `clip`, `edge`, `frames` and settings as transition application,
-/// so a drag preview shows the exact range that release will commit.
+/// Uses the same `effect`, `clip`, `edge`, `align`, `frames` and settings as transition
+/// application, so a drag preview shows the exact range that release will commit.
 pub fn preview_transition(s: &Session, p: &Value, kind: TrackKind) -> Result<(TrackId, Transition)> {
     let eff_id = str_p(p, "effect")
         .map(str::to_string)
@@ -4844,14 +4994,24 @@ pub fn preview_transition(s: &Session, p: &Value, kind: TrackKind) -> Result<(Tr
     if dur < rate.tick_of(1) {
         return Err(bad("transition", "no room for a transition at this cut: the clip(s) around it are shorter than a frame"));
     }
-    let start = if from.is_some() && to.is_some() {
-        cut - dur.mul_ratio(1, 2)
-    } else if to.is_some() {
-        cut
-    } else {
-        cut - dur
+    // Where the transition sits on the cut: Center at Cut (default), Start at Cut (its start on
+    // the cut) or End at Cut (its end on the cut). A one-sided fade keeps its clip edge.
+    let align = match str_p(p, "align") {
+        Some(a) => edit::transitions::Alignment::parse(a).ok_or_else(|| bad("transition", format!("`align` is center, start or end, not `{a}`")))?,
+        None => edit::transitions::Alignment::Center,
     };
-    let tr = Transition { id: TransitionId(0), effect: instance, start: rate.snap(start), duration: dur, from, to, align: Default::default(), reverse };
+    let (start, align) = if from.is_some() && to.is_some() {
+        match align {
+            edit::transitions::Alignment::Start => (cut, TransitionAlign::StartAtCut),
+            edit::transitions::Alignment::End => (cut - dur, TransitionAlign::EndAtCut),
+            _ => (cut - dur.mul_ratio(1, 2), TransitionAlign::CenterAtCut),
+        }
+    } else if to.is_some() {
+        (cut, TransitionAlign::StartAtCut)
+    } else {
+        (cut - dur, TransitionAlign::EndAtCut)
+    };
+    let tr = Transition { id: TransitionId(0), effect: instance, start: rate.snap(start), duration: dur, from, to, align, reverse };
     Ok((track, tr))
 }
 

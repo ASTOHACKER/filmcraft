@@ -76,6 +76,10 @@
 	Captions and Graphics	キャプションとグラフィックス
 	Captions…	キャプション…
 	Caribbean	カリビアン
+	Center at Cut	カット中央
+	Start at Cut	カット開始
+	End at Cut	カット終了
+	Custom Start	カスタム開始
 	Center Horizontally	水平方向の中央に整列
 	Center Vertically	垂直方向の中央に整列
 	Cerulean	セルリアン
@@ -3636,6 +3640,17 @@
 	Open a sequence to search its graphics	シーケンスを開くとグラフィックスを検索できます
 	No text graphics in this sequence. Add text with the Type tool.	このシーケンスにはテキストのグラフィックスがありません。文字ツールでテキストを追加してください。
 	No matching text.	一致するテキストはありません。
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	マーカーを編集…
+	In:	イン:
+	Marker Color:	マーカーのカラー:
+	Options:	オプション:
+	Comment Marker	コメントマーカー
+	Chapter Marker	チャプターマーカー
+	Segmentation Marker	セグメンテーションマーカー
+	Web Link	Web リンク
+	Flash Cue Point	フラッシュキューポイント
+	Invalid duration: {error}	無効なデュレーション: {error}
 	H.265 (HEVC) needs a hardware encoder (NVENC on NVIDIA GPUs, VideoToolbox on macOS); none was found on this machine, and FilmCraft has no software H.265 encoder yet. Choose H.264 or ProRes instead.	H.265 (HEVC) にはハードウェアエンコーダー（NVIDIA GPU の NVENC、macOS の VideoToolbox）が必要です。このマシンには見つからず、FilmCraft にはまだソフトウェアの H.265 エンコーダーがありません。代わりに H.264 または ProRes を選んでください。
 	AV1 needs a hardware encoder; none was found on this machine, and FilmCraft has no software AV1 encoder yet.	AV1 にはハードウェアエンコーダーが必要です。このマシンには見つからず、FilmCraft にはまだソフトウェアの AV1 エンコーダーがありません。
 	Enter a positive duration within the supported speed range.	対応する速度の範囲内で正の長さを入力してください。
@@ -3648,3 +3663,12 @@
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	コントロールサーバーが無効です: FILMCRAFT_CONTROL_TOKEN には 64 文字のランダムな 16 進数文字が必要です (docs/control-protocol.md を参照)
 
 # Control server: the bind-failure notice (port collisions; #3318 may show it too).
+
+# Clip Mismatch Warning dialog.
+	Clip Mismatch Warning	クリップの不一致警告
+	This clip does not match the sequence settings.	このクリップはシーケンス設定と一致しません。
+	Clip: {settings}	クリップ: {settings}
+	Sequence: {settings}	シーケンス: {settings}
+	Change the sequence to match the clip's settings?	シーケンスをクリップの設定に合わせますか？
+	Change Sequence Settings	シーケンス設定を変更
+	Keep Existing Settings	現在の設定を維持

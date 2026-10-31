@@ -372,3 +372,42 @@ fn only_a_running_transport_has_something_to_stop() {
     app.session.voiceover.rec = None;
     assert!(!app.transport_running());
 }
+
+/// A Text to Speech preview plays without `playing`; a seek stops it, while a seek with nothing
+/// sounding leaves the output (and the scrub stream on it) alone.
+#[test]
+fn a_scrub_stops_a_text_to_speech_preview_but_not_an_idle_output() {
+    struct Counting(Arc<AtomicUsize>);
+    impl AudioOut for Counting {
+        fn sample_rate(&self) -> u32 {
+            48000
+        }
+        fn channels(&self) -> usize {
+            2
+        }
+        fn configure(&mut self, _: &filmcraft_engine::settings::AudioHardwarePrefs, _: Option<u32>) {}
+        fn start(&mut self, _: Box<dyn FnMut(&mut [f32], usize) + Send>) -> Result<u32, String> {
+            Ok(48000)
+        }
+        fn stop(&mut self) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+        fn played_frames(&self) -> Option<u64> {
+            None
+        }
+    }
+    let mut session = Session::default();
+    session.execute("file.newSequence", json!({"width":16,"height":16})).unwrap();
+    session.tts_preview = Some(Arc::new(filmcraft_tts::Audio { samples: vec![0.0; 4800], sample_rate: 48_000 }));
+    let mut app = FilmcraftApp::new(session);
+    let stops = Arc::new(AtomicUsize::new(0));
+    app.audio = Some(Box::new(Counting(stops.clone())));
+    app.stop_for_scrub();
+    assert_eq!(stops.load(Ordering::Relaxed), 0, "nothing sounds: the scrub stream is left open");
+    app.play_tts_preview().unwrap();
+    let before = stops.load(Ordering::Relaxed);
+    app.stop_for_scrub();
+    assert_eq!(stops.load(Ordering::Relaxed), before + 1, "the preview ends when the playhead moves");
+    app.stop_for_scrub();
+    assert_eq!(stops.load(Ordering::Relaxed), before + 1, "and a second seek has nothing left to stop");
+}

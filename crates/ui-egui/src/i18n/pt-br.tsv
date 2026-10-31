@@ -73,6 +73,10 @@
 	Captions and Graphics	Legendas e gráficos
 	Captions…	Legendas…
 	Caribbean	Caribe
+	Center at Cut	Centralizado no corte
+	Start at Cut	Início no corte
+	End at Cut	Fim no corte
+	Custom Start	Início personalizado
 	Center Horizontally	Centralizar horizontalmente
 	Center Vertically	Centralizar verticalmente
 	Cerulean	Cerúleo
@@ -3598,4 +3602,15 @@
 # Control server: the status-bar notice when --control cannot serve.
 	The control server is disabled: FILMCRAFT_CONTROL_TOKEN must contain 64 random hex characters (see docs/control-protocol.md)	O servidor de controle está desativado: FILMCRAFT_CONTROL_TOKEN deve conter 64 caracteres hexadecimais aleatórios (veja docs/control-protocol.md)
 
+# Markers: the Edit Marker dialog (#2416).
+	Edit Marker…	Editar marcador…
+	In:	Entrada:
+	Marker Color:	Cor do marcador:
+	Options:	Opções:
+	Comment Marker	Marcador de comentário
+	Chapter Marker	Marcador de capítulo
+	Segmentation Marker	Marcador de segmentação
+	Web Link	Link da Web
+	Flash Cue Point	Ponto de referência Flash
+	Invalid duration: {error}	Duração inválida: {error}
 # Control server: the bind-failure notice (port collisions; #3318 may show it too).

@@ -402,6 +402,11 @@ pub struct EditorState {
     /// Sequence markers copied with the clipboard clips (start relative to the copied range).
     #[serde(skip)]
     pub clipboard_markers: Vec<filmcraft_project::Marker>,
+    /// Transitions copied with the clipboard clips (#3450): those whose every clip is copied, with
+    /// their track kind and relative track index (start relative to the copied range, `from`/`to`
+    /// still the copied clips' original ids).
+    #[serde(skip)]
+    pub clipboard_transitions: Vec<(TrackKind, usize, filmcraft_project::Transition)>,
     /// Captions copied from the Timeline, with their caption track's index (starts relative to the
     /// copied range). Copying clips empties it and copying captions empties `clipboard`, so Paste
     /// places whichever was copied last.
@@ -633,6 +638,8 @@ impl Session {
     pub fn start_autosave(&mut self, cfg: autosave::AutosaveConfig) -> std::io::Result<()> {
         let prefs_path = cfg.data_dir.join("preferences.json");
         self.prefs = autosave::Preferences::load(&prefs_path);
+        // a restart restores the persisted Selection Follows Playhead toggle (#3089)
+        self.state.selection_follows_playhead = self.prefs.timeline.selection_follows_playhead;
         self.prefs.apply_hardware_decoding();
         self.media.set_use_proxies(self.prefs.media.enable_proxies);
         self.shortcuts.set_dir(&cfg.data_dir);
@@ -705,6 +712,8 @@ impl Session {
     pub fn set_prefs(&mut self, p: autosave::Preferences) -> std::io::Result<()> {
         let cache_changed = self.prefs.media_cache != p.media_cache;
         self.prefs = p;
+        // the session mirrors the persisted Selection Follows Playhead toggle (#3089)
+        self.state.selection_follows_playhead = self.prefs.timeline.selection_follows_playhead;
         self.prefs.apply_hardware_decoding();
         if cache_changed {
             self.apply_media_cache();
@@ -906,12 +915,29 @@ impl Session {
         }
     }
 
+    /// Every edit passes through here too: a transition whose clip the edit removed, or whose two
+    /// clips it moved apart, goes away (`filmcraft_edit::remove_orphan_transitions`), whichever
+    /// command made the edit. Sequences the edit did not touch are left as they are (the edit
+    /// cloned only what it changed, so this costs nothing for them).
+    fn drop_orphan_transitions(&self, edited: &mut Project) {
+        for (id, it) in &mut edited.items {
+            let filmcraft_project::ItemKind::Sequence(q) = &mut it.kind else { continue };
+            if matches!(self.project.items.get(id).map(|o| &o.kind), Some(filmcraft_project::ItemKind::Sequence(o)) if Arc::ptr_eq(o, q)) {
+                continue;
+            }
+            for t in Arc::make_mut(q).all_tracks_mut() {
+                filmcraft_edit::remove_orphan_transitions(t);
+            }
+        }
+    }
+
     /// Apply an undoable project edit. The closure gets a mutable copy; on error nothing changes.
     pub fn edit<R>(&mut self, label: &str, f: impl FnOnce(&mut Project, &mut EditorState) -> Result<R>) -> Result<R> {
         let mut p = (*self.project).clone();
         let mut st = self.state.clone();
         let r = f(&mut p, &mut st)?;
         self.refuse_self_nesting(&p)?;
+        self.drop_orphan_transitions(&mut p);
         let old = std::mem::replace(&mut self.project, Arc::new(p));
         self.history.undo.push((label.to_string(), old));
         if self.history.undo.len() > self.history.limit {
@@ -938,6 +964,7 @@ impl Session {
         let mut st = self.state.clone();
         let r = f(&mut p, &mut st)?;
         self.refuse_self_nesting(&p)?;
+        self.drop_orphan_transitions(&mut p);
         self.project = Arc::new(p);
         self.state = st;
         self.drop_stale_gap();
@@ -1294,6 +1321,8 @@ mod audio_placement_tests;
 mod autosave_tests;
 #[cfg(test)]
 mod avi_import_tests;
+#[cfg(test)]
+mod clip_mismatch_tests;
 #[cfg(test)]
 mod clip_ops_tests;
 #[cfg(test)]
