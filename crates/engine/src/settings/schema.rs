@@ -221,6 +221,7 @@ pub(super) static CATEGORIES: &[Category] = &[
                     ("es", "Español"),
                     ("fr", "Français"),
                     ("it", "Italiano"),
+                    ("pl", "Polski"),
                     ("pt-br", "Português (Brasil)"),
                     ("ru", "Русский"),
                     ("uk", "Українська"),

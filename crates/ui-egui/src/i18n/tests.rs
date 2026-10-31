@@ -16,6 +16,7 @@ fn catalog_text(l: Language) -> Option<&'static str> {
         Language::It => Some(include_str!("it.tsv")),
         Language::Ko => Some(include_str!("ko.tsv")),
         Language::Cs => Some(include_str!("cs.tsv")),
+        Language::Pl => Some(include_str!("pl.tsv")),
     }
 }
 
@@ -65,6 +66,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
         (Language::It, "Italiano"),
         (Language::Ko, "한국어"),
         (Language::Cs, "Čeština"),
+        (Language::Pl, "Polski"),
     ] {
         assert_eq!(l.name(), name);
     }
@@ -516,6 +518,7 @@ fn language_commands_switch_and_persist_without_a_document() {
         ("indonesian", Language::Id, "id", "Bahasa Indonesia", Some(("app.language.french", "Français"))),
         ("italian", Language::It, "it", "Italiano", Some(("app.language.indonesian", "Bahasa Indonesia"))),
         ("czech", Language::Cs, "cs", "Čeština", Some(("app.language.italian", "Italiano"))),
+        ("polish", Language::Pl, "pl", "Polski", Some(("app.language.italian", "Italiano"))),
     ] {
         switch_and_check(&mut app, &ctx, name, lang, code, own, earlier);
     }
@@ -791,4 +794,15 @@ fn language_menu_and_settings_choices_are_in_the_same_order() {
         crate::menus::menu_items(&app).into_iter().filter(|it| it.id.starts_with("app.language.")).map(|it| it.label).collect();
     assert!(!settings.is_empty());
     assert_eq!(menu, settings);
+}
+
+#[test]
+fn polish_renders_with_bundled_fonts() {
+    let (entries, errors) = catalog::parse_entries(include_str!("pl.tsv"));
+    assert!(errors.is_empty(), "{errors:?}");
+    // every Polish letter, even ones no entry uses yet, and every letter, curly quote, dash and
+    // ellipsis the entries use
+    let alphabet = "ĄĆĘŁŃÓŚŹŻąćęłńóśźż„”";
+    let letters = entries.iter().flat_map(|(_, _, pl)| pl.chars()).filter(|ch| ch.is_alphabetic() || "„”“‘’–—…".contains(*ch));
+    assert_bundled_fonts_cover(alphabet.chars().chain(Language::Pl.name().chars()).chain(letters));
 }
