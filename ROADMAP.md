@@ -91,7 +91,7 @@ Premiere ships 10 interface languages. Measured from our catalogs (3,498 strings
 | German | partial (whole interface; menus native-reviewed, the rest welcome) | ~100% |
 | Vietnamese | none | 0% |
 
-Also shipped: Ukrainian (menus only, 10%), Polish (whole interface; AI-drafted, native review welcome). Detail: [docs/localization-parity.md](docs/localization-parity.md).
+Also shipped: Swedish (whole interface; native review welcome, ~100%), Ukrainian (menus only, 10%) and Polish (whole interface; AI-drafted, native review welcome). Detail: [docs/localization-parity.md](docs/localization-parity.md).
 
 ## Upcoming
 
