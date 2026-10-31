@@ -80,6 +80,83 @@ What remains per live decoder is unchanged: the H.264 decoder publishes each mac
 picture as its own allocations (`Frame::make_row`, five per row), which is where the 290 MB per
 decoder comes from.
 
+## Results (VideoToolbox export takes the RGBA pictures as they are, #3030, before → after)
+
+Export ▸ Hardware encoding on macOS handed VideoToolbox NV12 planes converted on the CPU by the
+encode thread (`rgba_to_yuv420_8`), and that conversion, not the hardware encode, was the export's
+critical path: the encode thread is the one serial thread of an export, its `par_chunks_mut`
+conversion is injected into the rayon pool while the pool renders the next batch, and so a 1080p
+conversion took 20–27 ms a frame (5 ms with an idle pool). `perf.stats` `export.stages` of a
+60 s export: `convertMs` 29.6 s of `encodeMs` 30.3 s, with `renderMs` 30.6 s and `waitMs` 0.1 s
+(encode-bound), the media engine idle most of the time, CPU 570 %, GPU 1 %. Now the encoder
+takes the export's RGBA pictures in `32BGRA` buffers tagged BT.709 and VideoToolbox converts
+them, as NVENC has since #486; the encode thread copies 8 MB a frame (0.3–0.4 ms) and waits for
+the render (`waitMs` 18–25 s: render-bound). A VideoToolbox that refuses RGB input on the first
+picture gets the NV12 path back, so the output never depends on it.
+
+Apple M2 Max (12 cores, 64 GB, macOS 26.6), 2026-10-23, a shared machine with other agents'
+builds running (1-minute load average 57–170 across the runs, noted per pair). The timeline is
+the #3030 shape: 60 s 1080p23.976 sequence, a 1080p H.264 clip on V1, a 4K H.264 clip on V2 as a
+40 % picture-in-picture, stereo WAV on A1 (ffmpeg `testsrc2` + noise fixtures), exported to
+H.264 20 Mb/s + AAC through `filmcraft-cli … run`, hardware decoding on. Before / after binaries
+alternated (A/B/A/B/A/B), median of three; `convert`, `encode`, `render`, `wait` are the export's
+own stage timers (render overlaps encode, so they do not add up to the wall time).
+
+| Export ▸ Hardware encoding on, CPU render | before (3 runs) | **after** (3 runs) |
+|---|---|---|
+| wall, median | 35.8 s (33.7 / 35.8 / 44.9) | **29.4 s** (26.8 / 29.4 / 35.5) |
+| encode thread: convert | 29–39 s (20–27 ms a frame) | **0.46–0.59 s** (0.3–0.4 ms a frame) |
+| encode thread: whole encode stage | 30–40 s | **1.9–6.6 s** |
+| wait for the render | 0.05–0.8 s | 18–25 s |
+| render (parallel, overlapped) | 30–40 s | 23–35 s |
+| CPU, mean (process) | 433–566 % | 497–604 % over a shorter run (CPU-seconds 191–194 → 158–178) |
+| output | 1439 frames, 148.8 MB | 1439 frames, 149.6 MB |
+
+Per pair (before → after, 1-minute load at the start): 44.9 → 26.8 s (57 → 80), 35.8 → 35.5 s
+(61 → 67), 33.7 → 29.4 s (120 → 148); the second pair ran into a load spike during the "after"
+run (67 → 120). The wall time now follows the CPU render alone. The same export with the
+built-in encoder is untouched: the same bytes before and after (MD5 `12f18e96…`, 86 and 91 s at
+load 54–182).
+
+| Export ▸ GPU Rendering on, Hardware encoding on | before (3 runs) | **after** (3 runs) |
+|---|---|---|
+| wall, median | 22.2 s (18.4 / 22.2 / 23.6) | **18.7 s** (18.5 / 18.7 / 19.7) |
+| encode thread: convert | 6.3–11.8 s (4–8 ms a frame: the pool is freer) | **0.46–0.47 s** |
+| wait for the render | 7.5–9.1 s | 14–15 s |
+| CPU, mean (process) | 241–289 % | **216–219 %** |
+| GPU, mean (`ioreg` device utilization) | 12–14 % | 12–14 % |
+
+Load 87–137 throughout, steadier than the CPU-render rows. Here too the export is now bound by
+the render (GPU plan + read-back + the CPU's 8-bit conversion), which #2119 and #1284 address.
+
+Re-measured 2026-10-29 on a quieter machine (load 12–38), `main` `0f87f001` against this change,
+same timeline (V2 at motion scale 40 %, H.264 20 Mb/s CBR), three alternating pairs each: with
+the CPU render the conversion took 13 ms a frame before and 0.31 ms after, and the wall time went
+22.3 → 20.1 s (−10 %), because at this load the encode stage (19.5 s) barely outran the render
+(19.9 s); with GPU rendering the wall time stayed 15.2 → 14.9 s (the render's) and CPU-seconds
+fell 44.7 → 36.5 (−18 %). The conversion is injected into a pool that is rendering, so what this
+change saves grows with how busy the machine is: about 10 % of the wall time on a quiet machine,
+more under load.
+
+Output check: both hardware files decode with ffmpeg without a complaint, 1439 frames, video
+60.018 s / audio 60.032 s like the software export, BT.709 limited range tagged. Against the
+planar path's output, VideoToolbox's own conversion gives the same luma within encoder noise
+(Y 46.8 dB; the planar path against the software export is 46.1 dB) and a lower chroma PSNR on
+this hard-edged synthetic pattern (Cb 38.8, Cr 35.9 dB; bias 0.1–0.2 codes, 2.8 % of chroma
+samples more than 4 codes apart, all at the colour-bar and checkerboard edges): VideoToolbox
+filters chroma where our conversion box-averages 2×2, not a shift (a one-sample shift of either
+path scores 24–29 dB) and not a range or matrix difference. On smooth content (a 5 s
+`mandelbrot` 1080p over a 4K `gradients` picture-in-picture) the two paths are 49.9 / 47.0 /
+47.3 dB apart, encoder noise. `rgba_pictures_encode_like_the_cpu_conversion` holds both paths to
+> 30 dB against our conversion in every plane and < 2 codes apart on average (measured 52 / 41 /
+37 dB and 0.2 / 0.6 / 0.8 codes).
+
+Sessions: under LLDB with auto-continuing breakpoints on `VTCompressionSessionCreate` and
+`VTCompressionSessionInvalidate`, two consecutive exports in one `filmcraft-cli run` created 3
+sessions (the HEVC availability probe and one per export) and invalidated every one (6 hits: ours
+and the framework's at release); the test that exports at other frame rates, cancels an export
+from another thread and exports again created 6 and invalidated 12.
+
 ## Results (CPU compositor: layer rectangles, an opaque bottom layer and recycled images, before → after)
 
 The CPU compositor is what export runs. In a profile of a 9:29 export it took about a third of the
