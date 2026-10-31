@@ -608,3 +608,27 @@ fn export_button_locks_and_cancels_during_active_export() {
     assert!(prog.cancel.load(std::sync::atomic::Ordering::Relaxed), "the running export was cancelled");
     assert_eq!(d.app().session.jobs.len(), jobs_before, "cancelling the active export does not dispatch another job");
 }
+
+/// #2749: with In/Out marks on the sequence, Export starts on Source In/Out (as Premiere does);
+/// without, on Entire Source. A Range chosen afterwards stays until the marks change.
+#[test]
+fn the_export_range_follows_the_sequence_marks() {
+    let mut d = Driver::new("range-marks");
+    d.ok("ui.set", json!({"mode": "export"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.export.range, "entire", "no marks: the whole sequence");
+    d.ok("ui.set", json!({"mode": "edit"}));
+    d.exec("markers.markIn", json!({"seconds": 1.0}));
+    d.exec("markers.markOut", json!({"seconds": 2.0}));
+    d.ok("ui.set", json!({"mode": "export"}));
+    d.frames(2);
+    assert_eq!(d.app().ui.export.range, "inOut", "marks set: their range");
+    // chosen by hand (an agent here), it stays
+    d.ok("ui.set", json!({"export": {"range": "entire"}}));
+    d.frames(3);
+    assert_eq!(d.app().ui.export.range, "entire", "a chosen Range stays");
+    // the marks move: the Range follows them again
+    d.exec("markers.markOut", json!({"seconds": 3.0}));
+    d.frames(2);
+    assert_eq!(d.app().ui.export.range, "inOut");
+}
