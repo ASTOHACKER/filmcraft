@@ -996,6 +996,66 @@ mod tests {
         assert!(img.get(32, 32)[0] < 0.9 && img.get(24, 32)[0] > 0.01);
     }
 
+    /// #3465: Three-Way Color Corrector is the identity at its defaults, each wheel moves only its
+    /// own tonal range, and Saturation 0 is grey.
+    #[test]
+    fn three_way_color_corrector_works_per_tonal_range() {
+        let run = |set: &[(&str, f64)], c: [f32; 3]| {
+            let mut img = Image::filled(2, 2, [c[0], c[1], c[2], 1.0]);
+            let mut e = find_effect("three_way_color").unwrap().instance();
+            for (k, v) in set {
+                e.params.get_mut(*k).unwrap().value = ParamValue::Float(*v);
+            }
+            apply(&mut img, &e, &cx());
+            let p = img.get(0, 0);
+            [p[0], p[1], p[2]]
+        };
+        let (dark, mid, bright) = ([0.02f32; 3], [0.2f32; 3], [0.9f32; 3]);
+        for c in [dark, mid, bright, [0.1, 0.4, 0.7]] {
+            let o = run(&[], c);
+            assert!(o.iter().zip(c).all(|(a, b)| (a - b).abs() < 1e-4), "{c:?} -> {o:?}");
+        }
+        // a red shadow wheel (hue 0) tints the dark pixel red, leaves the bright one alone
+        let sh = [("shadow_hue", 0.0), ("shadow_balance", 80.0)];
+        let d = run(&sh, dark);
+        assert!(d[0] > dark[0] + 0.01 && d[2] < d[0], "{d:?}");
+        let b = run(&sh, bright);
+        assert!((b[0] - bright[0]).abs() < 1e-3, "{b:?}");
+        // a highlight level lift brightens the bright pixel only
+        let hl = [("hi_level", 50.0)];
+        assert!(run(&hl, bright)[0] > bright[0] + 0.01 || bright[0] > 0.99);
+        assert!((run(&hl, dark)[0] - dark[0]).abs() < 1e-3);
+        // no saturation: grey
+        let g = run(&[("saturation", 0.0)], [0.1, 0.4, 0.7]);
+        assert!((g[0] - g[1]).abs() < 1e-4 && (g[1] - g[2]).abs() < 1e-4, "{g:?}");
+    }
+
+    /// #3465 review: the default Three-Way Color Corrector leaves HDR values (2.0) untouched, a
+    /// changed control keeps the headroom of a bright pixel, and overlapping tonal ranges (the
+    /// shadow edge above the highlight edge) apply each adjustment at most once in total.
+    #[test]
+    fn three_way_keeps_hdr_and_normalises_overlapping_ranges() {
+        let run = |set: &[(&str, f64)], c: [f32; 3]| {
+            let mut img = Image::filled(1, 1, [c[0], c[1], c[2], 1.0]);
+            let mut e = find_effect("three_way_color").unwrap().instance();
+            for (k, v) in set {
+                e.params.get_mut(*k).unwrap().value = ParamValue::Float(*v);
+            }
+            apply(&mut img, &e, &cx());
+            let p = img.get(0, 0);
+            [p[0], p[1], p[2]]
+        };
+        assert_eq!(run(&[], [2.0, 0.5, 1.5]), [2.0, 0.5, 1.5], "default is the identity, HDR included");
+        assert!(run(&[("mid_level", 10.0)], [2.0, 2.0, 2.0])[0] > 1.5, "a changed control does not clamp HDR");
+        // overlapping ranges: a mid-grey in both would take the full level twice
+        let both = run(
+            &[("shadow_threshold", 100.0), ("shadow_softness", 0.0), ("hi_threshold", 0.0), ("hi_softness", 0.0), ("shadow_level", 40.0), ("hi_level", 40.0)],
+            [0.2, 0.2, 0.2],
+        );
+        let one = run(&[("shadow_level", 40.0), ("shadow_threshold", 100.0), ("shadow_softness", 0.0)], [0.2, 0.2, 0.2]);
+        assert!((both[0] - one[0]).abs() < 1e-3, "weights sum to one: {both:?} vs {one:?}");
+    }
+
     #[test]
     fn flip_and_crop() {
         let mut img = Image::new(4, 1);

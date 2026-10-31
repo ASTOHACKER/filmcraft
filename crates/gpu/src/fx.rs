@@ -56,6 +56,7 @@ const OP_BOKEH_DOWN: u32 = 32;
 const OP_BOKEH_BOOST: u32 = 33;
 const OP_BOKEH: u32 = 34;
 const OP_BOKEH_UP: u32 = 35;
+const OP_THREE_WAY: u32 = 32;
 
 type Target = (wgpu::Texture, wgpu::TextureView);
 
@@ -130,6 +131,11 @@ fn steps(op: &FxOp, w: u32, h: u32) -> Vec<Step> {
         FxOp::ColorBalance { sh, md, hi, preserve } => {
             out.push(step(OP_COLOR_BALANCE, [*preserve as u32, 0, 0, 0], &[sh[0], sh[1], sh[2], 0.0, md[0], md[1], md[2], 0.0, hi[0], hi[1], hi[2]]))
         }
+        FxOp::ThreeWay { sh, md, hi, range, sat } => out.push(step(
+            OP_THREE_WAY,
+            [op.is_identity_three_way() as u32, 0, 0, 0],
+            &[sh[0], sh[1], sh[2], sh[3], md[0], md[1], md[2], md[3], hi[0], hi[1], hi[2], hi[3], range[0], range[1], range[2], range[3], *sat],
+        )),
         FxOp::LeaveColor { amount, key_hue, tol, soft } => out.push(step(OP_LEAVE_COLOR, [0; 4], &[*amount, *key_hue, *tol, *soft])),
         FxOp::ChangeToColor { from_hue, to_hue, tol, soft } => out.push(step(OP_CHANGE_TO_COLOR, [0; 4], &[*from_hue, *to_hue, *tol, *soft])),
         FxOp::ColorPass { key, sim, reverse } => out.push(step(OP_COLOR_PASS, [*reverse as u32, 0, 0, 0], &[key[0], key[1], key[2], *sim])),

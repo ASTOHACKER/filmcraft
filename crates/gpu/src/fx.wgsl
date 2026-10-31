@@ -54,6 +54,7 @@ const OP_BOKEH_DOWN: u32 = 32u;
 const OP_BOKEH_BOOST: u32 = 33u;
 const OP_BOKEH: u32 = 34u;
 const OP_BOKEH_UP: u32 = 35u;
+const OP_THREE_WAY: u32 = 32u;
 
 fn size() -> vec2<i32> {
     return vec2<i32>(i32(u.i0.y), i32(u.i0.z));
@@ -474,6 +475,28 @@ fn color_op(op: u32, c: vec3<f32>) -> vec3<f32> {
                 o = o + (l - l2);
             }
             return dec(o);
+        }
+        case OP_THREE_WAY: {
+            if u.i1.x != 0u {
+                return c;
+            }
+            let e = enc(c);
+            let l = 0.2126 * e.x + 0.7152 * e.y + 0.0722 * e.z;
+            let ts = clamp((l - u.p3.x) / max(u.p3.y - u.p3.x, 1e-4), 0.0, 1.0);
+            let th = clamp((l - u.p3.z) / max(u.p3.w - u.p3.z, 1e-4), 0.0, 1.0);
+            var ws = 1.0 - ts * ts * (3.0 - 2.0 * ts);
+            var wh = th * th * (3.0 - 2.0 * th);
+            var wm = max(1.0 - ws - wh, 0.0);
+            let total = ws + wm + wh;
+            ws = ws / total;
+            wh = wh / total;
+            wm = wm / total;
+            let lvl = u.p0.w * ws + u.p1.w * wm + u.p2.w * wh;
+            let o = e + u.p0.xyz * ws + u.p1.xyz * wm + u.p2.xyz * wh + vec3(lvl);
+            let l2 = 0.2126 * o.x + 0.7152 * o.y + 0.0722 * o.z;
+            // no upper clamp: HDR values keep their headroom
+            let r = max(vec3(l2) + (o - vec3(l2)) * u.p4.x, vec3(0.0));
+            return vec3(srgb_to_linear1(r.x), srgb_to_linear1(r.y), srgb_to_linear1(r.z));
         }
         case OP_LEAVE_COLOR: {
             let amt = u.p0.x; let kh = u.p0.y; let tol = u.p0.z; let soft = u.p0.w;

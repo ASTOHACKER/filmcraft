@@ -54,6 +54,16 @@ pub enum FxOp {
         hi: [f32; 3],
         preserve: bool,
     },
+    /// Three-Way Color Corrector: per tonal range an encoded-RGB offset (the wheel) and a level
+    /// shift (`[r, g, b, level]`), the range edges `[shadow lo, shadow hi, highlight lo,
+    /// highlight hi]` on encoded luma, and a saturation factor.
+    ThreeWay {
+        sh: [f32; 4],
+        md: [f32; 4],
+        hi: [f32; 4],
+        range: [f32; 4],
+        sat: f32,
+    },
     LeaveColor {
         amount: f32,
         key_hue: f32,
@@ -218,6 +228,7 @@ pub const GPU_EFFECTS: &[&str] = &[
     "tint",
     "black_white",
     "color_balance",
+    "three_way_color",
     "leave_color",
     "change_to_color",
     "color_pass",
@@ -272,6 +283,13 @@ fn minifies(m: &Affine, w: usize, h: usize) -> bool {
 }
 
 impl FxOp {
+    /// A Three-Way Color Corrector with neutral controls (and any other op: false): it leaves the
+    /// image untouched, HDR values included.
+    pub fn is_identity_three_way(&self) -> bool {
+        matches!(self, FxOp::ThreeWay { sh, md, hi, sat, .. }
+            if [sh, md, hi].iter().all(|w| w.iter().all(|v| *v == 0.0)) && *sat == 1.0)
+    }
+
     /// Evaluate `e` at `cx.t` for a `w`×`h` working image. None for effects without a GPU
     /// implementation (and for disabled effects).
     pub fn eval(e: &EffectInstance, cx: &FxCtx, w: usize, h: usize) -> Option<FxOp> {
@@ -298,6 +316,30 @@ impl FxOp {
                     md: [g("mid_r"), g("mid_g"), g("mid_b")],
                     hi: [g("hi_r"), g("hi_g"), g("hi_b")],
                     preserve: b(e, "preserve"),
+                }
+            }
+            "three_way_color" => {
+                // a wheel: its hue as an RGB direction without the grey component, scaled by Balance
+                let wheel = |hue: &str, bal: &str, lvl: &str| {
+                    let h = f(e, hue, cx).rem_euclid(360.0) / 360.0;
+                    let c = filmcraft_color::hsl_to_rgb(h, 1.0, 0.5);
+                    let m = (c[0] + c[1] + c[2]) / 3.0;
+                    let k = f(e, bal, cx).clamp(0.0, 100.0) / 100.0 * 0.5;
+                    [(c[0] - m) * k, (c[1] - m) * k, (c[2] - m) * k, f(e, lvl, cx) / 100.0 * 0.25]
+                };
+                // the edges of a range: the threshold ± half its softness, on 0..1 luma
+                let edges = |thr: &str, soft: &str| {
+                    let (t, s) = (f(e, thr, cx).clamp(0.0, 100.0) / 100.0, f(e, soft, cx).clamp(0.0, 100.0) / 100.0 * 0.5);
+                    ((t - s).clamp(0.0, 1.0), (t + s).clamp(0.0, 1.0))
+                };
+                let (s0, s1) = edges("shadow_threshold", "shadow_softness");
+                let (h0, h1) = edges("hi_threshold", "hi_softness");
+                FxOp::ThreeWay {
+                    sh: wheel("shadow_hue", "shadow_balance", "shadow_level"),
+                    md: wheel("mid_hue", "mid_balance", "mid_level"),
+                    hi: wheel("hi_hue", "hi_balance", "hi_level"),
+                    range: [s0, s1, h0, h1],
+                    sat: f(e, "saturation", cx) / 100.0,
                 }
             }
             "leave_color" => {
@@ -631,6 +673,7 @@ impl FxOp {
             FxOp::Tint { black, white, amount } => fin(black) && fin(white) && amount.is_finite(),
             FxOp::BlackWhite | FxOp::HFlip | FxOp::VFlip => true,
             FxOp::ColorBalance { sh, md, hi, .. } => fin(sh) && fin(md) && fin(hi),
+            FxOp::ThreeWay { sh, md, hi, range, sat } => fin(sh) && fin(md) && fin(hi) && fin(range) && sat.is_finite(),
             FxOp::LeaveColor { amount, key_hue, tol, soft } => fin(&[*amount, *key_hue, *tol, *soft]),
             FxOp::ChangeToColor { from_hue, to_hue, tol, soft } => fin(&[*from_hue, *to_hue, *tol, *soft]),
             FxOp::ColorPass { key, sim, .. } => fin(key) && sim.is_finite(),
@@ -723,6 +766,35 @@ impl FxOp {
                         o = o.map(|v| v + d);
                     }
                     dec(o)
+                });
+            }
+            FxOp::ThreeWay { sh, md, hi, range, sat } => {
+                if self.is_identity_three_way() {
+                    return;
+                }
+                let (sh, md, hi, range, sat) = (*sh, *md, *hi, *range, *sat);
+                let ramp = |l: f32, lo: f32, hi: f32| {
+                    let t = ((l - lo) / (hi - lo).max(1e-4)).clamp(0.0, 1.0);
+                    t * t * (3.0 - 2.0 * t)
+                };
+                img.map_rgb(|c, _, _| {
+                    let e = enc(c);
+                    let l = 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
+                    let (mut ws, mut wh) = (1.0 - ramp(l, range[0], range[1]), ramp(l, range[2], range[3]));
+                    // overlapping ranges (shadow edge above the highlight edge) share the pixel: weights sum to 1
+                    let wm = (1.0 - ws - wh).max(0.0);
+                    let total = ws + wm + wh;
+                    ws /= total;
+                    wh /= total;
+                    let wm = wm / total;
+                    let lvl = sh[3] * ws + md[3] * wm + hi[3] * wh;
+                    let mut o = [0.0; 3];
+                    for k in 0..3 {
+                        o[k] = e[k] + sh[k] * ws + md[k] * wm + hi[k] * wh + lvl;
+                    }
+                    let l2 = 0.2126 * o[0] + 0.7152 * o[1] + 0.0722 * o[2];
+                    // decoded without the upper clamp: values above 1 (HDR) keep their headroom
+                    o.map(|v| filmcraft_color::srgb_to_linear((l2 + (v - l2) * sat).max(0.0)))
                 });
             }
             FxOp::LeaveColor { amount, key_hue, tol, soft } => {
