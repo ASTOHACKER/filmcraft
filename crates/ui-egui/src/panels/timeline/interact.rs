@@ -34,7 +34,14 @@ pub(super) fn preview_drag(
         }
         Drag::Remix { clip, delta, .. } => {
             if let Some((_, it)) = seq.find_item(*clip) {
-                out.insert(*clip, (it.start, it.duration + *delta, None));
+                // #1424: the preview must carry an edited item like Trim and Roll do. Without it
+                // the body shrinks while the waveform still maps through the original item, which
+                // squeezes the whole waveform into the new width until the remix commits. The
+                // commit keeps start and source_in and only changes duration, so clone and match.
+                let mut e = it.clone();
+                e.duration = (e.duration + *delta).max(Tick(1));
+                out.insert(*clip, (e.start, e.duration, None));
+                edited.insert(*clip, e);
             }
         }
         Drag::Trim { clip, edge, delta, linked, .. } => {
