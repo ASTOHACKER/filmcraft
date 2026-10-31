@@ -25,7 +25,22 @@ fn to_screen(pic: Rect, frame: (u32, u32), x: f64, y: f64) -> Option<Pos2> {
     if w < 1.0 || h < 1.0 || !x.is_finite() || !y.is_finite() {
         return None;
     }
-    Some(pos2(pic.min.x + (x / w) as f32 * pic.width(), pic.min.y + (y / h) as f32 * pic.height()))
+    let p = pos2(pic.min.x + (x / w) as f32 * pic.width(), pic.min.y + (y / h) as f32 * pic.height());
+    (p.x.is_finite() && p.y.is_finite()).then_some(p)
+}
+
+/// Legs longer than this many screen points are drawn as one solid line: a dotted line makes a
+/// shape per few points, so a huge Position value would build millions of them.
+const MAX_DOTTED_LEN: f32 = 20_000.0;
+
+/// The shapes of one leg `a`→`b`: dotted, or a single line segment when the leg is too long (or
+/// its length is not a number) to dot.
+fn leg_shapes(a: Pos2, b: Pos2, colour: Color32, width: f32) -> Vec<egui::Shape> {
+    let len = (b - a).length();
+    if len.is_nan() || len > MAX_DOTTED_LEN {
+        return vec![egui::Shape::line_segment([a, b], Stroke::new(width, colour))];
+    }
+    egui::Shape::dotted_line(&[a, b], colour, 5.0, width)
 }
 
 /// Unit direction of travel along the leg `a`→`b`, or `None` when the leg is too short for an arrow.
@@ -63,10 +78,10 @@ pub fn monitor_overlay(app: &mut FilmcraftApp, ui: &mut egui::Ui, pic: Rect, fra
             let (Some((a, _, interp)), Some((b, _, _))) = (pair.first(), pair.get(1)) else { continue };
             if *interp == Interpolation::Hold {
                 // nothing travels on a Hold leg: the value jumps at the next keyframe
-                painter.extend(egui::Shape::dotted_line(&[*a, *b], t.accent.gamma_multiply(0.35), 5.0, 0.8));
+                painter.extend(leg_shapes(*a, *b, t.accent.gamma_multiply(0.35), 0.8));
                 continue;
             }
-            painter.extend(egui::Shape::dotted_line(&[*a, *b], t.accent, 5.0, 1.2));
+            painter.extend(leg_shapes(*a, *b, t.accent, 1.2));
             let Some(n) = travel_dir(*a, *b, it.reverse) else { continue };
             // direction arrow at the middle of the leg
             let m = a.lerp(*b, 0.5);
@@ -115,5 +130,14 @@ mod tests {
         assert_eq!(to_screen(pic, (0, 0), 1.0, 1.0), None);
         assert_eq!(to_screen(pic, (1920, 1080), f64::NAN, 1.0), None);
         assert_eq!(to_screen(pic, (1920, 1080), 1.0, f64::INFINITY), None);
+    }
+
+    #[test]
+    fn a_huge_position_does_not_build_millions_of_shapes() {
+        let pic = Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 50.0));
+        let b = to_screen(pic, (1920, 1080), 1e9, 1e9).expect("finite");
+        assert!(leg_shapes(pos2(0.0, 0.0), b, Color32::WHITE, 1.2).len() <= 1);
+        assert_eq!(to_screen(pic, (1920, 1080), 1e300, 0.0), None);
+        assert!(leg_shapes(pos2(0.0, 0.0), pos2(f32::INFINITY, 0.0), Color32::WHITE, 1.2).len() <= 1);
     }
 }
