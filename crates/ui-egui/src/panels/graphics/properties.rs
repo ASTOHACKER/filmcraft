@@ -11,6 +11,11 @@ fn pv(e: &EffectInstance, id: &str, mt: Tick) -> ParamValue {
     e.params.get(id).map(|p| p.value_at(mt)).or_else(|| e.def().and_then(|d| d.param(id)).map(|d| d.default.clone())).unwrap_or(ParamValue::Float(0.0))
 }
 
+/// `#rrggbb`, or `#rrggbbaa` when `with_alpha` and the colour is not fully opaque.
+fn color_hex([r, g, b, a]: [u8; 4], with_alpha: bool) -> String {
+    if with_alpha && a != 255 { format!("#{r:02x}{g:02x}{b:02x}{a:02x}") } else { format!("#{r:02x}{g:02x}{b:02x}") }
+}
+
 fn color32(c: [f32; 4]) -> Color32 {
     let q = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     Color32::from_rgba_unmultiplied(q(c[0]), q(c[1]), q(c[2]), q(c[3]))
@@ -214,11 +219,12 @@ impl Ctx<'_> {
     fn color(&mut self, vui: &mut egui::Ui, id: &str) {
         let c = self.value(id).as_color().unwrap_or([1.0; 4]);
         let mut c32 = color32(c);
-        let r = egui::color_picker::color_edit_button_srgba(vui, &mut c32, egui::color_picker::Alpha::Opaque);
+        // gradient stops carry opacity (#3094); the other colours stay opaque (the layer has its own opacity)
+        let alpha = if id.starts_with("gradient_") { egui::color_picker::Alpha::OnlyBlend } else { egui::color_picker::Alpha::Opaque };
+        let r = egui::color_picker::color_edit_button_srgba(vui, &mut c32, alpha);
         self.auto(id, r.rect, id);
         if r.changed() {
-            let [r8, g8, b8, _] = c32.to_srgba_unmultiplied();
-            self.set(id, json!(format!("#{r8:02x}{g8:02x}{b8:02x}")));
+            self.set(id, json!(color_hex(c32.to_srgba_unmultiplied(), alpha != egui::color_picker::Alpha::Opaque)));
         }
     }
     /// Draw a combo box for a choice parameter, register it for automation and emit the selected
@@ -890,5 +896,15 @@ mod tests {
             assert!(!c.flag("faux_bold") && !c.flag("underline"));
             assert_eq!(c.caps(), 0);
         }
+    }
+
+    #[test]
+    fn colour_hex_carries_alpha_only_when_asked_and_not_opaque() {
+        assert_eq!(color_hex([255, 0, 16, 128], true), "#ff001080");
+        assert_eq!(color_hex([255, 0, 16, 255], true), "#ff0010");
+        assert_eq!(color_hex([255, 0, 16, 128], false), "#ff0010");
+        // what the control writes parses back to the same half-transparent stop
+        let c = filmcraft_color::parse_hex(&color_hex([255, 0, 0, 128], true)).unwrap_or_default();
+        assert!((c[3] - 128.0 / 255.0).abs() < 1e-6 && c[0] == 1.0);
     }
 }
