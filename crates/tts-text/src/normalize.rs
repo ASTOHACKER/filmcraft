@@ -297,6 +297,19 @@ fn parse_money(rest: &str, lang: Lang) -> Option<(Vec<String>, usize)> {
         return Some((words, used + skip));
     }
     let (unit, sub) = money_units(symbol, lang);
+    if let Some((scale, scale_len)) = scale_word_after(rest.get(skip + used..)?) {
+        // "$2.5 billion" is 2.5 billion dollars, not two dollars fifty.
+        let mut words = english_cardinal(value);
+        if had_minor {
+            let amount = rest.get(skip..skip + used)?;
+            let frac = amount.split_once('.').map_or("", |(_, f)| f);
+            words.push("point".into());
+            words.extend(digit_run_as_words(frac).0);
+        }
+        words.push(scale.into());
+        words.push(unit.into());
+        return Some((words, skip + used + scale_len));
+    }
     let mut words = english_cardinal(value);
     push_unit(&mut words, unit, value == 1);
     if had_minor && minor > 0 {
@@ -306,6 +319,17 @@ fn parse_money(rest: &str, lang: Lang) -> Option<(Vec<String>, usize)> {
         words.extend(cents);
     }
     Some((words, used + skip))
+}
+
+/// A scale word (`thousand`, `million`, `billion`, `trillion`, any case) after optional
+/// whitespace, as a whole word. Returns it lowercased and the bytes consumed.
+fn scale_word_after(after: &str) -> Option<(&'static str, usize)> {
+    let word_start = after.len() - after.trim_start().len();
+    let tail = after.get(word_start..)?;
+    let word_len = tail.find(|c: char| !c.is_alphabetic()).unwrap_or(tail.len());
+    let word = tail.get(..word_len)?.to_lowercase();
+    let scale = ["thousand", "million", "billion", "trillion"].into_iter().find(|s| *s == word)?;
+    Some((scale, word_start + word_len))
 }
 
 fn money_units(symbol: char, lang: Lang) -> (&'static str, &'static str) {

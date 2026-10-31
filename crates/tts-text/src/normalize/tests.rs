@@ -518,6 +518,19 @@ fn british_vs_american() {
 }
 
 #[test]
+fn currency_followed_by_scale_word_reads_scale_before_unit() {
+    assert_eq!(words("$5 million", Lang::EnUs), "five million dollars");
+    assert_eq!(words("$2.5 billion", Lang::EnUs), "two point five billion dollars");
+    assert_eq!(words("worth $40 billion.", Lang::EnUs), "worth forty billion dollars |");
+    assert_eq!(words("$1 million", Lang::EnUs), "one million dollars");
+    assert_eq!(words("£3 Thousand", Lang::EnGb), "three thousand pounds");
+    assert_eq!(words("€1.5 trillion", Lang::EnUs), "one point five trillion euros");
+    // No scale word: unchanged. A longer word is not a scale word.
+    assert_eq!(words("$5 millions", Lang::EnUs), "five dollars millions");
+    assert_eq!(words("$2.50 now", Lang::EnUs), "two dollars and fifty cents now");
+}
+
+#[test]
 fn sentence_final_numbers_end_the_sentence() {
     assert_eq!(words("in 1999.", Lang::EnUs), "in nineteen ninety-nine |");
     assert_eq!(words("costs $1,234,567.", Lang::EnUs), "costs one million two hundred thirty-four thousand five hundred sixty-seven dollars |");
