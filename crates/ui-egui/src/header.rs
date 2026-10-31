@@ -167,33 +167,35 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let anchor = pos2(wr.min.x, rect.max.y + 4.0);
         let area = egui::Area::new(popup_id.with("area")).order(egui::Order::Foreground).fixed_pos(anchor).show(ui.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
-                ui.set_min_width(220.0);
-                for w in crate::dock::names(&app.workspaces) {
-                    let sel = app.ui.workspace == w;
-                    if ui.selectable_label(sel, crate::i18n::t(&w)).clicked() {
-                        app.set_workspace(&w);
-                        ui.ctx().data_mut(|d| d.insert_temp(popup_id, false));
-                    }
-                }
-                ui.separator();
-                // the actions of Window ▸ Workspaces, as in Premiere's workspace menu
-                let actions = [
-                    ("reset", tl!("Reset to Saved Layout")),
-                    ("saveChanges", tl!("Save Changes to this Workspace")),
-                    ("saveAs", tl!("Save as New Workspace…")),
-                    ("edit", tl!("Edit Workspaces…")),
-                ];
-                for (action, label) in actions {
-                    let resp = ui.button(label);
-                    app.auto.add(&format!("header.workspaces.{action}"), resp.rect, label);
-                    if resp.clicked() {
-                        ui.ctx().data_mut(|d| d.insert_temp(popup_id, false));
-                        let ctx = ui.ctx().clone();
-                        if let Err(e) = crate::menus::invoke(app, &ctx, &format!("window.workspace.{action}"), serde_json::json!({})) {
-                            app.ui.status = e;
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.set_min_width(220.0);
+                    for w in crate::dock::names(&app.workspaces) {
+                        let sel = app.ui.workspace == w;
+                        if ui.selectable_label(sel, crate::i18n::t(&w)).clicked() {
+                            app.set_workspace(&w);
+                            ui.ctx().data_mut(|d| d.insert_temp(popup_id, false));
                         }
                     }
-                }
+                    ui.separator();
+                    // the actions of Window ▸ Workspaces, as in Premiere's workspace menu
+                    let actions = [
+                        ("reset", tl!("Reset to Saved Layout")),
+                        ("saveChanges", tl!("Save Changes to this Workspace")),
+                        ("saveAs", tl!("Save as New Workspace…")),
+                        ("edit", tl!("Edit Workspaces…")),
+                    ];
+                    for (action, label) in actions {
+                        let resp = ui.button(label);
+                        app.auto.add(&format!("header.workspaces.{action}"), resp.rect, label);
+                        if resp.clicked() {
+                            ui.ctx().data_mut(|d| d.insert_temp(popup_id, false));
+                            let ctx = ui.ctx().clone();
+                            if let Err(e) = crate::menus::invoke(app, &ctx, &format!("window.workspace.{action}"), serde_json::json!({})) {
+                                app.ui.status = e;
+                            }
+                        }
+                    }
+                });
             });
         });
         if area.response.clicked_elsewhere() && !(ws_resp.clicked() || wresp.clicked()) {
