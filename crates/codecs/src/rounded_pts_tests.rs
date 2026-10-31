@@ -187,7 +187,6 @@ fn mp4_durations(ts: u32, durations: &[u32]) -> Arc<[u8]> {
     w.finish().unwrap().into_inner().into()
 }
 
-///
 /// A clip whose frame times were rounded to whole milliseconds inside a 90 kHz track (#1700). A
 /// 30 fps clip's durations are 2970 and 3060 units in turn, and a 60 fps clip's 1440 and 1530; the
 /// old median reads the first as 30.303 fps and the second as 58.824 fps. Both mean to 3000/1500.
