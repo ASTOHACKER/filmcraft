@@ -790,6 +790,44 @@ fn commit_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respons
 /// Project items, graphics templates, effects and OS files dragged over the Timeline: the
 /// preview of where they would land while hovering, and the command that places them on
 /// release.
+/// #1887: the rows a Project drop fills, with their automation ids: the picture from the video
+/// destination up, the sound from the audio destination down (one track per audio clip the item
+/// places), as `timeline.place` lays them out. `row` is the track under the pointer, `new_track`
+/// the track the drop adds in the empty space above or below them (drawn for its first lane only).
+/// `(vlanes, alanes)` is how many video and audio tracks the drop fills ([`filmcraft_engine::Session::placement_lanes`]).
+fn drop_preview_bands(
+    seq: &Sequence,
+    layout: &Layout,
+    (vlanes, alanes): (usize, usize),
+    row: Option<&super::layout::Row>,
+    new_track: Option<(TrackKind, Rect)>,
+) -> Vec<(Rect, String)> {
+    // first track index of each kind, `None` = a new track the drop adds
+    let dests = match (row, new_track) {
+        (Some(row), _) => match row.kind {
+            TrackKind::Video => (Some(row.index), Some(if row.index < seq.audio_tracks.len() { row.index } else { 0 })),
+            TrackKind::Audio => (Some(if row.index < seq.video_tracks.len() { row.index } else { 0 }), Some(row.index)),
+        },
+        (None, Some((TrackKind::Video, _))) => (None, (seq.video_tracks.len() < seq.audio_tracks.len()).then_some(seq.video_tracks.len())),
+        (None, Some((TrackKind::Audio, _))) => ((seq.audio_tracks.len() < seq.video_tracks.len()).then_some(seq.audio_tracks.len()), None),
+        (None, None) => return Vec::new(),
+    };
+    let mut bands = Vec::new();
+    for (kind, first, lanes, letter) in [(TrackKind::Video, dests.0, vlanes, 'V'), (TrackKind::Audio, dests.1, alanes, 'A')] {
+        for lane in 0..lanes {
+            let band = match first {
+                Some(i) => i.checked_add(lane).and_then(|i| layout.rows.iter().find(|r| r.kind == kind && r.index == i)).map(|r| r.rect),
+                None => new_track.filter(|(k, _)| *k == kind && lane == 0).map(|(_, band)| band),
+            };
+            if let Some(band) = band {
+                let n = first.map_or(seq.tracks(kind).len(), |i| i.saturating_add(lane)).saturating_add(1);
+                bands.push((band, format!("timeline.dropPreview.{letter}{n}")));
+            }
+        }
+    }
+    bands
+}
+
 fn drop_targets(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, layout: &Layout) {
     let ctx = ui.ctx().clone();
     let rate = seq.settings.frame_rate;
@@ -820,11 +858,15 @@ fn drop_targets(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, layou
                 carries && source.is_none_or(|s| if *kind == TrackKind::Video { s.video } else { s.audio })
             },
         );
-        if let Some(band) = row.as_ref().map(|r| r.rect).or(new_track.map(|(_, band)| band)) {
+        // #1887: a preview on every track the drop fills, not only the one under the pointer
+        let range = source.map_or(filmcraft_time::TimeRange::new(Tick::ZERO, dur), |s| s.range);
+        let lanes = app.session.placement_lanes(item, range, source.is_none_or(|s| s.video), source.is_none_or(|s| s.audio));
+        for (k, (band, id)) in drop_preview_bands(seq, layout, lanes, row.as_ref(), new_track).iter().enumerate() {
             let r = Rect::from_min_max(pos2(layout.x_of(t), band.min.y + 1.0), pos2(layout.x_of(t + dur), band.max.y - 1.0));
             ui.painter().rect_filled(r, 3.0, Color32::from_white_alpha(40));
             ui.painter().rect_stroke(r, 3.0, Stroke::new(1.5, Color32::WHITE), StrokeKind::Inside);
-            if mods.command {
+            app.auto.add(id, r, "tracks");
+            if mods.command && k == 0 {
                 ui.painter().text(r.left_top() + vec2(4.0, -2.0), Align2::LEFT_BOTTOM, tl!("Insert"), Tokens::ui(10.0), Color32::WHITE);
             }
         }
