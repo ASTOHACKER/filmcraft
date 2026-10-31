@@ -53,6 +53,7 @@ mod project_panel_ui;
 mod properties_scroll_ui;
 mod remix_ui;
 mod scripted;
+mod selection_highlight_ui;
 mod sequence_tabs_ui;
 mod sequence_ui;
 mod settings_ui;
