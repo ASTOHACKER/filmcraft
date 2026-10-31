@@ -260,6 +260,9 @@ platforms** G4, G9, G17; **performance** G16; **ecosystem** G11; **measurement**
   (последовательность, корзина, дорожка, визуализация); Edit ▸ Language, Settings ▸ General and
   System Language (`ru-*`) reach it, a font test covers
   the Russian alphabet including «ё». Native-speaker review welcome.
+- **Done:** Turkish: `tr.tsv` has every entry of the Spanish catalog (~100%), in Edit ▸ Language,
+  Settings ▸ General and the native macOS menu; System Language picks it for `tr-*` locales.
+  Native-speaker review welcome.
 - **Estimate:** 150–230 h. Doc: [localization-parity.md](localization-parity.md).
 
 ## G15. Interchange never validated in Avid / Pro Tools; slow XML import

@@ -18,6 +18,7 @@ fn catalog_text(l: Language) -> Option<&'static str> {
         Language::Cs => Some(include_str!("cs.tsv")),
         Language::Pl => Some(include_str!("pl.tsv")),
         Language::Sv => Some(include_str!("sv.tsv")),
+        Language::Tr => Some(include_str!("tr.tsv")),
     }
 }
 
@@ -69,6 +70,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
         (Language::Cs, "Čeština"),
         (Language::Pl, "Polski"),
         (Language::Sv, "Svenska"),
+        (Language::Tr, "Türkçe"),
     ] {
         assert_eq!(l.name(), name);
     }
@@ -522,6 +524,7 @@ fn language_commands_switch_and_persist_without_a_document() {
         ("czech", Language::Cs, "cs", "Čeština", Some(("app.language.italian", "Italiano"))),
         ("polish", Language::Pl, "pl", "Polski", Some(("app.language.italian", "Italiano"))),
         ("swedish", Language::Sv, "sv", "Svenska", Some(("app.language.italian", "Italiano"))),
+        ("turkish", Language::Tr, "tr", "Türkçe", Some(("app.language.italian", "Italiano"))),
     ] {
         switch_and_check(&mut app, &ctx, name, lang, code, own, earlier);
     }
@@ -593,6 +596,9 @@ fn system_language_picks_italian_korean_and_the_first_known() {
     assert_eq!(l(&["fi-FI", "sv-FI", "en"]), Language::Sv, "Finnish has no catalog");
     for none in [&["swe"][..], &["s"], &["-sv"], &["da"], &["nb-NO"], &["nn"], &["no"]] {
         assert_eq!(l(none), Language::En, "{none:?}");
+    }
+    for tag in ["tr", "TR", "tr-TR", "tr_TR.UTF-8", "tr_TR"] {
+        assert_eq!(l(&[tag]), Language::Tr, "{tag}");
     }
     for none in [&["ita"][..], &["i"], &["-it"]] {
         assert_eq!(l(none), Language::En, "{none:?}");
@@ -836,4 +842,34 @@ fn russian_renders_with_bundled_fonts() {
     let alphabet = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»";
     let letters = entries.iter().flat_map(|(_, _, ru)| ru.chars()).filter(|ch| ch.is_alphabetic() || "«»“”‘’–—…".contains(*ch));
     assert_bundled_fonts_cover(alphabet.chars().chain(Language::Ru.name().chars()).chain(letters));
+}
+
+#[test]
+fn turkish_casing_and_search_folding() {
+    assert_eq!(Language::Tr.to_uppercase("i"), "İ");
+    assert_eq!(Language::Tr.to_uppercase("ı"), "I");
+    assert_eq!(Language::Tr.to_lowercase("İ"), "i");
+    assert_eq!(Language::Tr.to_lowercase("I"), "ı");
+    assert_eq!(Language::Tr.to_lowercase("I\u{0307}"), "i");
+    assert_eq!(to_uppercase("file"), "FILE");
+    set_current(Language::Tr);
+    assert_eq!(to_uppercase("i"), "İ");
+    assert_eq!(to_lowercase("I"), "ı");
+    assert_eq!(to_lowercase("I\u{0307}"), "i");
+    assert!(matches_query("Gaussian Blur", "gaussian"));
+    assert!(matches_query("Gaussian Blur", "GAUSSIAN"));
+    assert!(matches_query("Inceleme", "inceleme"));
+    assert!(matches_query("İnceleme", "inceleme"));
+    assert!(matches_query("inceleme", "İnceleme"));
+    assert!(matches_query("Işık", "ışık"));
+    assert!(matches_query("ışık", "IŞIK"));
+    set_current(Language::En);
+}
+
+#[test]
+fn turkish_renders_with_bundled_fonts() {
+    let (entries, _) = catalog::parse_entries(include_str!("tr.tsv"));
+    let alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvyz";
+    let letters = entries.iter().flat_map(|(_, _, tr)| tr.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
+    assert_bundled_fonts_cover(alphabet.chars().chain(Language::Tr.name().chars()).chain(letters));
 }

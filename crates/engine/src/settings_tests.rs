@@ -69,6 +69,12 @@ fn interface_language_persists_and_rejects_hostile_values() {
     }
     set(&mut s, "general.interfaceLanguage", json!("sv"));
     assert_eq!(Preferences::load(&path).general.interface_language, "sv");
+    // Turkish is stored as `tr`, not a locale tag
+    for value in [json!("tr-TR"), json!("TR")] {
+        assert!(s.execute("prefs.set", json!({"key": "general.interfaceLanguage", "value": value})).is_err());
+    }
+    set(&mut s, "general.interfaceLanguage", json!("tr"));
+    assert_eq!(Preferences::load(&path).general.interface_language, "tr");
     // back to following the operating system (#218)
     set(&mut s, "general.interfaceLanguage", json!("system"));
     assert_eq!(Preferences::load(&path).general.interface_language, "system");
