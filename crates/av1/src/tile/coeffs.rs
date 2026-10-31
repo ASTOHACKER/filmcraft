@@ -457,7 +457,7 @@ impl<'a, 'f> TileDecoder<'a, 'f> {
     }
 
     /// Reconstruct process (7.12.3).
-    pub(super) fn reconstruct(&mut self, plane: usize, x: usize, y: usize, tx_sz: usize) {
+    pub(super) fn reconstruct(&mut self, plane: usize, x: usize, y: usize, tx_sz: usize, dc_only: bool) {
         let dq_denom: i64 = match tx_sz {
             TX_32X32 | TX_16X32 | TX_32X16 | TX_16X64 | TX_64X16 => 2,
             TX_64X64 | TX_32X64 | TX_64X32 => 4,
@@ -510,7 +510,7 @@ impl<'a, 'f> TileDecoder<'a, 'f> {
             }
         }
         let lossless = self.b.lossless;
-        inverse_transform_2d(&self.dequant, &mut self.residual, tx_sz, t, lossless, bd);
+        inverse_transform_2d(&self.dequant, &mut self.residual, tx_sz, t, lossless, bd, dc_only);
         let pl = &mut self.t.cur.planes[plane];
         let max = (1i32 << bd) - 1;
         for i in 0..h {
