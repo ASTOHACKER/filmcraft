@@ -1127,7 +1127,7 @@ fn transport(app: &mut FilmcraftApp, ui: &mut egui::Ui, row: Rect, which: Which)
                 let Some((_, command, label)) = buttons.get(*index) else { continue };
                 let selected = match *command {
                     "media.toggleProxies" => Some(app.session.media.use_proxies()),
-                    "playback.loop" => Some(app.playback.looping),
+                    "playback.loop" => Some(transport_loop_on(app, which == Which::Source)),
                     "playback.toggle" => Some(app.playback.playing),
                     "source.playback.toggle" => Some(app.source_playback.clock.playing),
                     _ => None,
@@ -1141,6 +1141,11 @@ fn transport(app: &mut FilmcraftApp, ui: &mut egui::Ui, row: Rect, which: Which)
             }
         });
     }
+}
+
+/// Whether the Source (`source`) or Program monitor is looping.
+fn transport_loop_on(app: &FilmcraftApp, source: bool) -> bool {
+    if source { app.source_playback.clock.looping } else { app.playback.looping }
 }
 
 fn transport_is_lit(command: &str, proxies_enabled: bool, loop_enabled: bool) -> bool {
@@ -1160,7 +1165,9 @@ fn transport_button(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect, prefi
         ui.painter().rect_filled(rect, 4.0, t.hover);
     }
     let size = if matches!(command, "playback.toggle" | "source.playback.toggle") { 20.0 } else { 18.0 };
-    let color = if transport_is_lit(command, app.session.media.use_proxies(), app.playback.looping) {
+    // Loop shows as active (accent) while looping is on; both monitors use this command id, so check the prefix.
+    let loop_enabled = transport_loop_on(app, prefix.starts_with("source"));
+    let color = if transport_is_lit(command, app.session.media.use_proxies(), loop_enabled) {
         t.accent
     } else if response.hovered() {
         t.tab_text_active
@@ -1259,6 +1266,20 @@ mod tests {
         set_transport_visible(&mut program, "playhead.stepForward", false);
         assert_eq!(program, vec!["playhead.stepForward"]);
         assert!(transport_visible(&source, "playhead.stepForward"));
+    }
+
+    #[test]
+    fn loop_command_turns_the_monitor_loop_state_on_and_off() {
+        let mut app = FilmcraftApp::new(filmcraft_engine::Session::default());
+        let ctx = egui::Context::default();
+        for (source, params) in [(false, json!({"monitor": "program"})), (true, json!({"monitor": "source"}))] {
+            assert!(!transport_is_lit("playback.loop", false, transport_loop_on(&app, source)));
+            crate::menus::invoke(&mut app, &ctx, "playback.loop", params.clone()).unwrap();
+            assert!(transport_is_lit("playback.loop", false, transport_loop_on(&app, source)), "on after one toggle (source: {source})");
+            assert!(transport_loop_on(&app, source) != transport_loop_on(&app, !source), "only that monitor loops");
+            crate::menus::invoke(&mut app, &ctx, "playback.loop", params).unwrap();
+            assert!(!transport_is_lit("playback.loop", false, transport_loop_on(&app, source)), "off after the second (source: {source})");
+        }
     }
 
     #[test]
