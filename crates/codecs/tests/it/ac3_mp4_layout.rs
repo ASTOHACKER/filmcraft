@@ -2,7 +2,7 @@
 //! count in the sample entry for both codecs; the real layout is in the `dac3` / `dec3` descriptor.
 //! Each channel carries a distinct tone, so a dropped centre/surround sample fails the oracle.
 
-mod common;
+use crate::common;
 
 use std::fs;
 use std::io::Cursor;
