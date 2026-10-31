@@ -216,6 +216,7 @@ pub(super) static CATEGORIES: &[Category] = &[
                     // Alphabetical by the language's own name after English; Cyrillic, then
                     // CJK names follow the Latin ones. Edit ▸ Language lists them the same way.
                     ("id", "Bahasa Indonesia"),
+                    ("cs", "Čeština"),
                     ("de", "Deutsch"),
                     ("es", "Español"),
                     ("fr", "Français"),

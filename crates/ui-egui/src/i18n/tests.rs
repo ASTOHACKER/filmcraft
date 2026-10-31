@@ -15,6 +15,7 @@ fn catalog_text(l: Language) -> Option<&'static str> {
         Language::Id => Some(include_str!("id.tsv")),
         Language::It => Some(include_str!("it.tsv")),
         Language::Ko => Some(include_str!("ko.tsv")),
+        Language::Cs => Some(include_str!("cs.tsv")),
     }
 }
 
@@ -49,7 +50,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
     }
     assert_eq!(Language::En.tr("File"), "File");
     assert_eq!(Language::parse("xx"), None);
-    for code in ["de-DE", "fr-FR", "id-ID", "it-IT"] {
+    for code in ["de-DE", "fr-FR", "id-ID", "it-IT", "cs-CZ"] {
         assert_eq!(Language::parse(code), None, "the preference stores the bare code");
     }
     // language names are always shown in their own language
@@ -63,6 +64,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
         (Language::Id, "Bahasa Indonesia"),
         (Language::It, "Italiano"),
         (Language::Ko, "한국어"),
+        (Language::Cs, "Čeština"),
     ] {
         assert_eq!(l.name(), name);
     }
@@ -513,6 +515,7 @@ fn language_commands_switch_and_persist_without_a_document() {
         ("french", Language::Fr, "fr", "Français", Some(("app.language.german", "Deutsch"))),
         ("indonesian", Language::Id, "id", "Bahasa Indonesia", Some(("app.language.french", "Français"))),
         ("italian", Language::It, "it", "Italiano", Some(("app.language.indonesian", "Bahasa Indonesia"))),
+        ("czech", Language::Cs, "cs", "Čeština", Some(("app.language.italian", "Italiano"))),
     ] {
         switch_and_check(&mut app, &ctx, name, lang, code, own, earlier);
     }
@@ -574,6 +577,9 @@ fn system_language_picks_italian_korean_and_the_first_known() {
     assert_eq!(l(&["it-CH", "de-CH", "fr-CH", "en"]), Language::It);
     for tag in ["ko", "ko-KR", "ko_KR.UTF-8"] {
         assert_eq!(l(&[tag]), Language::Ko, "{tag}");
+    }
+    for tag in ["cs", "CS", "cs-CZ", "cs_CZ.UTF-8"] {
+        assert_eq!(l(&[tag]), Language::Cs, "{tag}");
     }
     for none in [&["ita"][..], &["i"], &["-it"]] {
         assert_eq!(l(none), Language::En, "{none:?}");
@@ -705,6 +711,14 @@ fn italian_renders_with_bundled_fonts() {
     let alphabet = "ÀÈÉÌÍÎÒÓÙÚàèéìíîòóùú";
     let letters = entries.iter().flat_map(|(_, _, it)| it.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
     assert_bundled_fonts_cover(alphabet.chars().chain(Language::It.name().chars()).chain(letters));
+}
+
+#[test]
+fn czech_renders_with_bundled_fonts() {
+    let (entries, _) = catalog::parse_entries(include_str!("cs.tsv"));
+    let alphabet = "ÁČĎÉĚÍŇÓŘŠŤÚŮÝŽáčďéěíňóřšťúůýž„“‚‘’";
+    let letters = entries.iter().flat_map(|(_, _, cs)| cs.chars()).filter(|ch| ch.is_alphabetic());
+    assert_bundled_fonts_cover(alphabet.chars().chain(Language::Cs.name().chars()).chain(letters));
 }
 
 #[test]
