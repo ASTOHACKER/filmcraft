@@ -30,6 +30,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     // Alphabetical by the language's own name after English; Cyrillic, then CJK names follow
     // the Latin ones. Settings ▸ General ▸ Interface Language lists them the same way.
     uic!("app.language.indonesian", "Bahasa Indonesia", ["Edit", "Language"], None),
+    uic!("app.language.bosnian", "Bosanski", ["Edit", "Language"], None),
     uic!("app.language.czech", "Čeština", ["Edit", "Language"], None),
     uic!("app.language.german", "Deutsch", ["Edit", "Language"], None),
     uic!("app.language.spanish", "Español", ["Edit", "Language"], None),
@@ -208,6 +209,7 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
             | "app.language.french"
             | "app.language.indonesian"
             | "app.language.italian"
+            | "app.language.bosnian"
             | "app.language.korean"
             | "app.language.czech"
             | "app.language.polish"
@@ -237,6 +239,7 @@ pub fn invoke(app: &mut FilmcraftApp, ctx: &egui::Context, id: &str, mut params:
             "app.language.french" => crate::i18n::Language::Fr,
             "app.language.indonesian" => crate::i18n::Language::Id,
             "app.language.italian" => crate::i18n::Language::It,
+            "app.language.bosnian" => crate::i18n::Language::Bs,
             "app.language.korean" => crate::i18n::Language::Ko,
             "app.language.czech" => crate::i18n::Language::Cs,
             "app.language.polish" => crate::i18n::Language::Pl,
@@ -837,6 +840,7 @@ pub fn menu_items(app: &FilmcraftApp) -> Vec<MenuItem> {
             "app.language.french" => it.checked = Some(app.ui.language == crate::i18n::Language::Fr),
             "app.language.indonesian" => it.checked = Some(app.ui.language == crate::i18n::Language::Id),
             "app.language.italian" => it.checked = Some(app.ui.language == crate::i18n::Language::It),
+            "app.language.bosnian" => it.checked = Some(app.ui.language == crate::i18n::Language::Bs),
             "app.language.korean" => it.checked = Some(app.ui.language == crate::i18n::Language::Ko),
             "app.language.czech" => it.checked = Some(app.ui.language == crate::i18n::Language::Cs),
             "app.language.polish" => it.checked = Some(app.ui.language == crate::i18n::Language::Pl),

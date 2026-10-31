@@ -14,6 +14,7 @@ fn catalog_text(l: Language) -> Option<&'static str> {
         Language::Fr => Some(include_str!("fr.tsv")),
         Language::Id => Some(include_str!("id.tsv")),
         Language::It => Some(include_str!("it.tsv")),
+        Language::Bs => Some(include_str!("bs.tsv")),
         Language::Ko => Some(include_str!("ko.tsv")),
         Language::Cs => Some(include_str!("cs.tsv")),
         Language::Pl => Some(include_str!("pl.tsv")),
@@ -66,6 +67,7 @@ fn unknown_strings_pass_through_and_languages_round_trip() {
         (Language::Fr, "Français"),
         (Language::Id, "Bahasa Indonesia"),
         (Language::It, "Italiano"),
+        (Language::Bs, "Bosanski"),
         (Language::Ko, "한국어"),
         (Language::Cs, "Čeština"),
         (Language::Pl, "Polski"),
@@ -525,6 +527,7 @@ fn language_commands_switch_and_persist_without_a_document() {
         ("polish", Language::Pl, "pl", "Polski", Some(("app.language.italian", "Italiano"))),
         ("swedish", Language::Sv, "sv", "Svenska", Some(("app.language.italian", "Italiano"))),
         ("turkish", Language::Tr, "tr", "Türkçe", Some(("app.language.italian", "Italiano"))),
+        ("bosnian", Language::Bs, "bs", "Bosanski", Some(("app.language.italian", "Italiano"))),
     ] {
         switch_and_check(&mut app, &ctx, name, lang, code, own, earlier);
     }
@@ -872,4 +875,14 @@ fn turkish_renders_with_bundled_fonts() {
     let alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZabcçdefgğhıijklmnoöprsştuüvyz";
     let letters = entries.iter().flat_map(|(_, _, tr)| tr.chars()).filter(|ch| ch.is_alphabetic() || "“”‘’–—…".contains(*ch));
     assert_bundled_fonts_cover(alphabet.chars().chain(Language::Tr.name().chars()).chain(letters));
+}
+
+/// Every Bosnian locale, with region, script or encoding, picks the Bosnian catalog.
+#[test]
+fn system_language_picks_bosnian() {
+    let l = locales;
+    for tag in ["bs", "BS", "bs-BA", "bs_BA.UTF-8", "bs-Latn-BA", "bs-Cyrl-BA", "BS-ba"] {
+        assert_eq!(l(&[tag]), Language::Bs, "{tag}");
+    }
+    assert_eq!(l(&["hr-HR", "bs-BA"]), Language::Bs, "Croatian has no catalog here, so the next preference wins");
 }
