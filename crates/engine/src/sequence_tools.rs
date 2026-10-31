@@ -100,7 +100,12 @@ fn groups() -> Vec<(&'static str, Vec<CommandSpec>)> {
             "sequence.linkedSelection",
             vec![
                 spec("sequence.selectionFollowsPlayhead", "Selection Follows Playhead", &["Sequence"], None, r#"{"on":bool?}"#, always, |s, p| {
-                    s.state.selection_follows_playhead = bool_p(p, "on").unwrap_or(!s.state.selection_follows_playhead);
+                    // the preference is the source of truth (#3089: it persists across sessions);
+                    // the session flag mirrors it through set_prefs
+                    let on = bool_p(p, "on").unwrap_or(!s.prefs.timeline.selection_follows_playhead);
+                    let mut next = s.prefs.clone();
+                    next.timeline.selection_follows_playhead = on;
+                    s.set_prefs(next).map_err(|e| EngineError::Other(format!("saving preferences: {e}")))?;
                     if s.state.selection_follows_playhead {
                         select_under_playhead(s);
                     }

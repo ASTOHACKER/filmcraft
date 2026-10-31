@@ -904,3 +904,105 @@ fn builtin_label_presets_are_complete_and_distinct() {
     }
     assert!(!settings::is_builtin_label_preset("Team"));
 }
+
+// ---------- #3089: Selection Follows Playhead persists ----------
+
+/// Sequence ▸ Selection Follows Playhead persists: turning it on writes the preference, saves
+/// `preferences.json`, and the next session starts with it on (#3089 — it used to live only in
+/// volatile session state). Fails on `main`: the preference key does not exist there.
+#[test]
+fn selection_follows_playhead_persists_across_sessions() {
+    let dir = tmp_dir("sfp-persist");
+    let mut s = Session::default();
+    s.start_autosave(crate::autosave::AutosaveConfig::new(&dir)).unwrap();
+    s.execute("sequence.selectionFollowsPlayhead", json!({"on": true})).unwrap();
+    assert!(s.state.selection_follows_playhead);
+    assert_eq!(s.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(true)), "command persisted the pref");
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("preferences.json")).unwrap()).unwrap();
+    assert_eq!(file["timeline"]["selectionFollowsPlayhead"], json!(true));
+    s.shutdown();
+
+    let mut s2 = Session::default();
+    s2.start_autosave(crate::autosave::AutosaveConfig::new(&dir)).unwrap();
+    assert_eq!(s2.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(true)), "restored from the file");
+    assert!(s2.state.selection_follows_playhead, "applied to the session at load");
+    s2.shutdown();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The off direction persists too, and an explicit set through the settings surface works:
+/// a fix that simply defaulted the flag on would pass the test above and fail this one.
+#[test]
+fn selection_follows_playhead_stays_off_when_turned_off() {
+    let dir = tmp_dir("sfp-off");
+    let mut s = Session::default();
+    s.start_autosave(crate::autosave::AutosaveConfig::new(&dir)).unwrap();
+    s.execute("sequence.selectionFollowsPlayhead", json!({"on": true})).unwrap();
+    s.execute("sequence.selectionFollowsPlayhead", json!({"on": false})).unwrap();
+    assert!(!s.state.selection_follows_playhead);
+    assert_eq!(s.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(false)));
+    // set back on through prefs.set (the Settings dialog / agent path) and the live session follows
+    s.execute("prefs.set", json!({"key": "timeline.selectionFollowsPlayhead", "value": true})).unwrap();
+    assert!(s.state.selection_follows_playhead, "prefs.set drives the live session");
+    s.execute("prefs.set", json!({"key": "timeline.selectionFollowsPlayhead", "value": false})).unwrap();
+    assert!(!s.state.selection_follows_playhead);
+    let file: Value = serde_json::from_slice(&std::fs::read(dir.join("preferences.json")).unwrap()).unwrap();
+    assert_eq!(file["timeline"]["selectionFollowsPlayhead"], json!(false));
+    s.shutdown();
+    let mut s2 = Session::default();
+    s2.start_autosave(crate::autosave::AutosaveConfig::new(&dir)).unwrap();
+    assert!(!s2.state.selection_follows_playhead, "off survives the restart");
+    s2.shutdown();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Omitting `on` still toggles (from the persisted value, not from volatile state): off -> on
+/// through the command alone, persisted both ways.
+#[test]
+fn selection_follows_playhead_toggle_without_on_persists() {
+    let dir = tmp_dir("sfp-toggle");
+    let mut s = Session::default();
+    s.start_autosave(crate::autosave::AutosaveConfig::new(&dir)).unwrap();
+    s.execute("sequence.selectionFollowsPlayhead", json!({})).unwrap();
+    assert!(s.state.selection_follows_playhead, "off -> on");
+    assert_eq!(s.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(true)));
+    s.execute("sequence.selectionFollowsPlayhead", json!({})).unwrap();
+    assert!(!s.state.selection_follows_playhead, "on -> off");
+    assert_eq!(s.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(false)));
+    s.shutdown();
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A hostile value is rejected and the stored value is kept (the shared prefs.set contract).
+#[test]
+fn selection_follows_playhead_rejects_hostile_values() {
+    let dir = tmp_dir("sfp-hostile");
+    let mut s = Session { prefs_path: Some(dir.join("preferences.json")), ..Session::default() };
+    s.execute("prefs.set", json!({"key": "timeline.selectionFollowsPlayhead", "value": true})).unwrap();
+    assert!(s.execute("prefs.set", json!({"key": "timeline.selectionFollowsPlayhead", "value": "no"})).is_err());
+    assert_eq!(s.prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(true)), "bad write kept the old value");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A preferences file written before the key existed keeps today's behaviour: off, and every
+/// other Timeline value untouched.
+#[test]
+fn selection_follows_playhead_defaults_to_off_for_older_prefs() {
+    let dir = tmp_dir("sfp-legacy");
+    let path = dir.join("preferences.json");
+    std::fs::write(&path, json!({"version": 2, "timeline": {"stillImageDuration": 3}}).to_string()).unwrap();
+    let prefs = Preferences::load(&path);
+    assert_eq!(prefs.get("timeline.selectionFollowsPlayhead"), Some(json!(false)));
+    assert_eq!(prefs.timeline.still_image_duration, 3.0);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The key is a Boolean field of the Timeline category in the settings registry, so the Settings
+/// dialog and the agent-facing settings surface see it like every other persisted toggle.
+#[test]
+fn selection_follows_playhead_is_in_the_settings_registry() {
+    let (cat, f) = settings::fields().into_iter().find(|(_, f)| f.key == "timeline.selectionFollowsPlayhead").expect("registry field");
+    assert_eq!(cat, "timeline");
+    assert!(matches!(f.kind, Kind::Bool));
+    assert_eq!(settings::field("timeline.selectionFollowsPlayhead").map(|f| f.key), Some("timeline.selectionFollowsPlayhead"));
+}
