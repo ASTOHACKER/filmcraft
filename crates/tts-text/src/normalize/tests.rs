@@ -82,6 +82,18 @@ fn oversized_and_leading_zero_numbers_go_digit_by_digit() {
 }
 
 #[test]
+fn numbers_longer_than_twenty_digits_are_read_fully_digit_by_digit() {
+    assert_eq!(
+        words("12345678901234567890123", Lang::EnUs),
+        "one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three"
+    );
+    assert_eq!(
+        words("1234567890123456789000123", Lang::EnUs),
+        "one two three four five six seven eight nine zero one two three four five six seven eight nine zero zero zero one two three"
+    );
+}
+
+#[test]
 fn negatives_and_decimals() {
     assert_eq!(words("-5", Lang::EnUs), "minus five");
     assert_eq!(words("3.14", Lang::EnUs), "three point one four");

@@ -587,16 +587,11 @@ fn parse_fraction(rest: &str) -> Option<(Vec<Token>, usize)> {
 fn parse_number_core(rest: &str, lang: Lang) -> Option<(Vec<Token>, usize)> {
     let mut digits = String::new();
     let mut used = 0usize;
-    let mut overflowed = false;
     let mut grouped = false;
     for (i, ch) in rest.char_indices() {
         if ch.is_ascii_digit() {
             digits.push(ch);
             used = i + 1;
-            if digits.len() > 19 {
-                overflowed = true;
-                break;
-            }
         } else if ch == ',' && !digits.is_empty() {
             if grouping_followed_by_3(rest, i) {
                 // Grouping is visual only; drop the mark.
@@ -612,7 +607,7 @@ fn parse_number_core(rest: &str, lang: Lang) -> Option<(Vec<Token>, usize)> {
     if digits.is_empty() {
         return None;
     }
-    if overflowed || digits.len() > MAX_CARDINAL_DIGITS {
+    if digits.len() > MAX_CARDINAL_DIGITS {
         let words: Vec<Token> = digits.chars().map(|c| Token::Word(english_digit_word(c).into())).collect();
         return Some((words, used));
     }
