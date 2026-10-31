@@ -94,6 +94,22 @@ impl FilmcraftApp {
         Ok(seconds)
     }
 
+    /// Whether [`FilmcraftApp::stop`] has a transport to stop: Program or Source playback, a
+    /// preroll, or a recording that runs one. A press that only moves the playhead uses this so it
+    /// does not close an audio stream that is already open (#2633): dropping the output stream
+    /// makes the next scrub grain open the device again, and on WASAPI that open is slow.
+    pub fn transport_running(&self) -> bool {
+        self.playback.playing
+            // A panel that panicked clears `playing` but leaves the output playing, and the clock
+            // stays on: the press still has that stream to stop.
+            || self.playback.audio_clock
+            || self.source_playback.clock.playing
+            || self.playback.preroll.is_some()
+            || self.session.mixrec.active()
+            || self.session.mcrec.active()
+            || self.session.voiceover.recording()
+    }
+
     pub fn stop(&mut self) {
         self.playback.playing = false;
         self.playback.stop_at = None;
