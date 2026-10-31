@@ -112,7 +112,16 @@ impl ExportRenderer {
                     return None;
                 }
                 let instance = crate::adapter::native_instance();
-                let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).ok()?;
+                // the adapter `request_adapter` would return, except where that one's driver is
+                // known to crash creating the device (`adapter::choose`); among the backends
+                // `WGPU_BACKEND` names, as for the window, when this instance has any of them
+                let mut adapters = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+                if let Some(named) = wgpu::Backends::from_env()
+                    && adapters.iter().any(|a| named.contains(a.get_info().backend.into()))
+                {
+                    adapters.retain(|a| named.contains(a.get_info().backend.into()));
+                }
+                let adapter = crate::adapter::pick(&adapters, None, wgpu::PowerPreference::None).ok()?;
                 let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
                 // wgpu's default handler panics on a validation or out-of-memory error; log it and
                 // send the remaining frames to the CPU instead.
