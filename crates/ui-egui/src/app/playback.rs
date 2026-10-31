@@ -140,8 +140,7 @@ impl FilmcraftApp {
     /// close the scrub stream (see `scrub.rs`) that the drag keeps open, once per move. A take
     /// that records while stopped and a Text to Speech preview still end here, as they do in `stop`.
     pub(crate) fn stop_for_scrub(&mut self) {
-        let recording = self.session.voiceover.recording() || self.session.mixrec.active() || self.session.mcrec.active();
-        if self.playback.playing || self.playback.preroll.is_some() || self.playback.tts_preview || recording {
+        if self.transport_running() || self.playback.tts_preview {
             self.stop();
         }
     }
