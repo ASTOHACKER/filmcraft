@@ -34,6 +34,26 @@ fn button_pos(rect: Rect, i: usize, n: usize) -> Option<egui::Pos2> {
     Some(if horizontal { pos2(rect.min.x + a, rect.min.y + c) } else { pos2(rect.min.x + c, rect.min.y + a) })
 }
 
+fn shortcut_text(app: &FilmcraftApp, tool: Tool) -> Option<String> {
+    tool.command_id().and_then(|id| app.session.shortcuts.primary(id)).map(|keys| crate::menus::shortcut_text(&keys))
+}
+
+fn tooltip(app: &FilmcraftApp, tool: Tool) -> String {
+    let label = app.ui.language.tr(tool.label());
+    match shortcut_text(app, tool) {
+        Some(keys) => format!("{label} ({keys})"),
+        None => label.to_owned(),
+    }
+}
+
+fn flyout_label(app: &FilmcraftApp, tool: Tool) -> String {
+    let label = app.ui.language.tr(tool.label());
+    match shortcut_text(app, tool) {
+        Some(keys) => format!("{label}   {keys}"),
+        None => label.to_owned(),
+    }
+}
+
 pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let t = app.tokens;
     let held_id = egui::Id::unique("tools-held");
@@ -46,11 +66,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let Some(at) = button_pos(rect, i, count) else { break };
         let current = if group.contains(&app.ui.tool) { app.ui.tool } else { group[0] };
         let r = Rect::from_min_size(at, vec2(SIZE, SIZE));
-        let tip = if current.shortcut().is_empty() {
-            app.ui.language.tr(current.label()).to_owned()
-        } else {
-            format!("{} ({})", app.ui.language.tr(current.label()), current.shortcut())
-        };
+        let tip = tooltip(app, current);
         let resp = ui.interact(r, egui::Id::unique(("tool", format!("{:?}", group[0]))), Sense::click_and_drag()).on_hover_text(tip);
         resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, resp.enabled(), app.ui.tool == current, current.label()));
         for tl in &group {
@@ -102,7 +118,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
             let close_behavior = if held && resp.clicked() { egui::PopupCloseBehavior::IgnoreClicks } else { egui::PopupCloseBehavior::CloseOnClickOutside };
             egui::Popup::menu(&resp).open_memory(command).close_behavior(close_behavior).show(|ui| {
                 for tl in &group {
-                    let row = ui.selectable_label(app.ui.tool == *tl, format!("{}   {}", app.ui.language.tr(tl.label()), tl.shortcut()));
+                    let row = ui.selectable_label(app.ui.tool == *tl, flyout_label(app, *tl));
                     app.auto.add_response(&format!("tools.select.{tl:?}"), &row, tl.label());
                     // letting go over a row of a flyout this press opened picks that tool
                     let released_on = held && ui.input(|i| i.pointer.primary_released() && i.pointer.interact_pos().is_some_and(|p| row.rect.contains(p)));
@@ -119,6 +135,24 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tool_hints_follow_the_active_shortcut_and_hide_cleared_keys() {
+        let mut app = FilmcraftApp::new(filmcraft_engine::Session::default());
+        let modified = if cfg!(target_os = "macos") { "⇧⌘K" } else { "Ctrl+Shift+K" };
+        for (tool, command, default, keys, display) in
+            [(Tool::Razor, "tool.razor", "C", "S", "S"), (Tool::TrackSelectBackward, "tool.trackSelectBackward", "Shift+A", "Cmd+Shift+K", modified)]
+        {
+            let label = app.ui.language.tr(tool.label()).to_owned();
+            assert_eq!(tooltip(&app, tool), format!("{label} ({})", crate::menus::shortcut_text(default)));
+            app.session.execute("shortcuts.set", serde_json::json!({"command": command, "keys": keys})).unwrap();
+            assert_eq!(tooltip(&app, tool), format!("{label} ({display})"));
+            assert_eq!(flyout_label(&app, tool), format!("{label}   {display}"));
+            app.session.execute("shortcuts.clear", serde_json::json!({"command": command})).unwrap();
+            assert_eq!(tooltip(&app, tool), label);
+            assert_eq!(flyout_label(&app, tool), label);
+        }
+    }
 
     fn frame(app: &mut FilmcraftApp, ctx: &egui::Context, time: f64, events: Vec<egui::Event>) {
         app.auto.begin_frame();

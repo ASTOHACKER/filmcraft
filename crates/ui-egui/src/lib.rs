@@ -351,7 +351,6 @@ pub struct FilmcraftApp {
     menu_sent: Vec<menus::MenuItem>,
     /// Keyboard Shortcuts dialog state.
     pub shortcut_editor: panels::shortcuts_dialog::EditorState,
-    pub toast: Option<(String, f64)>,
     pub tl: panels::timeline::TlState,
     pub(crate) transcript_cache: panels::transcript_cache::TranscriptCache,
     /// Commands from outside the UI (native menu bar), invoked on the UI thread.

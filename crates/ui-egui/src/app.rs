@@ -111,7 +111,6 @@ impl FilmcraftApp {
             bindings_rev: 0,
             menu_sent: Vec::new(),
             shortcut_editor: Default::default(),
-            toast: None,
             graphics_notice: None,
             tl: Default::default(),
             transcript_cache: Default::default(),
@@ -280,7 +279,7 @@ impl FilmcraftApp {
     }
 
     /// Apply engine events that change the active sequence/view, IME target, toast or project.
-    fn logic_session_events(&mut self, now: f64) {
+    fn logic_session_events(&mut self) {
         for ev in self.session.drain_events() {
             match ev {
                 filmcraft_engine::Event::OpenSequence(_) => {
@@ -296,7 +295,7 @@ impl FilmcraftApp {
                     let _ = self.apply_dock(craft_ui::docking::Action::Activate { panel: PanelKind::Source });
                 }
                 filmcraft_engine::Event::RevealInProject(item) => self.reveal_in_project(item),
-                filmcraft_engine::Event::Toast { message, .. } => self.toast = Some((message, now)),
+                filmcraft_engine::Event::Toast { message, .. } => self.status(message),
                 filmcraft_engine::Event::ProjectChanged { .. } => {}
             }
         }
@@ -315,7 +314,7 @@ impl FilmcraftApp {
         let now = self.logic_clock(ctx);
         self.logic_control(ctx);
         self.logic_background(ctx, now);
-        self.logic_session_events(now);
+        self.logic_session_events();
         self.logic_command_inbox(ctx);
         self.advance_playback(ctx);
         self.advance_source_playback(ctx);

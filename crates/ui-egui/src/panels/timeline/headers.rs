@@ -240,9 +240,10 @@ fn header_line_buttons(
         }
     } else {
         let mr = Rect::from_center_size(pos2(hrect.min.x + x, upper_y), vec2(14.0, 14.0));
-        let mresp = crate::widgets::letter_toggle(
+        let mresp = crate::widgets::letter_toggle_clipped(
             ui,
-            mr.intersect(visible),
+            mr,
+            visible,
             "M",
             tr.muted,
             Color32::from_rgb(0x2d, 0x9d, 0x78),
@@ -254,9 +255,10 @@ fn header_line_buttons(
             actions.push(("timeline.setTrack".into(), json!({"track": r.track.0, "muted": !tr.muted})));
         }
         let s2 = Rect::from_center_size(pos2(hrect.min.x + x + 20.0, upper_y), vec2(14.0, 14.0));
-        let so = crate::widgets::letter_toggle(
+        let so = crate::widgets::letter_toggle_clipped(
             ui,
-            s2.intersect(visible),
+            s2,
+            visible,
             "S",
             tr.solo,
             Color32::from_rgb(0xf0, 0xf0, 0x4f),
