@@ -29,8 +29,21 @@ impl Layout {
     pub fn tick_at(&self, x: f32) -> Tick {
         Tick::from_seconds_f64(self.scroll + (x - self.content.min.x) as f64 / self.pps)
     }
+    /// The track row under `y`. Rows are not clipped to their pane: a scrolled video track
+    /// reaches below the divider and a scrolled audio track above it or over the Mix row, so a
+    /// row only counts inside its own pane (video above the divider, audio between the divider
+    /// and the Mix row). Without this a press on an audio track hit the hidden V1 row.
     pub fn row_at(&self, y: f32) -> Option<&Row> {
-        self.rows.iter().find(|r| r.rect.min.y <= y && y < r.rect.max.y)
+        let audio_top = self.split_y + DIVIDER_H;
+        let audio_bottom = self.content.max.y - MASTER_H;
+        self.rows.iter().find(|r| {
+            r.rect.min.y <= y
+                && y < r.rect.max.y
+                && match r.kind {
+                    TrackKind::Video => y < self.split_y,
+                    TrackKind::Audio => y >= audio_top && y < audio_bottom,
+                }
+        })
     }
 }
 
