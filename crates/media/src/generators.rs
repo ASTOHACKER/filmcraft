@@ -709,4 +709,26 @@ mod tests {
         let err = render(&Generator::BlackVideo, 32_768, 32_768, 0.0, 0, FrameRate::FPS_24).unwrap_err();
         assert!(err.to_string().contains("limit"), "{err}");
     }
+
+    /// #1947: the counting leader's beep at each second mark lasts one frame of its own rate,
+    /// not a fixed 1/24 s: 800 samples at 60 fps and 48 kHz, 2000 at 24 fps, 1920 at 25 fps.
+    #[test]
+    fn counting_leader_beep_lasts_one_frame_of_its_rate() {
+        for (rate, beep) in [(FrameRate::FPS_60, 800usize), (FrameRate::FPS_24, 2000), (FrameRate::FPS_25, 1920), (FrameRate::FPS_29_97, 1602)] {
+            let g = GeneratorSource::new(Generator::CountingLeader, 64, 36, rate, Tick(3 * TICKS_PER_SECOND));
+            let a = g.audio(0, 96_000, 48_000).unwrap();
+            let l = &a.channels[0];
+            let last_nonzero = |from: usize, to: usize| (from..to).rev().find(|&i| l[i] != 0.0);
+            // the first beep: sound up to its last sample, silence from there to the next second
+            assert!(
+                last_nonzero(0, 48_000).is_some_and(|i| i + 1 >= beep - 1 && i < beep),
+                "{rate}: first beep ends at {:?}, expected {beep}",
+                last_nonzero(0, 48_000)
+            );
+            assert!(l[beep..48_000].iter().all(|&v| v == 0.0), "{rate}: silence after the beep");
+            // the second beep too
+            assert!(l[48_000..48_000 + beep - 2].iter().any(|&v| v != 0.0), "{rate}: a beep at the second mark");
+            assert!(l[48_000 + beep..96_000].iter().all(|&v| v == 0.0), "{rate}: silence after it");
+        }
+    }
 }
