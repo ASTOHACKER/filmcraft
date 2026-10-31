@@ -9,6 +9,7 @@ pub(super) fn marker_menu(app: &mut FilmcraftApp, ctx: &egui::Context, ui: &mut 
         ui.close();
         return;
     };
+    crate::panels::misc::marker_edit_item(app, ui, &marker, "timeline.markerMenu");
     crate::panels::misc::marker_label_menu(app, ui, &marker, "timeline.markerMenu");
     ui.separator();
     for (label, cmd) in [("Clear Selected Marker", "markers.clearCurrent"), ("Clear Markers", "markers.clearAll")] {

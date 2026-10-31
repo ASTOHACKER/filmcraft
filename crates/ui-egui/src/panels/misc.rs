@@ -166,7 +166,7 @@ pub(crate) fn open_marker_dialog(app: &mut FilmcraftApp, marker: &filmcraft_proj
     let kind = MARKER_KINDS.iter().find(|k| k.0 == marker.kind).map_or("comment", |k| k.1);
     app.ui.marker_dialog = Some(crate::state::MarkerDraft {
         sequence: sequence.0,
-        generation: app.session.project_generation,
+        generation: app.session.document_epoch,
         duration0: duration.clone(),
         marker: marker.id.0,
         name: marker.name.clone(),
@@ -196,7 +196,7 @@ pub(crate) fn marker_edit_item(app: &mut FilmcraftApp, ui: &mut egui::Ui, marker
 pub(crate) fn marker_dialog(app: &mut FilmcraftApp, ctx: &egui::Context) {
     let Some(mut d) = app.ui.marker_dialog.clone() else { return };
     // another project or sequence: the marker id may name another marker there
-    let same_place = app.session.state.active_sequence.map(|s| s.0) == Some(d.sequence) && app.session.project_generation == d.generation;
+    let same_place = app.session.state.active_sequence.map(|s| s.0) == Some(d.sequence) && app.session.document_epoch == d.generation;
     let Some(seq) = app.session.active_sequence().filter(|_| same_place) else {
         app.ui.marker_dialog = None;
         return;
