@@ -74,6 +74,13 @@ pub fn timeline_extent(sequence_seconds: f64) -> f64 {
     sequence_seconds.max(0.0) + 600.0
 }
 
+/// The least `pps` (points a second) the Timeline zooms out to: its whole extent fits a view
+/// `width` points wide, and no farther, so the clips of a short sequence stay in sight. A zero or
+/// invalid width gives a tiny positive floor, never zero.
+pub fn min_pps(sequence_seconds: f64, width: f32) -> f64 {
+    (f64::from(width.max(0.0)) / timeline_extent(sequence_seconds)).clamp(1e-6, 24_000.0)
+}
+
 /// The latest time the left edge of a view `width` points wide can show at `pps` points a second.
 pub fn max_scroll(sequence_seconds: f64, width: f32, pps: f64) -> f64 {
     if pps <= 0.0 || !pps.is_finite() {
@@ -105,9 +112,9 @@ pub(crate) fn reveal_playhead(app: &mut FilmcraftApp, ctx: &egui::Context) {
 }
 
 /// Zoom about a time (keeps it under the same screen x).
-pub fn zoom_about(v: &mut TimelineView, factor: f64, anchor_secs: f64, width: f32) {
+pub fn zoom_about(v: &mut TimelineView, factor: f64, anchor_secs: f64, width: f32, sequence_seconds: f64) {
     let old = v.target_pps;
-    let new = (old * factor).clamp(0.05, 24_000.0);
+    let new = (old * factor).clamp(min_pps(sequence_seconds, width), 24_000.0);
     let x = ((anchor_secs - v.target_scroll) * old) as f32;
     let x = if (0.0..=width).contains(&x) { x } else { width / 2.0 };
     v.target_pps = new;

@@ -210,6 +210,59 @@ fn the_view_stops_ten_minutes_past_the_end_of_the_sequence() {
     assert_eq!(d.view().0, 0.0);
 }
 
+/// Zooming out stops where the whole extent (the sequence and ten minutes) is in the view, however
+/// far the wheel or a script asks.
+#[test]
+fn zooming_out_stops_where_the_whole_timeline_is_in_view() {
+    let mut d = Driver::tall();
+    let seconds = d.seconds();
+    let width = d.rect("timeline.tracks")[2] as f64;
+    let floor = width / timeline_extent(seconds);
+    for _ in 0..20 {
+        d.wheel(0.2, 0.0, -200.0, json!({"alt": true}));
+    }
+    let (scroll, pps, ..) = d.view();
+    assert!((pps - floor).abs() < floor * 0.01, "the wheel zoomed to {pps}, the whole extent is {floor}");
+    assert_eq!(scroll, 0.0);
+    // a script's zoom is held to the same limit
+    d.ok("ui.set", json!({"timeline": {"pps": 0.05, "scroll": 0.0}}));
+    d.frames(6);
+    let (_, pps, ..) = d.view();
+    assert!((pps - floor).abs() < floor * 0.01, "a script zoomed to {pps}");
+    // and zooming back in works from there
+    d.wheel(0.2, 0.0, 20.0, json!({"alt": true}));
+    assert!(d.view().1 > pps * 1.1);
+}
+
+/// A sequence longer than twenty view widths in seconds (the view is about a thousand points here) still zooms out until all of it is in view.
+#[test]
+fn a_twelve_hour_sequence_zooms_out_until_it_is_all_in_view() {
+    let mut d = Driver::tall();
+    let (item, duration) = {
+        let it = d.app().session.active_sequence().expect("sequence").video_tracks[0].items.first().expect("a clip");
+        (it.item.0, it.duration.0)
+    };
+    let twelve_hours = 12 * 3600 * 254_016_000_000_i64;
+    d.exec("timeline.place", json!({"item": item, "track": "V2", "time": twelve_hours, "sourceIn": 0, "duration": duration, "audio": false}));
+    d.frames(4);
+    let width = d.rect("timeline.tracks")[2] as f64;
+    let floor = width / timeline_extent(d.seconds());
+    assert!(floor < 0.05, "the test needs a floor under 0.05, got {floor}");
+    for _ in 0..40 {
+        d.wheel(0.2, 0.0, -200.0, json!({"alt": true}));
+    }
+    let (scroll, pps, ..) = d.view();
+    assert!((pps - floor).abs() < floor * 0.01, "the wheel zoomed to {pps}, the whole extent is {floor}");
+    assert_eq!(scroll, 0.0);
+    // the Zoom Out command stops at the same place
+    for _ in 0..40 {
+        d.exec("view.zoomOut", json!({}));
+        d.frames(2);
+    }
+    let (_, pps, ..) = d.view();
+    assert!((pps - floor).abs() < floor * 0.01, "view.zoomOut zoomed to {pps}, the whole extent is {floor}");
+}
+
 #[test]
 fn the_scroll_bar_thumb_follows_the_pointer_and_reaches_both_ends() {
     let mut d = Driver::tall();
