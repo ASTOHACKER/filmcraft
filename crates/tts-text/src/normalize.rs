@@ -372,11 +372,12 @@ fn parse_amount(rest: &str, _lang: Lang) -> Option<(u64, usize, usize, u32, bool
                 if frac_digits.len() < 9 {
                     frac_digits.push(ch);
                 }
-            } else if int_digits.len() > MAX_CARDINAL_DIGITS {
-                break;
-            } else {
+            } else if int_digits.len() <= MAX_CARDINAL_DIGITS {
                 int_digits.push(ch);
             }
+            // Past the cap the digit is not collected, but the run is still consumed: `used`
+            // must cover all of it, or the caller reads only the collected digits and speaks
+            // the rest of the amount as a separate number.
             used = i + 1;
         } else if ch == ',' && !int_digits.is_empty() && !after_decimal {
             if !grouping_followed_by_3(rest, i) {

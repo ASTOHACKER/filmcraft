@@ -556,3 +556,17 @@ fn year_rule_survives_punctuation() {
     assert_eq!(words("(1999)", Lang::EnUs), "( nineteen ninety-nine )");
     assert_eq!(words("in 1999.", Lang::EnGb), "in nineteen ninety-nine |");
 }
+
+/// A currency amount whose digit run passes the cap must still be read digit by digit:
+/// the run is consumed as a whole, not only up to the cap. The leftover used to be spoken
+/// as a cardinal, so a `$` followed by 25 digits ended in "four hundred fifty-six billion".
+#[test]
+fn money_run_past_the_cap_is_read_digit_by_digit() {
+    assert_eq!(words("$123456789012345", Lang::EnUs), "one two three four five six seven eight nine zero one two three four five");
+    assert_eq!(
+        words("$1234567890123456789012345", Lang::EnUs),
+        "one two three four five six seven eight nine zero one two three four five six seven eight nine zero one two three four five"
+    );
+    // At or below the cap nothing changes: an amount still goes through the amount path.
+    assert_eq!(words("$12.50", Lang::EnUs), "twelve dollars and fifty cents");
+}
