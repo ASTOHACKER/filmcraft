@@ -70,10 +70,10 @@ remain in effect; implementation differences are not exceptions to those rules.
 | Windows | [`cursor::cursor_screen_position`](../../crates/platform/src/cursor.rs) (function only) | `GetCursorPos`; a non-media deviation, discussed below. |
 
 The media allowances are on module declarations in
-[`lib.rs`](../../crates/platform/src/lib.rs) and the backend `mod.rs` files
-([Media Foundation](../../crates/platform/src/media_foundation/mod.rs),
-[NVENC](../../crates/platform/src/nvenc/mod.rs),
-[NVDEC](../../crates/platform/src/nvdec/mod.rs), [VA-API](../../crates/platform/src/vaapi/mod.rs)).
+[`lib.rs`](../../crates/platform/src/lib.rs) and the backend module files
+([Media Foundation](../../crates/platform/src/media_foundation.rs),
+[NVENC](../../crates/platform/src/nvenc.rs),
+[NVDEC](../../crates/platform/src/nvdec.rs), [VA-API](../../crates/platform/src/vaapi.rs)).
 They apply to the module's contents, rather than to individual blocks; the cursor allowance is
 on the Windows function itself. There is no crate-wide `allow(unsafe_code)`.
 `vaapi::ffi` and `nvdec::ffi` contain public declarations but do not carry an unsafe allowance.
