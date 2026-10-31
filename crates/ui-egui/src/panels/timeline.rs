@@ -227,10 +227,14 @@ pub enum Drag {
         start: Tick,
         end: Tick,
     },
+    /// The Timeline dragged by the middle button or the Hand tool: sideways in time, and up and down
+    /// the half it began in (`audio`: the audio tracks below the divider, else the video tracks).
     Pan {
         last: Pos2,
         start_scroll: f64,
         start_v: f32,
+        audio: bool,
+        start_a: f32,
     },
     /// Box selection, shown live: `before` is the selection when the drag began, which Shift or
     /// Ctrl (`add`) keep; the release commits one `timeline.select`.
