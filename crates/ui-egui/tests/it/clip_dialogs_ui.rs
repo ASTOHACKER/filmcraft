@@ -495,6 +495,7 @@ fn create_proxies_from_the_item_menu_takes_the_whole_selection() {
     assert_eq!(d.app().session.state.project_selection.iter().map(|i| i.0).collect::<Vec<_>>(), vec![items[0], items[1]], "the selection stays");
     // right-click a clip that is not selected: only that one
     assert_eq!(create_from(&mut d, items[2]), vec![items[2]]);
+}
 
 /// File ▸ Close All Projects with unsaved changes refused ("save it first, or pass force"); like
 /// Close Project, it asks Save / Don't Save / Cancel, and closes right away when nothing is unsaved.
