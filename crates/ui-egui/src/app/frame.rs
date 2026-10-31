@@ -13,10 +13,10 @@ impl FilmcraftApp {
             match r {
                 Ok(r) => {
                     if let Some(n) = r["refreshed"].as_array().map(Vec::len).filter(|n| *n > 0) {
-                        self.toast = Some((format!("Refreshed {n} media item(s) changed on disk"), now));
+                        self.status(format!("Refreshed {n} media item(s) changed on disk"));
                     }
                 }
-                Err(e) => self.toast = Some((e.to_string(), now)),
+                Err(e) => self.status(e.to_string()),
             }
         }
         let media = &self.session.prefs.media;
