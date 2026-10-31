@@ -62,12 +62,24 @@ pub struct BarSpan {
 /// Which segments a render command picks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenderMode {
-    /// Red and yellow segments in In/Out (Enter).
+    /// Red segments in In/Out (Enter), as in Premiere: yellow ones should play in real time, and
+    /// rendering them too can take hours of encoding on a long sequence (#1220).
     EffectsInToOut,
     /// Every segment in In/Out, including no-bar ones.
     InToOut,
     /// Segments showing a selected clip.
     Selection,
+}
+
+impl RenderMode {
+    /// Whether this mode renders a segment whose playback needs `need` (In/Out and the selection
+    /// aside).
+    pub fn renders(self, need: Need) -> bool {
+        match self {
+            RenderMode::EffectsInToOut => need == Need::Render,
+            RenderMode::InToOut | RenderMode::Selection => true,
+        }
+    }
 }
 
 type Memo = (Arc<Project>, ItemId, Arc<Vec<Segment>>);
@@ -632,9 +644,8 @@ pub fn render(s: &mut Session, mode: RenderMode, p: &Value) -> Result<Value> {
     let segs = store.segments(&s.project, seq);
     let selection: HashSet<_> = s.state.selection.iter().copied().collect();
     let mut todo: Vec<Todo> = Vec::new();
-    for g in segs.iter() {
+    for g in segs.iter().filter(|g| mode.renders(g.need)) {
         let (a, b) = match mode {
-            RenderMode::EffectsInToOut if g.need == Need::None => continue,
             RenderMode::EffectsInToOut | RenderMode::InToOut => rel_range(g, rate, &range),
             RenderMode::Selection if g.clips.iter().any(|c| selection.contains(c)) => (0, g.frames.max(0)),
             RenderMode::Selection => continue,
@@ -644,7 +655,11 @@ pub fn render(s: &mut Session, mode: RenderMode, p: &Value) -> Result<Value> {
         }
     }
     if todo.is_empty() {
-        s.toast("Nothing to render: previews are up to date");
+        s.toast(if mode == RenderMode::EffectsInToOut {
+            "Nothing to render: no red segments without previews between In and Out"
+        } else {
+            "Nothing to render: previews are up to date"
+        });
         return Ok(json!({"job": null, "segments": 0}));
     }
     std::fs::create_dir_all(&dir).map_err(|e| EngineError::Other(format!("preview folder {}: {e}", dir.display())))?;

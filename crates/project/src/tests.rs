@@ -98,6 +98,21 @@ fn point_params_keep_auto_through_json_and_no_other_point_reads_null() {
 }
 
 #[test]
+fn auto_point_default_only_matches_unset_points() {
+    use super::track::param_eq_default;
+    let auto = || ParamValue::Vec2(Vec2::new(f64::NAN, f64::NAN));
+    // an untouched auto point is still the default
+    assert!(param_eq_default(&auto(), &auto()));
+    // the user moved the clip: no longer the default (this used to report `true`, so
+    // `has_modified_intrinsics` never fired for motion and the fx badge, the render
+    // fast path and multicam `take_intrinsics` all treated moved clips as untouched)
+    assert!(!param_eq_default(&ParamValue::Vec2(Vec2::new(960.0, 540.0)), &auto()));
+    // ordinary parameters are unaffected
+    assert!(param_eq_default(&ParamValue::Float(1.0), &ParamValue::Float(1.0)));
+    assert!(!param_eq_default(&ParamValue::Float(1.0), &ParamValue::Float(2.0)));
+}
+
+#[test]
 fn media_resolution_bounds_depth_and_preserves_the_outer_range() {
     let (mut p, media, _) = demo_project();
     assert_eq!(p.resolve_media(media).map(|(id, _, range)| (id, range)), Some((media, None)));

@@ -1001,7 +1001,6 @@
 	Show graphs	グラフを表示
 	Toggle animation	アニメーションのオン / オフを切り替え
 	Add/Remove Keyframe	キーフレームを追加/削除
-	Temporal Interpolation	時間補間
 	Linear	リニア
 	Bezier	ベジェ
 	Auto Bezier	自動ベジェ

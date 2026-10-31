@@ -271,6 +271,9 @@ impl FilmcraftApp {
             ctx.request_repaint_after(std::time::Duration::from_secs(1));
         }
         self.sync_pool();
+        // a frame server rebuilt by sync_pool (another project opened) gets its wake-up now: no
+        // poll asks for the next frame, so its finished frames would wait for the mouse (#2438 review)
+        self.frames.set_context(ctx);
         updates_ui::tick(self, ctx);
         #[cfg(not(target_arch = "wasm32"))]
         self.tick_media_refresh(ctx, now);
@@ -396,7 +399,10 @@ impl FilmcraftApp {
         if !self.synthetic.is_empty() || self.synthetic_pending_step.is_some() {
             ctx.request_repaint();
         }
-        if self.frames.queue_len() > 0 {
+        // Only the web renders queued frames in the UI pass (`pump`): poll for them there. Native
+        // workers wake the UI when a frame is done, so a backlog (thumbnails after launch, slow
+        // effects) doesn't run empty passes at 60 Hz beside them (#1142, #1606).
+        if cfg!(target_arch = "wasm32") && self.frames.queue_len() > 0 {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
         if !ctx.will_discard() {

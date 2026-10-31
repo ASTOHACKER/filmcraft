@@ -994,7 +994,6 @@
 	Eyedropper (pick a color from the Program monitor)	Pipette (prélever une couleur dans le moniteur programme)
 	Eyedropper: no picture to sample	Pipette : aucune image à échantillonner
 	Add/Remove Keyframe	Ajouter/supprimer une image clé
-	Temporal Interpolation	Interpolation temporelle
 	Linear	Linéaire
 	Bezier	Bézier
 	Auto Bezier	Bézier auto

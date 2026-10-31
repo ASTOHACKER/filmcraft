@@ -38,6 +38,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let tops = filmcraft_project::vtransition::EFFECT_TOP_FOLDERS;
     let mut apply: Option<String> = None;
     let mut lumetri_apply: Option<String> = None;
+    let mut set_default: Option<String> = None;
     let mut preset_action: Option<(String, String)> = None;
     egui::ScrollArea::vertical().id_salt("fx-scroll").auto_shrink([false, false]).show(&mut bui, |ui| {
         for &top in tops {
@@ -115,6 +116,9 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
                     if resp.double_clicked() {
                         apply = Some(d.id.to_string());
                     }
+                    if is_tr && transition_menu(app, &resp) {
+                        set_default = Some(d.id.to_string());
+                    }
                 }
             }
         }
@@ -131,6 +135,11 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     }
     if let Some((cmd, name)) = preset_action {
         crate::panels::presets::run(app, &cmd, &name);
+    }
+    if let Some(id) = set_default
+        && let Err(e) = app.session.execute("effects.setDefaultTransition", json!({"effect": id}))
+    {
+        app.ui.status = e.to_string();
     }
     if let Some(id) = apply {
         let r = app.session.execute("effects.apply", json!({"effect": id}));
@@ -175,6 +184,21 @@ fn folder_row(app: &mut FilmcraftApp, ui: &mut egui::Ui, key: &str, depth: usize
         }
     }
     open
+}
+
+/// Right-click menu of a video or audio transition: Set as Default Transition (automation id
+/// `effects.itemMenu.setDefaultTransition`). True when chosen (#3573).
+fn transition_menu(app: &mut FilmcraftApp, resp: &egui::Response) -> bool {
+    let mut chosen = false;
+    resp.context_menu(|ui| {
+        let b = ui.button(tl!("Set as Default Transition"));
+        app.auto.add("effects.itemMenu.setDefaultTransition", b.rect, "Set as Default Transition");
+        if b.clicked() {
+            chosen = true;
+            ui.close();
+        }
+    });
+    chosen
 }
 
 /// Right-click menu of a Lumetri preset: Apply to Selected Clips (automation id
