@@ -138,7 +138,7 @@ impl FilmcraftApp {
             return;
         }
         let Some(pi) = self.session.project.item(view.media) else { return };
-        let fill = match &pi.kind {
+        let fill: Box<dyn FnMut(&mut [f32], usize) + Send> = match &pi.kind {
             ItemKind::Media(media) => {
                 if !media.info.has_audio() {
                     audio.stop();
@@ -218,7 +218,7 @@ impl FilmcraftApp {
                 let fill = crate::play_ahead::spawn(mix, cursor, sr, audio.channels(), self.source_playback.clock.audio_stats.clone());
                 #[cfg(target_arch = "wasm32")]
                 let fill = {
-                    let (mix, mut cursor) = (mix, cursor);
+                    let (mut mix, mut cursor) = (mix, cursor);
                     Box::new(move |buf: &mut [f32], ch: usize| {
                         mix(cursor, buf, ch);
                         cursor = cursor.saturating_add(i64::try_from(buf.len() / ch.max(1)).unwrap_or(0));

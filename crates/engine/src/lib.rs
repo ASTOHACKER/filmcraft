@@ -29,6 +29,7 @@ mod marker_export;
 pub mod masks;
 pub mod media_browser;
 pub mod media_pool;
+#[cfg(not(target_arch = "wasm32"))]
 mod media_queue;
 pub mod media_watch;
 pub mod mixer;
