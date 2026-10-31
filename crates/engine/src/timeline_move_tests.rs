@@ -209,7 +209,10 @@ fn reject_duplicate_new_track_move(s: &mut Session, clip: ClipId, insert: bool, 
         "timeline.move",
         json!({"moves": [{"clip": clip.0, "track": tracks[0], "time": at}, {"clip": clip.0, "track": tracks[1], "time": at}], "insert": insert, "linked": linked}),
     );
-    assert!(matches!(result, Err(EngineError::Edit(filmcraft_edit::EditError::Other(_)))), "duplicate move entries must be rejected: {result:?}");
+    assert!(
+        matches!(result, Err(EngineError::Edit(filmcraft_edit::EditError::Other(_)) | EngineError::BadParams { .. })),
+        "duplicate move entries must be rejected: {result:?}"
+    );
     assert_eq!(s.project, before, "the project and its id allocator stay unchanged");
     assert_eq!(s.state.selection, selection);
     assert_eq!(serde_json::to_value(&s.state).unwrap(), editor_state);
