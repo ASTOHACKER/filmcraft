@@ -111,6 +111,7 @@ impl ExportRenderer {
                 if wgpu::Instance::enabled_backend_features().is_empty() {
                     return None;
                 }
+                let instance = crate::adapter::native_instance();
                 // The GPU the app's window asks for: the high-performance one (`WGPU_POWER_PREF`
                 // overrides it, as for the window). wgpu's default, no preference, takes the first
                 // adapter listed: on a laptop with integrated and discrete graphics that can be the
