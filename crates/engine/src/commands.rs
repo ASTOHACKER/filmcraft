@@ -399,7 +399,10 @@ pub(crate) fn item_p(p: &Value, k: &str) -> Option<ItemId> {
 /// before and after (ticks) and the clips what is left of it now lives on as (none = removed; a
 /// clip a moved clip lands inside is split in two). With `copy: true` (Option-drag) the clips stay
 /// where they are and copies land at the destinations instead; the copies are selected and listed
-/// as `copied`.
+/// as `copied`. `captions` (caption ids) move with them by the same offset in the same undo step,
+/// and are listed as `captions` when they moved; if they cannot go that far (they would overlap
+/// captions that stay, or sit on a locked track) or an entry is not a caption, nothing moves. Not
+/// with `copy`, and not with `insert`, which already carries the sync-locked caption tracks.
 fn move_clips(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "timeline.move";
     let mut listed: Vec<(ClipId, TrackId, Tick, bool)> = Vec::new();
@@ -445,6 +448,23 @@ fn move_clips(s: &mut Session, p: &Value) -> Result<Value> {
         }
     }
     let late = plan.iter().map(|m| -m.2).max().unwrap_or(0).max(0);
+    // `captions` ride along by the first listed clip's offset (shift above included), so subtitles
+    // stay on the dialogue they belong to
+    let caption_ids = caption_ids_p(p)?;
+    if !caption_ids.is_empty() && bool_p(p, "copy").unwrap_or(false) {
+        return Err(bad(CMD, "`captions` cannot be combined with `copy`"));
+    }
+    // an insert already carries the unlocked, sync-locked caption tracks; moving captions as well would shift them twice
+    if !caption_ids.is_empty() && bool_p(p, "insert").unwrap_or(false) {
+        return Err(bad(CMD, "`captions` cannot be combined with `insert`: an insert already moves sync-locked captions"));
+    }
+    let caption_delta = match plan.first() {
+        Some(&(clip, _, start, ..)) if !caption_ids.is_empty() => {
+            let from = q.find_item(clip).map(|(_, it)| i128::from(it.start.0)).ok_or(edit::EditError::NoItem(clip))?;
+            Tick(i64::try_from(start + late - from).map_err(|_| bad(CMD, "`time` is out of range"))?)
+        }
+        _ => Tick::ZERO,
+    };
     let mut moves: Vec<(ClipId, TrackId, Tick, bool)> = Vec::with_capacity(plan.len());
     for (clip, track, start, was, new_track) in plan {
         // a partner that ends up where it is does not move (its listed clip only changed track):
@@ -504,7 +524,18 @@ fn move_clips(s: &mut Session, p: &Value) -> Result<Value> {
     } else {
         s.edit_sequence(if ins { "Move (Insert)" } else { "Move" }, |q, ctx, _| {
             let destinations = prepare(q, ctx)?;
-            Ok(edit::move_items(q, &destinations, ins, ctx)?)
+            edit::move_items(q, &destinations, ins, ctx)?;
+            // all or nothing: captions that cannot go as far as the clips would drift off their dialogue.
+            // The ids are checked (they exist, are not locked) even when the clips do not change time.
+            if !caption_ids.is_empty() {
+                match edit::captions::move_captions(q, &caption_ids, caption_delta) {
+                    Ok(applied) if applied == caption_delta => {}
+                    Ok(_) => return Err(bad(CMD, "the captions cannot move as far as the clips (they would overlap other captions)")),
+                    Err(edit::EditError::Nothing) if caption_delta == Tick::ZERO => {}
+                    Err(e) => return Err(e.into()),
+                }
+            }
+            Ok(())
         })?;
         Vec::new()
     };
@@ -528,7 +559,27 @@ fn move_clips(s: &mut Session, p: &Value) -> Result<Value> {
     if copy {
         return Ok(json!({"copied": copied.iter().map(|c| c.0).collect::<Vec<_>>(), "overwritten": overwritten}));
     }
-    Ok(json!({"moved": moves.iter().map(|m| m.0.0).collect::<Vec<_>>(), "overwritten": overwritten}))
+    let mut result = json!({"moved": moves.iter().map(|m| m.0.0).collect::<Vec<_>>(), "overwritten": overwritten});
+    // only the captions that moved
+    if caption_delta != Tick::ZERO {
+        result["captions"] = json!(caption_ids.iter().map(|c| c.0).collect::<Vec<_>>());
+    }
+    Ok(result)
+}
+
+/// `captions` of `timeline.move`: absent means none; otherwise an array of caption ids, each kept once.
+fn caption_ids_p(p: &Value) -> Result<Vec<ClipId>> {
+    let Some(v) = p.get("captions") else { return Ok(Vec::new()) };
+    let list = v.as_array().ok_or_else(|| bad("timeline.move", "`captions` must be an array of caption ids"))?;
+    let mut seen = std::collections::HashSet::new();
+    let mut ids = Vec::with_capacity(list.len().min(1024));
+    for entry in list {
+        let id = entry.as_u64().ok_or_else(|| bad("timeline.move", "`captions` entries must be caption ids"))?;
+        if seen.insert(id) {
+            ids.push(ClipId(id));
+        }
+    }
+    Ok(ids)
 }
 
 /// Slip clips together: the media delta of each clip is scaled down by the same factor so that the
@@ -2976,7 +3027,7 @@ fn build() -> Vec<CommandSpec> {
             "Move Clips",
             [],
             None,
-            r#"{"moves":[{"clip":id,"track":id|"V2"|"new" (after the last of its kind),"time":ticks}],"insert":bool,"linked":bool?,"copy":bool?}"#,
+            r#"{"moves":[{"clip":id,"track":id|"V2"|"new" (after the last of its kind),"time":ticks}],"insert":bool,"linked":bool?,"copy":bool?,"captions":[id]?}"#,
             has_seq,
             move_clips
         ),

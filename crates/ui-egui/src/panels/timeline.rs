@@ -53,7 +53,7 @@ pub(crate) use menus::{CLIP_MENU, EDIT_POINT_TYPES};
 use ruler::draw_top;
 pub use ruler::ruler_steps;
 use scrollbars::{vertical_scrollbar, zoom_scrollbar};
-pub(super) use snap::snap;
+pub(super) use snap::{snap, snap_caption};
 pub use snap::{hit_json, locate};
 pub(crate) use waveforms::request_peaks;
 #[cfg(test)]

@@ -411,6 +411,7 @@ fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response
                 .map(|i| i.id.0)
                 .collect();
             let _ = app.session.execute("timeline.select", json!({"clips": ids}));
+            select_track_select_captions(app, seq, t, fwd, mods.shift);
             // as in Premiere Pro, a drag with the tool moves what it just selected
             if resp.drag_started() {
                 let clips = app.session.state.selection.clone();
@@ -528,6 +529,27 @@ fn start_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Response
             app.tl.drag = Some(d);
         }
     }
+}
+
+/// Track Select Forward (Backward) also selects the captions that end after (start before) `t`, so
+/// the subtitles go with the clips and stay in sync. Shift keeps to the clicked track, which has no
+/// captions, and a locked caption track keeps its captions.
+fn select_track_select_captions(app: &mut FilmcraftApp, seq: &Sequence, t: Tick, fwd: bool, shift: bool) {
+    if shift {
+        return;
+    }
+    let picked = |c: &&filmcraft_project::Caption| if fwd { c.end() > t } else { c.start < t };
+    let captions: Vec<u64> = seq.caption_tracks.iter().filter(|tr| !tr.locked).flat_map(|tr| tr.captions.iter()).filter(picked).map(|c| c.id.0).collect();
+    let _ = app.session.execute("captions.select", json!({"captions": captions, "add": true}));
+}
+
+/// The captions a Track Select drag moves with its clips, in the same undo step. None when the drop
+/// copies (Option) or inserts (Cmd): an insert already carries the sync-locked caption tracks.
+fn track_select_drag_captions(app: &FilmcraftApp, copying: bool, inserting: bool) -> Vec<u64> {
+    if copying || inserting || !matches!(app.ui.tool, Tool::TrackSelectForward | Tool::TrackSelectBackward) {
+        return Vec::new();
+    }
+    app.session.state.caption_selection.iter().map(|c| c.0).collect()
 }
 
 /// Escape cancels an ongoing drag or press (#580): the release commits nothing.
@@ -736,7 +758,9 @@ fn commit_drag(app: &mut FilmcraftApp, ctx: &egui::Context, resp: &egui::Respons
                         .filter_map(|c| seq.find_item(*c).map(|(tid, it)| json!({"clip": c.0, "track": to(tid), "time": (it.start + offset).max(Tick::ZERO).0})))
                         .collect();
                     // Option held while dropping copies (Premiere: Option-drag duplicates)
-                    Some(app.session.execute("timeline.move", json!({"moves": moves, "insert": mods.command, "linked": false, "copy": copy || mods.alt})))
+                    let copying = copy || mods.alt;
+                    let captions = track_select_drag_captions(app, copying, mods.command);
+                    Some(app.session.execute("timeline.move", json!({"moves": moves, "insert": mods.command, "linked": false, "copy": copying, "captions": captions})))
                 }
                 Drag::Trim { clip, edge, mode, delta, linked, .. } if delta != Tick::ZERO => Some(app.session.execute(
                     "timeline.trim",

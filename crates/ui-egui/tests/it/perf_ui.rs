@@ -7,6 +7,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::time::{Duration, Instant};
 
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use filmcraft_engine::Session;
 use filmcraft_ui_egui::FilmcraftApp;
 use filmcraft_ui_egui::control::ControlRequest;
@@ -236,4 +237,28 @@ fn thumbnail_textures_are_capped() {
     }
     let n = d.harness.state().thumbnail_textures();
     assert!((100..=512).contains(&n), "{n} thumbnail textures");
+}
+
+/// #3361: Effect Controls of a graphic clip with Responsive Design – Time says its clip effects are
+/// not remapped; a video clip shows no such hint.
+#[test]
+fn effect_controls_hint_that_clip_effects_are_not_remapped() {
+    let mut d = Driver::demo();
+    let hint = |d: &mut Driver| {
+        d.frames(4);
+        d.ok("ui.elements", json!({"prefix": "effectControls.graphicTimeHint"})).as_array().is_some_and(|a| !a.is_empty())
+    };
+    d.ok("ui.panel.show", json!({"panel": "Effect Controls"}));
+    let first = d.harness.state().session.active_sequence().unwrap().video_tracks[0].items[0].id.0;
+    d.exec("timeline.select", json!({"clips": [first]}));
+    assert!(!hint(&mut d), "no hint for a video clip");
+    let g = d.exec("graphics.newText", json!({"text": "Title"}))["clip"].as_u64().unwrap();
+    d.exec("timeline.select", json!({"clips": [g]}));
+    assert!(!hint(&mut d), "no hint without a responsive intro / outro");
+    d.exec("graphics.setResponsiveTime", json!({"clip": g, "introFrames": 12, "outroFrames": 12}));
+    d.exec("timeline.select", json!({"clips": [g]}));
+    assert!(hint(&mut d), "the hint shows for a graphic with responsive time");
+    // it is a labelled button a keyboard can reach, naming both the layer and the clip effects
+    let label = "Responsive Design – Time remaps the graphic's layer keyframes; clip effects like Opacity and Motion keep media time";
+    let _ = d.harness.get_by_role_and_label(egui::accesskit::Role::Button, label);
 }
