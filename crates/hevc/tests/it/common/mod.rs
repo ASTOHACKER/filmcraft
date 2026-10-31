@@ -150,7 +150,7 @@ pub fn ensure(f: &Fixture) -> Option<(PathBuf, PathBuf)> {
             eprintln!("SKIPPED ({}): encoder unavailable", f.name);
             return None;
         }
-        std::fs::rename(&tmp, &hevc).unwrap();
+        filmcraft_testkit::fixtures::publish(&tmp, &hevc).unwrap();
     }
     if f.bit_depth > 8 {
         // An 8-bit-only libx265 (Arch Linux ARM's) encodes 8-bit without an error when asked for
@@ -171,7 +171,7 @@ pub fn ensure(f: &Fixture) -> Option<(PathBuf, PathBuf)> {
         c.args(["-hide_banner", "-loglevel", "error", "-y", "-i"]).arg(&hevc);
         c.args(["-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", pix_fmt(f.bit_depth)]).arg(&tmp);
         assert!(run(&mut c), "reference decode failed for {}", f.name);
-        std::fs::rename(&tmp, &yuv).unwrap();
+        filmcraft_testkit::fixtures::publish(&tmp, &yuv).unwrap();
     }
     Some((hevc, yuv))
 }

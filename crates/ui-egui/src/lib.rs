@@ -201,6 +201,8 @@ pub struct FilmcraftApp {
     pub file_dialogs: panels::file_dialogs::FileDialogState,
     /// The native file dialog the host is showing ([`Self::pick`]).
     native_dialog: Option<native_dialogs::PendingDialog>,
+    /// A save dialog's answer waiting for Replace or Cancel ([`native_dialogs`]).
+    overwrite_prompt: Option<native_dialogs::PendingOverwrite>,
     pub auto: automation::Registry,
     /// Bumped when the custom text edit target is (re)created, a sequence/document context
     /// changes, or a control request replaces `gfxEdit`. It is the replacement epoch of the

@@ -466,3 +466,58 @@ fn clip_context_menu_adds_a_marker_at_the_playhead_with_one_undo() {
         assert_eq!(serde_json::to_value(&*d.app().session.project).unwrap(), serde_json::to_value(&*after).unwrap());
     }
 }
+
+/// #1885: Project panel ▸ right-click one of several selected clips ▸ Proxy ▸ Create Proxies…
+/// makes proxies for all of them, as in Premiere; a clip right-clicked outside the selection gets
+/// one for itself only.
+#[test]
+fn create_proxies_from_the_item_menu_takes_the_whole_selection() {
+    let mut d = Driver::new();
+    let wav: std::sync::Arc<[u8]> = filmcraft_engine::previews::write_wav_f32(&[0.0; 9_600], 48_000).into();
+    let mut items = Vec::new();
+    for name in ["/takes/a.wav", "/takes/b.wav", "/takes/c.wav"] {
+        items.push(filmcraft_engine::commands::import_bytes(&mut d.app().session, name, wav.clone(), None).unwrap().0);
+    }
+    d.ok("ui.panel.show", json!({"panel": "Project"}));
+    d.exec("project.view.set", json!({"view": "list"}));
+    d.exec("project.select", json!({"items": [items[0], items[1]]}));
+    d.frames(4);
+    let create_from = |d: &mut Driver, item: u64| -> Vec<u64> {
+        d.ok("ui.click", json!({"id": format!("project.item.{item}"), "button": "right"}));
+        d.frames(3);
+        d.click("project.itemMenu.proxy");
+        d.click("project.itemMenu.proxy.create");
+        let draft = d.app().ui.create_proxies.take().map(|p| p.items);
+        draft.unwrap_or_else(|| panic!("Create Proxies… did not open its dialog"))
+    };
+    // right-click the second of the two selected clips: both get a proxy
+    assert_eq!(create_from(&mut d, items[1]), vec![items[0], items[1]]);
+    assert_eq!(d.app().session.state.project_selection.iter().map(|i| i.0).collect::<Vec<_>>(), vec![items[0], items[1]], "the selection stays");
+    // right-click a clip that is not selected: only that one
+    assert_eq!(create_from(&mut d, items[2]), vec![items[2]]);
+}
+
+/// File ▸ Close All Projects with unsaved changes refused ("save it first, or pass force"); like
+/// Close Project, it asks Save / Don't Save / Cancel, and closes right away when nothing is unsaved.
+#[test]
+fn close_all_projects_asks_to_save() {
+    let mut d = Driver::new();
+    d.edit();
+    assert_eq!(d.menu("file.closeAllProjects")["dialog"], "closeProject");
+    assert!(d.has("closeProject.save") && d.has("closeProject.dontSave") && d.has("closeProject.cancel"));
+    d.click("closeProject.cancel");
+    assert!(!d.app().session.project.items.is_empty() && d.app().session.is_dirty(), "Cancel keeps the project");
+    d.menu("file.closeAllProjects");
+    d.click("closeProject.dontSave");
+    assert!(d.app().session.project.items.is_empty(), "closed without saving");
+    assert!(d.app().ui.clip_dialog.is_none());
+    // nothing unsaved: no question
+    d.exec("file.openDemoProject", json!({}));
+    let path = std::env::temp_dir().join(format!("fc-close-all-{}.fcproj", std::process::id()));
+    d.exec("file.saveAs", json!({"path": path.to_string_lossy()}));
+    assert!(!d.app().session.is_dirty());
+    d.menu("file.closeAllProjects");
+    let _ = std::fs::remove_file(&path);
+    assert!(d.app().ui.clip_dialog.is_none());
+    assert!(d.app().session.project.items.is_empty(), "closed at once");
+}

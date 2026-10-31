@@ -46,6 +46,7 @@ impl FilmcraftApp {
             updates_rt: Default::default(),
             file_dialogs: Default::default(),
             native_dialog: None,
+            overwrite_prompt: None,
             auto: Default::default(),
             ime_replacement_epoch: 0,
             ime_composition: None,

@@ -113,12 +113,19 @@ impl ExportRenderer {
                 }
                 let instance = crate::adapter::native_instance();
                 // The GPU the app's window asks for: the high-performance one (`WGPU_POWER_PREF`
-                // overrides it, as for the window). wgpu's default, no preference, takes the first
-                // adapter listed: on a laptop with integrated and discrete graphics that can be the
-                // integrated GPU, whose read-back memory is uncached (a 1080p export frame took 1.3 s
-                // to read back there).
+                // overrides it, as for the window). With no preference the first adapter listed
+                // can be an integrated GPU whose read-back memory is uncached.
                 let power_preference = wgpu::PowerPreference::from_env().unwrap_or(wgpu::PowerPreference::HighPerformance);
-                let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() })).ok()?;
+                // the adapter `request_adapter` would return, except where that one's driver is
+                // known to crash creating the device (`adapter::choose`); among the backends
+                // `WGPU_BACKEND` names, as for the window, when this instance has any of them
+                let mut adapters = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+                if let Some(named) = wgpu::Backends::from_env()
+                    && adapters.iter().any(|a| named.contains(a.get_info().backend.into()))
+                {
+                    adapters.retain(|a| named.contains(a.get_info().backend.into()));
+                }
+                let adapter = crate::adapter::pick(&adapters, None, power_preference).ok()?;
                 log::info!("export rendering on {} ({:?})", adapter.get_info().name, adapter.get_info().backend);
                 let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
                 // wgpu's default handler panics on a validation or out-of-memory error; log it and

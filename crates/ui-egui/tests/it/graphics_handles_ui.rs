@@ -1987,3 +1987,39 @@ fn double_click_and_select_all_select_the_text_being_edited() {
     assert_eq!(edit(&d), Some((clip, 0, 0, 5)), "Select All selects the text being edited");
     assert_eq!(d.harness.state().session.state.selection, selection, "and leaves the timeline selection alone");
 }
+
+/// #1953: while a graphic's text is edited, the native macOS menu's Copy and Cut (the menu bar
+/// takes ⌘C and ⌘X first) copy the selected text, not the graphic clip, and Paste asks the window
+/// for the clipboard text instead of pasting clips.
+#[test]
+fn native_edit_menu_copies_the_graphic_text_being_edited() {
+    let mut d = Driver::new();
+    let (clip, pre) = d.point_text();
+    let (a, b) = (d.handle(&pre, 0), d.handle(&pre, 2));
+    d.ok("ui.click", json!({"x": (a.0 + b.0) / 2.0, "y": (a.1 + b.1) / 2.0, "count": 2}));
+    d.frames(4);
+    let editing = |d: &Driver| d.harness.state().ui.gfx_edit.as_ref().map(|e| (e.clip, e.anchor, e.caret));
+    assert_eq!(editing(&d), Some((clip, 0, "Title".len())), "the double-click selects the whole text");
+    let project = d.harness.state().session.project.clone();
+    let (tx, rx) = channel();
+    d.harness.state_mut().command_inbox = Some(rx);
+    tx.send("edit.copy".to_string()).unwrap();
+    let mut copied = None;
+    for _ in 0..4 {
+        d.frames(1);
+        copied = copied.or_else(|| {
+            d.harness.output().platform_output.commands.iter().find_map(|c| match c {
+                egui::OutputCommand::CopyText(t) => Some(t.clone()),
+                _ => None,
+            })
+        });
+    }
+    assert_eq!(copied.as_deref(), Some("Title"), "Copy copies the selected text");
+    assert!(std::sync::Arc::ptr_eq(&project, &d.harness.state().session.project), "no clip was copied or changed");
+    assert!(d.harness.state().ui.gfx_edit.is_some(), "still editing the text");
+    tx.send("edit.paste".to_string()).unwrap();
+    d.frames(1);
+    let asked = d.harness.output().viewport_output.get(&egui::ViewportId::ROOT).is_some_and(|v| v.commands.contains(&egui::ViewportCommand::RequestPaste));
+    assert!(asked, "Paste asks the window for the clipboard text");
+    assert!(std::sync::Arc::ptr_eq(&project, &d.harness.state().session.project), "no clips were pasted");
+}
